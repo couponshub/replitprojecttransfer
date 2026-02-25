@@ -47,9 +47,10 @@ async function seedDatabase() {
   const userPass = await bcrypt.hash("User@123", 10);
   const userNames = ["Aarav Sharma", "Priya Reddy", "Rahul Patel", "Sneha Kumar", "Vijay Nair"];
   const userEmails = ["aarav@example.com", "priya@example.com", "rahul@example.com", "sneha@example.com", "vijay@example.com"];
+  const userPhones = ["9876543210", "9876543211", "9876543212", "9876543213", "9876543214"];
   const createdUsers = [];
   for (let i = 0; i < 5; i++) {
-    const u = await storage.createUser({ name: userNames[i], email: userEmails[i], password: userPass, role: "user" });
+    const u = await storage.createUser({ name: userNames[i], email: userEmails[i], phone: userPhones[i], password: userPass, role: "user" });
     createdUsers.push(u);
   }
 
@@ -170,15 +171,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // Auth routes
   app.post("/api/auth/login", async (req, res) => {
     try {
-      const { email, password } = req.body;
-      if (!email || !password) return res.status(400).json({ error: "Email and password required" });
-      const user = await storage.getUserByEmail(email);
+      const { email, phone, password } = req.body;
+      if ((!email && !phone) || !password) return res.status(400).json({ error: "Email or phone and password required" });
+      let user;
+      if (phone) {
+        user = await storage.getUserByPhone(phone);
+      } else {
+        user = await storage.getUserByEmail(email);
+      }
       if (!user) return res.status(401).json({ error: "Invalid credentials" });
       const valid = await bcrypt.compare(password, user.password);
       if (!valid) return res.status(401).json({ error: "Invalid credentials" });
       const token = generateToken({ id: user.id, email: user.email, role: user.role });
       res.cookie("token", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
-      res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+      res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone } });
     } catch (err) {
       res.status(500).json({ error: "Login failed" });
     }
@@ -186,12 +192,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/auth/register", async (req, res) => {
     try {
-      const { name, email, password } = req.body;
+      const { name, email, phone, password } = req.body;
       if (!name || !email || !password) return res.status(400).json({ error: "All fields required" });
       const existing = await storage.getUserByEmail(email);
       if (existing) return res.status(400).json({ error: "Email already registered" });
       const hashed = await bcrypt.hash(password, 10);
-      const user = await storage.createUser({ name, email, password: hashed, role: "user" });
+      const user = await storage.createUser({ name, email, phone: phone || null, password: hashed, role: "user" });
       const token = generateToken({ id: user.id, email: user.email, role: user.role });
       res.cookie("token", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
       res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });

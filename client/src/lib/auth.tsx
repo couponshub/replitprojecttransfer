@@ -6,6 +6,7 @@ interface AuthUser {
   id: string;
   name: string;
   email: string;
+  phone?: string;
   role: "admin" | "user";
 }
 
@@ -13,8 +14,8 @@ interface AuthContextType {
   user: AuthUser | null;
   token: string | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<AuthUser>;
-  register: (name: string, email: string, password: string) => Promise<AuthUser>;
+  login: (credentials: { email?: string; phone?: string; password: string }) => Promise<AuthUser>;
+  register: (data: { name: string; email: string; phone?: string; password: string }) => Promise<AuthUser>;
   logout: () => Promise<void>;
   isAdmin: boolean;
   isAuthenticated: boolean;
@@ -42,11 +43,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = async (email: string, password: string): Promise<AuthUser> => {
+  const login = async (credentials: { email?: string; phone?: string; password: string }): Promise<AuthUser> => {
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(credentials),
     });
     if (!res.ok) {
       const err = await res.json();
@@ -60,11 +61,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data.user;
   };
 
-  const register = async (name: string, email: string, password: string): Promise<AuthUser> => {
+  const register = async (regData: { name: string; email: string; phone?: string; password: string }): Promise<AuthUser> => {
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify(regData),
     });
     if (!res.ok) {
       const err = await res.json();
