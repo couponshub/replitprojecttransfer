@@ -15,8 +15,10 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
   LayoutDashboard, Tag, Store, Package, Ticket, ShoppingBag,
   Plus, Edit, Trash2, Crown, LogOut, ChevronRight, Users, TrendingUp,
-  Zap, Star, Check, X, Menu, Award, Flame, UserCheck, Phone, Mail
+  Zap, Star, Check, X, Menu, Award, Flame, UserCheck, Phone, Mail,
+  Globe, MapPin, Wifi, WifiOff, Search, Image, Link, ExternalLink
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import type { Category, Shop, Product, Coupon, Order, User } from "@shared/schema";
 
 type Tab = "overview" | "categories" | "shops" | "products" | "coupons" | "orders" | "users" | "vendors" | "top-shops" | "top-coupons";
@@ -61,6 +63,8 @@ export default function AdminDashboard() {
   const [formData, setFormData] = useState<any>({});
   const [filterShopId, setFilterShopId] = useState("");
   const [filterCategoryId, setFilterCategoryId] = useState("");
+  const [shopSearch, setShopSearch] = useState("");
+  const [catSearch, setCatSearch] = useState("");
 
   if (!isAdmin) {
     navigate("/login");
@@ -131,7 +135,9 @@ export default function AdminDashboard() {
   };
 
   const filteredProducts = filterShopId ? products.filter(p => p.shop_id === filterShopId) : products;
-  const filteredShops = filterCategoryId ? shops.filter(s => s.category_id === filterCategoryId) : shops;
+  const filteredShops = shops
+    .filter(s => !filterCategoryId || s.category_id === filterCategoryId)
+    .filter(s => !shopSearch || s.name.toLowerCase().includes(shopSearch.toLowerCase()));
 
   const sections = ["Main", "Manage", "People", "Insights"];
 
@@ -569,83 +575,263 @@ export default function AdminDashboard() {
 
           {activeTab === "shops" && (
             <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <Select value={filterCategoryId} onValueChange={setFilterCategoryId}>
-                  <SelectTrigger className="w-48 rounded-xl" data-testid="select-filter-category">
-                    <SelectValue placeholder="All categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All Categories</SelectItem>
-                    {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Button onClick={() => openCreate()} size="sm" className="rounded-xl gap-2 bg-gradient-to-r from-blue-500 to-violet-600 shadow-lg shadow-blue-500/25" data-testid="button-create-shop">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                <div className="relative flex-1 w-full">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search shops..."
+                    value={shopSearch}
+                    onChange={e => setShopSearch(e.target.value)}
+                    className="pl-9 rounded-xl bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700"
+                    data-testid="input-shop-search"
+                  />
+                </div>
+                <Button onClick={() => openCreate({ subscription_active: true, is_premium: false, featured: false })} className="rounded-xl gap-2 bg-gradient-to-r from-blue-500 to-violet-600 shadow-lg shadow-blue-500/25 shrink-0" data-testid="button-create-shop">
                   <Plus className="w-4 h-4" /> Add Shop
                 </Button>
               </div>
-              <Card className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900">
-                <CardContent className="p-0">
-                  <div className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800">
-                    {filteredShops.map(shop => (
-                      <div key={shop.id} className="flex items-center justify-between px-5 py-4 gap-4 flex-wrap hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors" data-testid={`row-shop-${shop.id}`}>
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold shadow-md">
-                            {shop.name[0]}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium text-gray-900 dark:text-white">{shop.name}</span>
-                              {shop.is_premium && <Badge className="bg-amber-100 text-amber-700 border-0 text-[11px] gap-1"><Crown className="w-3 h-3" /> Premium</Badge>}
-                              {shop.featured && <Badge className="bg-blue-100 text-blue-700 border-0 text-[11px]">Featured</Badge>}
-                            </div>
-                            <p className="text-xs text-muted-foreground">{shop.category?.name || "No category"}</p>
-                          </div>
+
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={() => setFilterCategoryId("")}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${!filterCategoryId ? "bg-blue-500 text-white shadow-md shadow-blue-500/25" : "bg-white dark:bg-gray-800 text-muted-foreground border border-gray-200 dark:border-gray-700"}`}
+                  data-testid="filter-all-categories"
+                >All</button>
+                {categories.map(cat => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setFilterCategoryId(filterCategoryId === cat.id ? "" : cat.id)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${filterCategoryId === cat.id ? "bg-blue-500 text-white shadow-md shadow-blue-500/25" : "bg-white dark:bg-gray-800 text-muted-foreground border border-gray-200 dark:border-gray-700"}`}
+                    data-testid={`filter-category-${cat.id}`}
+                  >{cat.name}</button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {filteredShops.map(shop => (
+                  <Card key={shop.id} className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900 overflow-hidden group" data-testid={`card-shop-${shop.id}`}>
+                    <div className="h-1.5 bg-gradient-to-r from-emerald-400 to-teal-500" />
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3 mb-3">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-xl shadow-lg shrink-0">
+                          {shop.name[0]}
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => togglePremium(shop)}
-                            className={`rounded-xl text-xs gap-1 ${shop.is_premium ? "border-amber-300 text-amber-600" : ""}`}
-                            data-testid={`button-premium-${shop.id}`}
-                          >
-                            <Crown className="w-3 h-3" /> {shop.is_premium ? "Unpremium" : "Premium"}
-                          </Button>
-                          <Button size="icon" variant="ghost" className="rounded-xl h-9 w-9" onClick={() => openEdit(shop)} data-testid={`button-edit-shop-${shop.id}`}><Edit className="w-4 h-4" /></Button>
-                          <Button size="icon" variant="ghost" className="rounded-xl h-9 w-9" onClick={() => deleteMutation.mutate({ type: "shops", id: shop.id })} data-testid={`button-delete-shop-${shop.id}`}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold text-gray-900 dark:text-white truncate text-sm">{shop.name}</h3>
+                          <p className="text-xs text-muted-foreground truncate">{shop.description || "No description"}</p>
+                          {shop.category && (
+                            <Badge className="mt-1 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-0 text-[10px]">
+                              {(shop as any).category?.name}
+                            </Badge>
+                          )}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+
+                      <div className="flex flex-col gap-1.5 mb-3">
+                        {shop.address && (
+                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                            <MapPin className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{shop.address}</span>
+                          </div>
+                        )}
+                        {shop.whatsapp_number && (
+                          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                            <Phone className="w-3 h-3 shrink-0" />
+                            <span>{shop.whatsapp_number}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1.5 flex-wrap mb-3">
+                        {shop.is_premium && <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-0 text-[10px] gap-1"><Crown className="w-2.5 h-2.5" />Premium</Badge>}
+                        {shop.featured && <Badge className="bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 border-0 text-[10px]">Top Shop</Badge>}
+                        <Badge className={`border-0 text-[10px] gap-1 ${shop.subscription_active ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800"}`}>
+                          {shop.subscription_active ? <><Wifi className="w-2.5 h-2.5" />Live</> : <><WifiOff className="w-2.5 h-2.5" />Offline</>}
+                        </Badge>
+                      </div>
+
+                      <div className="pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center gap-2">
+                        <button
+                          onClick={() => saveMutation.mutate({ type: "shops", data: { subscription_active: !shop.subscription_active }, id: shop.id })}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${shop.subscription_active ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"}`}
+                          data-testid={`button-live-${shop.id}`}
+                        >
+                          {shop.subscription_active ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+                          {shop.subscription_active ? "Live" : "Offline"}
+                        </button>
+                        <button
+                          onClick={() => saveMutation.mutate({ type: "shops", data: { featured: !shop.featured }, id: shop.id })}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${shop.featured ? "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"}`}
+                          data-testid={`button-top-${shop.id}`}
+                        >
+                          <Star className="w-3 h-3" />
+                          Top Shop
+                        </button>
+                        <div className="ml-auto flex items-center gap-1">
+                          <Button size="icon" variant="ghost" className="rounded-lg h-8 w-8" onClick={() => openEdit(shop)} data-testid={`button-edit-shop-${shop.id}`}>
+                            <Edit className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="rounded-lg h-8 w-8" onClick={() => deleteMutation.mutate({ type: "shops", id: shop.id })} data-testid={`button-delete-shop-${shop.id}`}>
+                            <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {filteredShops.length === 0 && (
+                <div className="text-center py-16 text-muted-foreground">
+                  <Store className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                  <p className="font-medium">No shops found</p>
+                  <p className="text-xs mt-1">Try adjusting your search or filters</p>
+                </div>
+              )}
+
               <Dialog open={dialogOpen && activeTab === "shops"} onOpenChange={setDialogOpen}>
-                <DialogContent className="rounded-2xl max-w-lg">
-                  <DialogHeader><DialogTitle>{editItem ? "Edit Shop" : "Add Shop"}</DialogTitle></DialogHeader>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="col-span-2"><Label>Name</Label><Input value={formData.name || ""} onChange={e => setForm("name", e.target.value)} className="mt-1.5 rounded-xl" data-testid="input-shop-name" /></div>
-                    <div className="col-span-2"><Label>Description</Label><Input value={formData.description || ""} onChange={e => setForm("description", e.target.value)} className="mt-1.5 rounded-xl" /></div>
-                    <div><Label>Address</Label><Input value={formData.address || ""} onChange={e => setForm("address", e.target.value)} className="mt-1.5 rounded-xl" /></div>
-                    <div><Label>WhatsApp</Label><Input value={formData.whatsapp_number || ""} onChange={e => setForm("whatsapp_number", e.target.value)} className="mt-1.5 rounded-xl" /></div>
-                    <div><Label>Category</Label>
-                      <Select value={formData.category_id || ""} onValueChange={v => setForm("category_id", v)}>
-                        <SelectTrigger className="mt-1.5 rounded-xl"><SelectValue placeholder="Select" /></SelectTrigger>
-                        <SelectContent>{categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
-                      </Select>
+                <DialogContent className="rounded-2xl max-w-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="text-lg font-bold">{editItem ? "Edit Shop" : "Add New Shop"}</DialogTitle>
+                  </DialogHeader>
+                  <div className="flex flex-col gap-6 pb-2">
+                    <div className="flex flex-col gap-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Basic Info</p>
+                      <div>
+                        <Label className="text-sm">Shop Name *</Label>
+                        <Input value={formData.name || ""} onChange={e => setForm("name", e.target.value)} className="mt-1.5 rounded-xl" placeholder="e.g. Burger Bliss" data-testid="input-shop-name" />
+                      </div>
+                      <div>
+                        <Label className="text-sm">Description</Label>
+                        <Textarea value={formData.description || ""} onChange={e => setForm("description", e.target.value)} className="mt-1.5 rounded-xl resize-none" rows={3} placeholder="Brief description of the shop..." />
+                      </div>
                     </div>
-                    <div><Label>Commission %</Label><Input type="number" value={formData.commission_percentage || ""} onChange={e => setForm("commission_percentage", e.target.value)} className="mt-1.5 rounded-xl" /></div>
-                    <div className="flex items-center gap-2 mt-4">
-                      <input type="checkbox" id="featured" checked={formData.featured || false} onChange={e => setForm("featured", e.target.checked)} className="w-4 h-4 rounded" />
-                      <Label htmlFor="featured">Featured</Label>
+
+                    <div className="flex flex-col gap-3">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Category</p>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                        <Input
+                          placeholder="Search categories..."
+                          value={catSearch}
+                          onChange={e => setCatSearch(e.target.value)}
+                          className="pl-8 rounded-xl text-sm h-9"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1">
+                        {categories
+                          .filter(c => !catSearch || c.name.toLowerCase().includes(catSearch.toLowerCase()))
+                          .map(cat => (
+                            <button
+                              key={cat.id}
+                              type="button"
+                              onClick={() => setForm("category_id", cat.id)}
+                              className={`px-3 py-2.5 rounded-xl text-xs font-medium transition-all text-left border ${
+                                formData.category_id === cat.id
+                                  ? "bg-blue-500 text-white border-blue-500 shadow-md shadow-blue-500/25"
+                                  : "bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-300"
+                              }`}
+                              data-testid={`cat-pick-${cat.id}`}
+                            >
+                              {cat.name}
+                            </button>
+                          ))}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 mt-4">
-                      <input type="checkbox" id="is_premium" checked={formData.is_premium || false} onChange={e => setForm("is_premium", e.target.checked)} className="w-4 h-4 rounded" />
-                      <Label htmlFor="is_premium">Premium</Label>
+
+                    <div className="flex flex-col gap-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Contact & Location</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-sm">WhatsApp Number</Label>
+                          <div className="relative mt-1.5">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-medium">+91</span>
+                            <Input
+                              value={(formData.whatsapp_number || "").replace("+91", "")}
+                              onChange={e => setForm("whatsapp_number", `+91${e.target.value.replace(/\D/g, "").slice(0, 10)}`)}
+                              className="pl-10 rounded-xl"
+                              placeholder="9876543210"
+                              data-testid="input-shop-whatsapp"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-sm">Commission %</Label>
+                          <Input type="number" min="0" max="100" value={formData.commission_percentage || ""} onChange={e => setForm("commission_percentage", e.target.value)} className="mt-1.5 rounded-xl" placeholder="e.g. 15" />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm">Address</Label>
+                        <Input value={formData.address || ""} onChange={e => setForm("address", e.target.value)} className="mt-1.5 rounded-xl" placeholder="Full address..." data-testid="input-shop-address" />
+                      </div>
                     </div>
+
+                    <div className="flex flex-col gap-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Links</p>
+                      <div>
+                        <Label className="text-sm flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" /> Website</Label>
+                        <Input value={formData.website_link || ""} onChange={e => setForm("website_link", e.target.value)} className="mt-1.5 rounded-xl" placeholder="https://yourshop.com" data-testid="input-shop-website" />
+                      </div>
+                      <div>
+                        <Label className="text-sm flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> Google Maps Link</Label>
+                        <Input value={formData.map_link || ""} onChange={e => setForm("map_link", e.target.value)} className="mt-1.5 rounded-xl" placeholder="https://maps.google.com/..." data-testid="input-shop-map" />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Media</p>
+                      <div>
+                        <Label className="text-sm flex items-center gap-1.5"><Image className="w-3.5 h-3.5" /> Banner Image URL</Label>
+                        <Input value={formData.banner_image || ""} onChange={e => setForm("banner_image", e.target.value)} className="mt-1.5 rounded-xl" placeholder="https://..." data-testid="input-shop-banner" />
+                      </div>
+                      <div>
+                        <Label className="text-sm flex items-center gap-1.5"><Image className="w-3.5 h-3.5" /> Logo URL</Label>
+                        <Input value={formData.logo || ""} onChange={e => setForm("logo", e.target.value)} className="mt-1.5 rounded-xl" placeholder="https://..." data-testid="input-shop-logo" />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Settings</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {([
+                          { key: "subscription_active", label: "Shop Live", desc: "Visible to customers",
+                            onCls: "border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20", textCls: "text-emerald-700 dark:text-emerald-400", trackCls: "bg-emerald-500" },
+                          { key: "featured", label: "Top Shop", desc: "Show in top shops",
+                            onCls: "border-violet-400 bg-violet-50 dark:bg-violet-900/20", textCls: "text-violet-700 dark:text-violet-400", trackCls: "bg-violet-500" },
+                          { key: "is_premium", label: "Premium Vendor", desc: "Premium badge shown",
+                            onCls: "border-amber-400 bg-amber-50 dark:bg-amber-900/20", textCls: "text-amber-700 dark:text-amber-400", trackCls: "bg-amber-500" },
+                        ] as const).map(({ key, label, desc, onCls, textCls, trackCls }) => {
+                          const checked = formData[key] ?? (key === "subscription_active");
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => setForm(key, !checked)}
+                              className={`flex flex-col gap-1 p-3 rounded-xl border-2 text-left transition-all ${checked ? onCls : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"}`}
+                              data-testid={`toggle-${key}`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className={`text-xs font-semibold ${checked ? textCls : "text-gray-500"}`}>{label}</span>
+                                <div className={`w-9 h-5 rounded-full transition-colors relative ${checked ? trackCls : "bg-gray-300 dark:bg-gray-600"}`}>
+                                  <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${checked ? "translate-x-4" : "translate-x-0.5"}`} />
+                                </div>
+                              </div>
+                              <span className="text-[11px] text-muted-foreground">{desc}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={() => handleSave("shops")}
+                      disabled={saveMutation.isPending || !formData.name}
+                      className="w-full rounded-xl h-11 bg-gradient-to-r from-blue-500 to-violet-600 shadow-lg shadow-blue-500/25 font-semibold"
+                      data-testid="button-save-shop"
+                    >
+                      {saveMutation.isPending ? "Saving..." : editItem ? "Update Shop" : "Create Shop"}
+                    </Button>
                   </div>
-                  <Button onClick={() => handleSave("shops")} disabled={saveMutation.isPending} className="rounded-xl mt-2 bg-gradient-to-r from-blue-500 to-violet-600" data-testid="button-save-shop">
-                    {saveMutation.isPending ? "Saving..." : "Save"}
-                  </Button>
                 </DialogContent>
               </Dialog>
             </div>
@@ -654,12 +840,12 @@ export default function AdminDashboard() {
           {activeTab === "products" && (
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between gap-3 flex-wrap">
-                <Select value={filterShopId} onValueChange={setFilterShopId}>
+                <Select value={filterShopId || "all"} onValueChange={v => setFilterShopId(v === "all" ? "" : v)}>
                   <SelectTrigger className="w-48 rounded-xl" data-testid="select-filter-shop">
                     <SelectValue placeholder="All shops" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">All Shops</SelectItem>
+                    <SelectItem value="all">All Shops</SelectItem>
                     {shops.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
