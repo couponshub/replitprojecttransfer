@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -65,6 +65,24 @@ export default function AdminDashboard() {
   const [filterCategoryId, setFilterCategoryId] = useState("");
   const [shopSearch, setShopSearch] = useState("");
   const [catSearch, setCatSearch] = useState("");
+  const [bundleItems, setBundleItems] = useState<{ product_id: string; custom_price: string; name: string }[]>([]);
+  const [couponProdSearch, setCouponProdSearch] = useState("");
+
+  useEffect(() => {
+    if (!dialogOpen || activeTab !== "coupons") return;
+    if (editItem?.id) {
+      apiRequest("GET", `/api/coupons/${editItem.id}/products`).then((items: any[]) => {
+        setBundleItems(items.map((cp: any) => ({
+          product_id: cp.product_id,
+          custom_price: cp.custom_price,
+          name: cp.product?.name || "Product",
+        })));
+      }).catch(() => setBundleItems([]));
+    } else {
+      setBundleItems([]);
+    }
+    setCouponProdSearch("");
+  }, [editItem, dialogOpen, activeTab]);
 
   if (!isAdmin) {
     navigate("/login");
@@ -130,7 +148,22 @@ export default function AdminDashboard() {
   const handleSave = (type: string) => {
     const data = { ...formData };
     if (data.price) data.price = data.price.toString();
-    if (data.value) data.value = data.value.toString();
+    if (type === "coupons") {
+      if (data.type === "bundle") {
+        data.value = "0";
+        data.free_item_product_id = null;
+        data.coupon_products = bundleItems.map(i => ({ product_id: i.product_id, custom_price: i.custom_price }));
+      } else if (data.type === "free_item") {
+        data.value = "0";
+        data.coupon_products = [];
+      } else {
+        data.value = data.value ? data.value.toString() : "0";
+        data.free_item_product_id = null;
+        data.coupon_products = [];
+      }
+    } else {
+      if (data.value) data.value = data.value.toString();
+    }
     saveMutation.mutate({ type, data, id: editItem?.id });
   };
 
@@ -906,57 +939,268 @@ export default function AdminDashboard() {
               <Card className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900">
                 <CardContent className="p-0">
                   <div className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800">
-                    {coupons.map(coupon => (
-                      <div key={coupon.id} className="flex items-center justify-between px-5 py-4 gap-4 flex-wrap hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors" data-testid={`row-coupon-${coupon.id}`}>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <code className="font-bold text-sm bg-gray-100 dark:bg-gray-800 px-2.5 py-1 rounded-lg">{coupon.code}</code>
-                            <Badge className={`border-0 text-[11px] capitalize ${coupon.is_active ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-gray-100 text-gray-600"}`}>
-                              {coupon.is_active ? "Active" : "Inactive"}
-                            </Badge>
+                    {coupons.map(coupon => {
+                      const typeLabel: Record<string, string> = {
+                        percentage: `${coupon.value}% off`,
+                        flat: `₹${coupon.value} off`,
+                        bundle: "Bundle deal",
+                        free_item: "Free item",
+                        flash: "Flash sale",
+                      };
+                      return (
+                        <div key={coupon.id} className="flex items-center justify-between px-5 py-4 gap-4 flex-wrap hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors" data-testid={`row-coupon-${coupon.id}`}>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <code className="font-bold text-sm bg-gray-100 dark:bg-gray-800 px-2.5 py-1 rounded-lg">{coupon.code}</code>
+                              <Badge className={`border-0 text-[11px] ${coupon.is_active ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-gray-100 text-gray-600"}`}>
+                                {coupon.is_active ? "Live" : "Inactive"}
+                              </Badge>
+                              {(coupon as any).featured && (
+                                <Badge className="border-0 text-[11px] bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">Top</Badge>
+                              )}
+                              <Badge className="border-0 text-[11px] bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 capitalize">{coupon.type?.replace("_", " ")}</Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1.5">
+                              {typeLabel[coupon.type] || coupon.type} &middot; {coupon.shop?.name}
+                            </p>
                           </div>
-                          <p className="text-xs text-muted-foreground mt-1.5">
-                            {coupon.type === "percentage" ? `${coupon.value}% off` : `₹${coupon.value} off`} &middot; {coupon.shop?.name}
-                          </p>
+                          <div className="flex items-center gap-1">
+                            <Button size="icon" variant="ghost" className="rounded-xl h-9 w-9" onClick={() => openEdit(coupon)} data-testid={`button-edit-coupon-${coupon.id}`}><Edit className="w-4 h-4" /></Button>
+                            <Button size="icon" variant="ghost" className="rounded-xl h-9 w-9" onClick={() => deleteMutation.mutate({ type: "coupons", id: coupon.id })} data-testid={`button-delete-coupon-${coupon.id}`}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Button size="icon" variant="ghost" className="rounded-xl h-9 w-9" onClick={() => openEdit(coupon)} data-testid={`button-edit-coupon-${coupon.id}`}><Edit className="w-4 h-4" /></Button>
-                          <Button size="icon" variant="ghost" className="rounded-xl h-9 w-9" onClick={() => deleteMutation.mutate({ type: "coupons", id: coupon.id })} data-testid={`button-delete-coupon-${coupon.id}`}><Trash2 className="w-4 h-4 text-destructive" /></Button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
               <Dialog open={dialogOpen && activeTab === "coupons"} onOpenChange={setDialogOpen}>
-                <DialogContent className="rounded-2xl">
-                  <DialogHeader><DialogTitle>{editItem ? "Edit Coupon" : "Add Coupon"}</DialogTitle></DialogHeader>
-                  <div className="flex flex-col gap-4">
-                    <div><Label>Code</Label><Input value={formData.code || ""} onChange={e => setForm("code", e.target.value.toUpperCase())} className="mt-1.5 rounded-xl font-mono" data-testid="input-coupon-code" /></div>
-                    <div><Label>Type</Label>
-                      <Select value={formData.type || "percentage"} onValueChange={v => setForm("type", v)}>
-                        <SelectTrigger className="mt-1.5 rounded-xl"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="percentage">Percentage</SelectItem>
-                          <SelectItem value="flat">Flat</SelectItem>
-                          <SelectItem value="free_item">Free Item</SelectItem>
-                          <SelectItem value="flash">Flash</SelectItem>
-                        </SelectContent>
-                      </Select>
+                <DialogContent className="rounded-2xl max-w-lg max-h-[90vh] overflow-y-auto">
+                  <DialogHeader><DialogTitle className="text-lg font-bold">{editItem ? "Edit Coupon" : "Add Coupon"}</DialogTitle></DialogHeader>
+                  <div className="flex flex-col gap-5 pb-2">
+
+                    {/* Coupon Type Selector */}
+                    <div>
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Coupon Type</Label>
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        {([
+                          { value: "percentage", label: "% Discount", desc: "Percentage off total", icon: "%" },
+                          { value: "flat", label: "₹ Flat Off", desc: "Fixed amount discount", icon: "₹" },
+                          { value: "bundle", label: "Bundle Deal", desc: "Auto-add products to cart", icon: "📦" },
+                          { value: "free_item", label: "Free Item", desc: "Auto-add free item to cart", icon: "🎁" },
+                        ] as const).map(opt => {
+                          const active = (formData.type || "percentage") === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => setForm("type", opt.value)}
+                              data-testid={`coupon-type-${opt.value}`}
+                              className={`flex flex-col items-start gap-0.5 p-3 rounded-xl border-2 text-left transition-all ${active ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30" : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"}`}
+                            >
+                              <span className="text-lg leading-none mb-1">{opt.icon}</span>
+                              <span className={`text-xs font-bold ${active ? "text-blue-700 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}>{opt.label}</span>
+                              <span className="text-[10px] text-muted-foreground leading-tight">{opt.desc}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                    <div><Label>Value</Label><Input type="number" value={formData.value || ""} onChange={e => setForm("value", e.target.value)} className="mt-1.5 rounded-xl" /></div>
-                    <div><Label>Shop</Label>
-                      <Select value={formData.shop_id || ""} onValueChange={v => setForm("shop_id", v)}>
-                        <SelectTrigger className="mt-1.5 rounded-xl"><SelectValue placeholder="Select shop" /></SelectTrigger>
-                        <SelectContent>{shops.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-                      </Select>
+
+                    {/* Code & Shop */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs font-semibold">Coupon Code</Label>
+                        <Input value={formData.code || ""} onChange={e => setForm("code", e.target.value.toUpperCase())} className="mt-1.5 rounded-xl font-mono uppercase" placeholder="e.g. SAVE20" data-testid="input-coupon-code" />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-semibold">Shop</Label>
+                        <Select value={formData.shop_id || ""} onValueChange={v => { setForm("shop_id", v); setBundleItems([]); }}>
+                          <SelectTrigger className="mt-1.5 rounded-xl"><SelectValue placeholder="Select shop" /></SelectTrigger>
+                          <SelectContent>{shops.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <input type="checkbox" id="is_active" checked={formData.is_active ?? true} onChange={e => setForm("is_active", e.target.checked)} className="w-4 h-4 rounded" />
-                      <Label htmlFor="is_active">Active</Label>
+
+                    {/* Percentage discount value */}
+                    {(formData.type === "percentage" || !formData.type) && (
+                      <div>
+                        <Label className="text-xs font-semibold">Discount Percentage (%)</Label>
+                        <div className="relative mt-1.5">
+                          <Input type="number" min="1" max="100" value={formData.value || ""} onChange={e => setForm("value", e.target.value)} className="rounded-xl pr-10" placeholder="e.g. 20" data-testid="input-coupon-value-percent" />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">%</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Flat discount value */}
+                    {formData.type === "flat" && (
+                      <div>
+                        <Label className="text-xs font-semibold">Discount Amount (₹)</Label>
+                        <div className="relative mt-1.5">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">₹</span>
+                          <Input type="number" min="1" value={formData.value || ""} onChange={e => setForm("value", e.target.value)} className="rounded-xl pl-8" placeholder="e.g. 100" data-testid="input-coupon-value-flat" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Bundle product picker */}
+                    {formData.type === "bundle" && (
+                      <div className="flex flex-col gap-3">
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Add Products to Bundle</Label>
+                        {!formData.shop_id && (
+                          <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 rounded-lg px-3 py-2">Select a shop first to pick products</p>
+                        )}
+                        {formData.shop_id && (
+                          <>
+                            <Input
+                              placeholder="Search products..."
+                              value={couponProdSearch}
+                              onChange={e => setCouponProdSearch(e.target.value)}
+                              className="rounded-xl"
+                              data-testid="input-bundle-product-search"
+                            />
+                            <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1">
+                              {products
+                                .filter(p => p.shop_id === formData.shop_id)
+                                .filter(p => !couponProdSearch || p.name.toLowerCase().includes(couponProdSearch.toLowerCase()))
+                                .map(p => {
+                                  const inBundle = bundleItems.some(b => b.product_id === p.id);
+                                  return (
+                                    <div key={p.id} className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${inBundle ? "border-blue-400 bg-blue-50 dark:bg-blue-950/20" : "border-gray-200 dark:border-gray-700"}`} data-testid={`bundle-product-${p.id}`}>
+                                      <div>
+                                        <p className="text-xs font-semibold text-gray-900 dark:text-white">{p.name}</p>
+                                        <p className="text-[10px] text-muted-foreground">₹{Number(p.price).toLocaleString()}</p>
+                                      </div>
+                                      {inBundle ? (
+                                        <button type="button" onClick={() => setBundleItems(prev => prev.filter(b => b.product_id !== p.id))} className="text-[11px] text-red-500 font-semibold px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20">Remove</button>
+                                      ) : (
+                                        <button type="button" onClick={() => setBundleItems(prev => [...prev, { product_id: p.id, custom_price: p.price.toString(), name: p.name }])} className="text-[11px] text-blue-600 font-semibold px-2 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/20">Add</button>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              {products.filter(p => p.shop_id === formData.shop_id).length === 0 && (
+                                <p className="text-xs text-muted-foreground text-center py-4">No products in this shop</p>
+                              )}
+                            </div>
+                          </>
+                        )}
+                        {bundleItems.length > 0 && (
+                          <div className="flex flex-col gap-2 mt-1">
+                            <p className="text-xs font-semibold text-muted-foreground">Bundle Items ({bundleItems.length}) — set custom prices:</p>
+                            {bundleItems.map((item, idx) => (
+                              <div key={item.product_id} className="flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-r from-blue-50 to-violet-50 dark:from-blue-950/20 dark:to-violet-950/20 border border-blue-200 dark:border-blue-800">
+                                <span className="text-xs font-medium text-gray-800 dark:text-gray-200 flex-1 truncate">{item.name}</span>
+                                <div className="relative w-24 shrink-0">
+                                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₹</span>
+                                  <Input
+                                    type="number"
+                                    value={item.custom_price}
+                                    onChange={e => setBundleItems(prev => prev.map((b, i) => i === idx ? { ...b, custom_price: e.target.value } : b))}
+                                    className="h-7 text-xs rounded-lg pl-5 pr-1"
+                                    data-testid={`input-bundle-price-${item.product_id}`}
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Free item picker */}
+                    {formData.type === "free_item" && (
+                      <div className="flex flex-col gap-3">
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Select Free Item</Label>
+                        {!formData.shop_id && (
+                          <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 rounded-lg px-3 py-2">Select a shop first to pick the free item</p>
+                        )}
+                        {formData.shop_id && (
+                          <>
+                            <Input
+                              placeholder="Search products..."
+                              value={couponProdSearch}
+                              onChange={e => setCouponProdSearch(e.target.value)}
+                              className="rounded-xl"
+                              data-testid="input-free-product-search"
+                            />
+                            <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1">
+                              {products
+                                .filter(p => p.shop_id === formData.shop_id)
+                                .filter(p => !couponProdSearch || p.name.toLowerCase().includes(couponProdSearch.toLowerCase()))
+                                .map(p => {
+                                  const selected = formData.free_item_product_id === p.id;
+                                  return (
+                                    <button
+                                      key={p.id}
+                                      type="button"
+                                      onClick={() => setForm("free_item_product_id", selected ? null : p.id)}
+                                      data-testid={`free-item-product-${p.id}`}
+                                      className={`flex items-center justify-between p-2.5 rounded-xl border-2 text-left w-full transition-all ${selected ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/20" : "border-gray-200 dark:border-gray-700 hover:border-gray-300"}`}
+                                    >
+                                      <div>
+                                        <p className="text-xs font-semibold text-gray-900 dark:text-white">{p.name}</p>
+                                        <p className="text-[10px] text-muted-foreground">Original: ₹{Number(p.price).toLocaleString()}</p>
+                                      </div>
+                                      {selected && <Badge className="bg-emerald-500 text-white border-0 text-[10px]">FREE ✓</Badge>}
+                                    </button>
+                                  );
+                                })}
+                              {products.filter(p => p.shop_id === formData.shop_id).length === 0 && (
+                                <p className="text-xs text-muted-foreground text-center py-4">No products in this shop</p>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Expiry Date */}
+                    <div>
+                      <Label className="text-xs font-semibold">Expiry Date (optional)</Label>
+                      <Input type="date" value={formData.expiry_date ? new Date(formData.expiry_date).toISOString().split("T")[0] : ""} onChange={e => setForm("expiry_date", e.target.value || null)} className="mt-1.5 rounded-xl" data-testid="input-coupon-expiry" />
                     </div>
-                    <Button onClick={() => handleSave("coupons")} disabled={saveMutation.isPending} className="rounded-xl bg-gradient-to-r from-blue-500 to-violet-600" data-testid="button-save-coupon">
-                      {saveMutation.isPending ? "Saving..." : "Save"}
+
+                    {/* Toggles */}
+                    <div>
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Settings</Label>
+                      <div className="grid grid-cols-2 gap-3">
+                        {([
+                          { key: "is_active", label: "Live Coupon", desc: "Visible to users",
+                            onCls: "border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20", textCls: "text-emerald-700 dark:text-emerald-400", trackCls: "bg-emerald-500" },
+                          { key: "featured", label: "Top Coupon", desc: "Show in top coupons",
+                            onCls: "border-violet-400 bg-violet-50 dark:bg-violet-900/20", textCls: "text-violet-700 dark:text-violet-400", trackCls: "bg-violet-500" },
+                        ] as const).map(({ key, label, desc, onCls, textCls, trackCls }) => {
+                          const checked = key === "is_active" ? (formData[key] ?? true) : (formData[key] ?? false);
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => setForm(key, !checked)}
+                              data-testid={`toggle-coupon-${key}`}
+                              className={`flex flex-col gap-1 p-3 rounded-xl border-2 text-left transition-all ${checked ? onCls : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"}`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className={`text-xs font-semibold ${checked ? textCls : "text-gray-500"}`}>{label}</span>
+                                <div className={`w-9 h-5 rounded-full transition-colors relative ${checked ? trackCls : "bg-gray-300 dark:bg-gray-600"}`}>
+                                  <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${checked ? "translate-x-4" : "translate-x-0.5"}`} />
+                                </div>
+                              </div>
+                              <span className="text-[11px] text-muted-foreground">{desc}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={() => handleSave("coupons")}
+                      disabled={saveMutation.isPending || !formData.code || !formData.shop_id}
+                      className="rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 h-11 font-semibold"
+                      data-testid="button-save-coupon"
+                    >
+                      {saveMutation.isPending ? "Saving..." : editItem ? "Update Coupon" : "Create Coupon"}
                     </Button>
                   </div>
                 </DialogContent>

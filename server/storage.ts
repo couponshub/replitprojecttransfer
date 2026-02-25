@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { eq, and, desc, sql, ilike } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import {
   type User, type InsertUser,
@@ -8,9 +8,10 @@ import {
   type Shop, type InsertShop,
   type Product, type InsertProduct,
   type Coupon, type InsertCoupon,
+  type CouponProduct, type InsertCouponProduct,
   type Order, type InsertOrder,
   type OrderItem, type InsertOrderItem,
-  users, categories, shops, products, coupons, orders, orderItems
+  users, categories, shops, products, coupons, couponProducts, orders, orderItems
 } from "@shared/schema";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -55,6 +56,10 @@ export interface IStorage {
   updateCoupon(id: string, coupon: Partial<InsertCoupon>): Promise<Coupon | undefined>;
   deleteCoupon(id: string): Promise<void>;
   getActiveCoupons(): Promise<(Coupon & { shop?: Shop })[]>;
+
+  // Coupon Products
+  getCouponProducts(couponId: string): Promise<(CouponProduct & { product?: Product })[]>;
+  setCouponProducts(couponId: string, items: { product_id: string; custom_price: string }[]): Promise<void>;
 
   // Orders
   getAllOrders(): Promise<(Order & { user?: User })[]>;
@@ -122,7 +127,6 @@ export class PgStorage implements IStorage {
     const allShops = await db.select().from(shops)
       .leftJoin(categories, eq(shops.category_id, categories.id))
       .orderBy(desc(shops.is_premium), desc(shops.featured), desc(shops.created_at));
-    
     const mapped = allShops.map(r => ({ ...r.shops, category: r.categories || undefined }));
     if (categoryId) return mapped.filter(s => s.category_id === categoryId);
     return mapped;
@@ -222,6 +226,7 @@ export class PgStorage implements IStorage {
   }
 
   async deleteCoupon(id: string): Promise<void> {
+    await db.delete(couponProducts).where(eq(couponProducts.coupon_id, id));
     await db.delete(coupons).where(eq(coupons.id, id));
   }
 
@@ -232,6 +237,24 @@ export class PgStorage implements IStorage {
       .orderBy(desc(coupons.created_at))
       .limit(10);
     return result.map(r => ({ ...r.coupons, shop: r.shops || undefined }));
+  }
+
+  async getCouponProducts(couponId: string): Promise<(CouponProduct & { product?: Product })[]> {
+    const result = await db.select().from(couponProducts)
+      .leftJoin(products, eq(couponProducts.product_id, products.id))
+      .where(eq(couponProducts.coupon_id, couponId));
+    return result.map(r => ({ ...r.coupon_products, product: r.products || undefined }));
+  }
+
+  async setCouponProducts(couponId: string, items: { product_id: string; custom_price: string }[]): Promise<void> {
+    await db.delete(couponProducts).where(eq(couponProducts.coupon_id, couponId));
+    if (items.length > 0) {
+      await db.insert(couponProducts).values(items.map(i => ({
+        coupon_id: couponId,
+        product_id: i.product_id,
+        custom_price: i.custom_price,
+      })));
+    }
   }
 
   async getAllOrders(): Promise<(Order & { user?: User })[]> {
@@ -301,15 +324,15 @@ export class PgStorage implements IStorage {
   }
 
   async getTopShops(): Promise<Shop[]> {
-    return db.select().from(shops).where(eq(shops.is_premium, true)).orderBy(desc(shops.created_at)).limit(5);
+    return db.select().from(shops).where(eq(shops.featured, true)).orderBy(desc(shops.is_premium), desc(shops.created_at)).limit(6);
   }
 
   async getTopCoupons(): Promise<(Coupon & { shop?: Shop })[]> {
     const result = await db.select().from(coupons)
       .leftJoin(shops, eq(coupons.shop_id, shops.id))
-      .where(eq(coupons.is_active, true))
+      .where(and(eq(coupons.is_active, true), eq(coupons.featured, true)))
       .orderBy(desc(coupons.created_at))
-      .limit(5);
+      .limit(6);
     return result.map(r => ({ ...r.coupons, shop: r.shops || undefined }));
   }
 }

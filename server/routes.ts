@@ -4,7 +4,7 @@ import { storage, db } from "./storage";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { insertUserSchema, insertCategorySchema, insertShopSchema, insertProductSchema, insertCouponSchema, users, categories, shops, products, coupons, orders, orderItems } from "@shared/schema";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 const JWT_SECRET = process.env.SESSION_SECRET || "coupons-hub-secret-key";
 
@@ -315,26 +315,64 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.post("/api/coupons/validate", authMiddleware, async (req, res) => {
-    const { code, shopId } = req.body;
-    const coupon = await storage.getCouponByCode(code, shopId);
-    if (!coupon) return res.status(404).json({ error: "Invalid or expired coupon" });
-    if (coupon.expiry_date && new Date(coupon.expiry_date) < new Date()) {
-      return res.status(400).json({ error: "Coupon has expired" });
-    }
-    res.json(coupon);
+    try {
+      const { code, shopId } = req.body;
+      const coupon = await storage.getCouponByCode(code, shopId);
+      if (!coupon) return res.status(404).json({ error: "Invalid or expired coupon" });
+      if (coupon.expiry_date && new Date(coupon.expiry_date) < new Date()) {
+        return res.status(400).json({ error: "Coupon has expired" });
+      }
+
+      let items_to_add: { id: string; name: string; price: number; shop_id: string; shopName: string; isFreeItem?: boolean }[] = [];
+
+      if (coupon.type === "free_item" && coupon.free_item_product_id) {
+        const product = await storage.getProduct(coupon.free_item_product_id);
+        if (product) {
+          const shop = coupon.shop_id ? await storage.getShop(coupon.shop_id) : null;
+          items_to_add = [{ id: product.id, name: product.name, price: 0, shop_id: product.shop_id || "", shopName: shop?.name || "Shop", isFreeItem: true }];
+        }
+      } else if (coupon.type === "bundle") {
+        const cpItems = await storage.getCouponProducts(coupon.id);
+        const shop = coupon.shop_id ? await storage.getShop(coupon.shop_id) : null;
+        items_to_add = cpItems.map(cp => ({
+          id: cp.product?.id || cp.product_id || "",
+          name: cp.product?.name || "Product",
+          price: parseFloat(cp.custom_price),
+          shop_id: cp.product?.shop_id || coupon.shop_id || "",
+          shopName: shop?.name || "Shop",
+        }));
+      }
+
+      res.json({ ...coupon, items_to_add });
+    } catch (err: any) { res.status(400).json({ error: err.message }); }
+  });
+
+  app.get("/api/coupons/:id/products", adminMiddleware, async (req, res) => {
+    res.json(await storage.getCouponProducts(req.params.id));
   });
 
   app.post("/api/coupons", adminMiddleware, async (req, res) => {
     try {
-      const data = insertCouponSchema.parse(req.body);
-      res.json(await storage.createCoupon(data));
+      const { coupon_products: cpItems, ...rest } = req.body;
+      const data = insertCouponSchema.parse(rest);
+      const coupon = await storage.createCoupon(data);
+      if (cpItems && Array.isArray(cpItems) && cpItems.length > 0) {
+        await storage.setCouponProducts(coupon.id, cpItems);
+      }
+      res.json(coupon);
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
 
   app.put("/api/coupons/:id", adminMiddleware, async (req, res) => {
-    const updated = await storage.updateCoupon(req.params.id, req.body);
-    if (!updated) return res.status(404).json({ error: "Not found" });
-    res.json(updated);
+    try {
+      const { coupon_products: cpItems, ...rest } = req.body;
+      const updated = await storage.updateCoupon(req.params.id, rest);
+      if (!updated) return res.status(404).json({ error: "Not found" });
+      if (cpItems !== undefined) {
+        await storage.setCouponProducts(req.params.id, Array.isArray(cpItems) ? cpItems : []);
+      }
+      res.json(updated);
+    } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
 
   app.delete("/api/coupons/:id", adminMiddleware, async (req, res) => {

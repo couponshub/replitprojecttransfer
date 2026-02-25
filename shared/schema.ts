@@ -4,7 +4,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const roleEnum = pgEnum("role", ["admin", "user"]);
-export const couponTypeEnum = pgEnum("coupon_type", ["percentage", "flat", "free_item", "flash"]);
+export const couponTypeEnum = pgEnum("coupon_type", ["percentage", "flat", "free_item", "bundle", "flash"]);
 export const orderStatusEnum = pgEnum("order_status", ["pending", "confirmed", "completed"]);
 
 export const users = pgTable("users", {
@@ -57,10 +57,19 @@ export const coupons = pgTable("coupons", {
   shop_id: varchar("shop_id").references(() => shops.id),
   code: text("code").notNull(),
   type: couponTypeEnum("type").notNull(),
-  value: numeric("value", { precision: 10, scale: 2 }).notNull(),
+  value: numeric("value", { precision: 10, scale: 2 }).notNull().default("0"),
   is_active: boolean("is_active").notNull().default(true),
+  featured: boolean("featured").notNull().default(false),
+  free_item_product_id: varchar("free_item_product_id"),
   expiry_date: timestamp("expiry_date"),
   created_at: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const couponProducts = pgTable("coupon_products", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  coupon_id: varchar("coupon_id").references(() => coupons.id),
+  product_id: varchar("product_id").references(() => products.id),
+  custom_price: numeric("custom_price", { precision: 10, scale: 2 }).notNull(),
 });
 
 export const orders = pgTable("orders", {
@@ -86,6 +95,7 @@ export const insertCategorySchema = createInsertSchema(categories).omit({ id: tr
 export const insertShopSchema = createInsertSchema(shops).omit({ id: true, created_at: true });
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, created_at: true });
 export const insertCouponSchema = createInsertSchema(coupons).omit({ id: true, created_at: true });
+export const insertCouponProductSchema = createInsertSchema(couponProducts).omit({ id: true });
 export const insertOrderSchema = createInsertSchema(orders).omit({ id: true, created_at: true });
 export const insertOrderItemSchema = createInsertSchema(orderItems).omit({ id: true });
 
@@ -99,6 +109,8 @@ export type InsertProduct = z.infer<typeof insertProductSchema>;
 export type Product = typeof products.$inferSelect;
 export type InsertCoupon = z.infer<typeof insertCouponSchema>;
 export type Coupon = typeof coupons.$inferSelect;
+export type InsertCouponProduct = z.infer<typeof insertCouponProductSchema>;
+export type CouponProduct = typeof couponProducts.$inferSelect;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Order = typeof orders.$inferSelect;
 export type InsertOrderItem = z.infer<typeof insertOrderItemSchema>;
