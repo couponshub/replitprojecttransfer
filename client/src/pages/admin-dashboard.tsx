@@ -67,6 +67,17 @@ export default function AdminDashboard() {
   const [catSearch, setCatSearch] = useState("");
   const [bundleItems, setBundleItems] = useState<{ product_id: string; custom_price: string; name: string }[]>([]);
   const [couponProdSearch, setCouponProdSearch] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+  const [couponSearch, setCouponSearch] = useState("");
+  const [productImageUrls, setProductImageUrls] = useState<string[]>([""]);
+
+  useEffect(() => {
+    if (!dialogOpen || activeTab !== "products") return;
+    const imgs = editItem?.images && Array.isArray(editItem.images) && editItem.images.length > 0
+      ? editItem.images
+      : editItem?.image ? [editItem.image] : [""];
+    setProductImageUrls(imgs);
+  }, [editItem, dialogOpen, activeTab]);
 
   useEffect(() => {
     if (!dialogOpen || activeTab !== "coupons") return;
@@ -147,6 +158,16 @@ export default function AdminDashboard() {
 
   const handleSave = (type: string) => {
     const data = { ...formData };
+    if (type === "products") {
+      const cleanUrls = productImageUrls.filter(u => u.trim());
+      data.images = cleanUrls.length > 0 ? cleanUrls : null;
+      if (!data.type) data.type = "product";
+      if (data.type === "service") {
+        data.price = null;
+      } else {
+        if (data.price) data.price = data.price.toString();
+      }
+    }
     if (data.price) data.price = data.price.toString();
     if (type === "coupons") {
       data.coupon_products = bundleItems.map(i => ({ product_id: i.product_id, custom_price: i.custom_price }));
@@ -162,7 +183,14 @@ export default function AdminDashboard() {
     saveMutation.mutate({ type, data, id: editItem?.id });
   };
 
-  const filteredProducts = filterShopId ? products.filter(p => p.shop_id === filterShopId) : products;
+  const filteredProducts = products
+    .filter(p => !filterShopId || p.shop_id === filterShopId)
+    .filter(p => !productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase()) || p.shop?.name?.toLowerCase().includes(productSearch.toLowerCase()));
+  const filteredCoupons = coupons.filter(c =>
+    !couponSearch ||
+    c.code.toLowerCase().includes(couponSearch.toLowerCase()) ||
+    c.shop?.name?.toLowerCase().includes(couponSearch.toLowerCase())
+  );
   const filteredShops = shops
     .filter(s => !filterCategoryId || s.category_id === filterCategoryId)
     .filter(s => !shopSearch || s.name.toLowerCase().includes(shopSearch.toLowerCase()));
@@ -868,55 +896,169 @@ export default function AdminDashboard() {
           {activeTab === "products" && (
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between gap-3 flex-wrap">
-                <Select value={filterShopId || "all"} onValueChange={v => setFilterShopId(v === "all" ? "" : v)}>
-                  <SelectTrigger className="w-48 rounded-xl" data-testid="select-filter-shop">
-                    <SelectValue placeholder="All shops" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Shops</SelectItem>
-                    {shops.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Button onClick={() => openCreate()} size="sm" className="rounded-xl gap-2 bg-gradient-to-r from-blue-500 to-violet-600 shadow-lg shadow-blue-500/25" data-testid="button-create-product">
-                  <Plus className="w-4 h-4" /> Add Product
+                <div className="flex items-center gap-2 flex-1 flex-wrap">
+                  <div className="relative flex-1 min-w-[160px] max-w-xs">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <Input value={productSearch} onChange={e => setProductSearch(e.target.value)} placeholder="Search products & services..." className="pl-8 rounded-xl h-9 text-sm" data-testid="input-product-search" />
+                  </div>
+                  <Select value={filterShopId || "all"} onValueChange={v => setFilterShopId(v === "all" ? "" : v)}>
+                    <SelectTrigger className="w-40 rounded-xl h-9" data-testid="select-filter-shop"><SelectValue placeholder="All shops" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Shops</SelectItem>
+                      {shops.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={() => openCreate({ type: "product" })} size="sm" className="rounded-xl gap-2 bg-gradient-to-r from-blue-500 to-violet-600 shadow-lg shadow-blue-500/25 shrink-0" data-testid="button-create-product">
+                  <Plus className="w-4 h-4" /> Add
                 </Button>
               </div>
               <Card className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900">
                 <CardContent className="p-0">
                   <div className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800">
-                    {filteredProducts.map(prod => (
-                      <div key={prod.id} className="flex items-center justify-between px-5 py-4 gap-4 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors" data-testid={`row-product-${prod.id}`}>
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-white text-sm font-bold shadow-md">{prod.name[0]}</div>
-                          <div>
-                            <p className="font-medium text-sm text-gray-900 dark:text-white">{prod.name}</p>
-                            <p className="text-xs text-muted-foreground">{prod.shop?.name} &middot; ₹{parseFloat(prod.price as string).toLocaleString()}</p>
+                    {filteredProducts.map(prod => {
+                      const isService = (prod as any).type === "service";
+                      const firstImg = (prod as any).images?.[0] || prod.image;
+                      return (
+                        <div key={prod.id} className="flex items-center justify-between px-5 py-4 gap-4 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors" data-testid={`row-product-${prod.id}`}>
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold shadow-md shrink-0 ${isService ? "bg-gradient-to-br from-blue-400 to-cyan-500" : "bg-gradient-to-br from-orange-400 to-red-500"}`}>
+                              {firstImg ? <img src={firstImg} className="w-full h-full object-cover rounded-xl" alt="" onError={e => { (e.target as any).style.display = "none"; }} /> : prod.name[0]}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="font-medium text-sm text-gray-900 dark:text-white truncate">{prod.name}</p>
+                                <Badge className={`border-0 text-[10px] px-1.5 py-0 shrink-0 ${isService ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"}`}>
+                                  {isService ? "Service" : "Product"}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {prod.shop?.name}{prod.price ? ` · ₹${parseFloat(prod.price as string).toLocaleString()}` : ""}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button size="icon" variant="ghost" className="rounded-xl h-9 w-9" onClick={() => openEdit(prod)} data-testid={`button-edit-product-${prod.id}`}><Edit className="w-4 h-4" /></Button>
+                            <Button size="icon" variant="ghost" className="rounded-xl h-9 w-9" onClick={() => deleteMutation.mutate({ type: "products", id: prod.id })} data-testid={`button-delete-product-${prod.id}`}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Button size="icon" variant="ghost" className="rounded-xl h-9 w-9" onClick={() => openEdit(prod)} data-testid={`button-edit-product-${prod.id}`}><Edit className="w-4 h-4" /></Button>
-                          <Button size="icon" variant="ghost" className="rounded-xl h-9 w-9" onClick={() => deleteMutation.mutate({ type: "products", id: prod.id })} data-testid={`button-delete-product-${prod.id}`}><Trash2 className="w-4 h-4 text-destructive" /></Button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
               <Dialog open={dialogOpen && activeTab === "products"} onOpenChange={setDialogOpen}>
-                <DialogContent className="rounded-2xl">
-                  <DialogHeader><DialogTitle>{editItem ? "Edit Product" : "Add Product"}</DialogTitle></DialogHeader>
-                  <div className="flex flex-col gap-4">
-                    <div><Label>Name</Label><Input value={formData.name || ""} onChange={e => setForm("name", e.target.value)} className="mt-1.5 rounded-xl" data-testid="input-product-name" /></div>
-                    <div><Label>Description</Label><Input value={formData.description || ""} onChange={e => setForm("description", e.target.value)} className="mt-1.5 rounded-xl" /></div>
-                    <div><Label>Price (₹)</Label><Input type="number" value={formData.price || ""} onChange={e => setForm("price", e.target.value)} className="mt-1.5 rounded-xl" /></div>
-                    <div><Label>Shop</Label>
+                <DialogContent className="rounded-2xl max-w-lg max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="text-lg font-bold">{editItem ? "Edit" : "Add"} {formData.type === "service" ? "Service" : "Product"}</DialogTitle>
+                  </DialogHeader>
+                  <div className="flex flex-col gap-4 pb-2">
+
+                    {/* Product / Service toggle */}
+                    <div>
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Type</Label>
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        {([
+                          { value: "product", label: "Product", desc: "Physical item for sale", icon: "📦" },
+                          { value: "service", label: "Service", desc: "Service or experience", icon: "⚡" },
+                        ] as const).map(opt => {
+                          const active = (formData.type || "product") === opt.value;
+                          return (
+                            <button key={opt.value} type="button" onClick={() => setForm("type", opt.value)} data-testid={`item-type-${opt.value}`}
+                              className={`flex flex-col items-start gap-0.5 p-3 rounded-xl border-2 text-left transition-all ${active ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30" : "border-gray-200 dark:border-gray-700 hover:border-gray-300"}`}>
+                              <span className="text-base leading-none mb-1">{opt.icon}</span>
+                              <span className={`text-xs font-bold ${active ? "text-blue-700 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}>{opt.label}</span>
+                              <span className="text-[10px] text-muted-foreground">{opt.desc}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Name */}
+                    <div>
+                      <Label className="text-xs font-semibold">{formData.type === "service" ? "Service" : "Product"} Name</Label>
+                      <Input value={formData.name || ""} onChange={e => setForm("name", e.target.value)} className="mt-1.5 rounded-xl" placeholder="e.g. Classic Cheeseburger" data-testid="input-product-name" />
+                    </div>
+
+                    {/* Description */}
+                    <div>
+                      <Label className="text-xs font-semibold">Description</Label>
+                      <Textarea value={formData.description || ""} onChange={e => setForm("description", e.target.value)} className="mt-1.5 rounded-xl resize-none" rows={2} placeholder="Brief description..." data-testid="input-product-description" />
+                    </div>
+
+                    {/* Price — products only */}
+                    {formData.type !== "service" && (
+                      <div>
+                        <Label className="text-xs font-semibold">Price (₹)</Label>
+                        <div className="relative mt-1.5">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">₹</span>
+                          <Input type="number" min="0" value={formData.price || ""} onChange={e => setForm("price", e.target.value)} className="rounded-xl pl-8" placeholder="e.g. 299" data-testid="input-product-price" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Shop */}
+                    <div>
+                      <Label className="text-xs font-semibold">Shop</Label>
                       <Select value={formData.shop_id || ""} onValueChange={v => setForm("shop_id", v)}>
                         <SelectTrigger className="mt-1.5 rounded-xl"><SelectValue placeholder="Select shop" /></SelectTrigger>
                         <SelectContent>{shops.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
-                    <Button onClick={() => handleSave("products")} disabled={saveMutation.isPending} className="rounded-xl bg-gradient-to-r from-blue-500 to-violet-600" data-testid="button-save-product">
-                      {saveMutation.isPending ? "Saving..." : "Save"}
+
+                    {/* Image URLs — multiple */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <Label className="text-xs font-semibold">Image URLs</Label>
+                        <button type="button" onClick={() => setProductImageUrls(u => [...u, ""])} className="text-[11px] text-blue-600 font-semibold px-2 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/20" data-testid="button-add-image-url">+ Add URL</button>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        {productImageUrls.map((url, idx) => (
+                          <div key={idx} className="flex gap-2 items-center">
+                            <div className="relative flex-1">
+                              <Image className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                              <Input
+                                value={url}
+                                onChange={e => setProductImageUrls(u => u.map((v, i) => i === idx ? e.target.value : v))}
+                                className="rounded-xl pl-8 text-sm"
+                                placeholder="https://example.com/image.jpg"
+                                data-testid={`input-image-url-${idx}`}
+                              />
+                            </div>
+                            {productImageUrls.length > 1 && (
+                              <button type="button" onClick={() => setProductImageUrls(u => u.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600 p-1 rounded-lg" data-testid={`button-remove-image-${idx}`}>
+                                <X className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Optional product-only fields */}
+                    {formData.type !== "service" && (
+                      <div className="rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 p-4 flex flex-col gap-3">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Optional Details</p>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <Label className="text-xs font-semibold">Grams</Label>
+                            <Input value={formData.grams || ""} onChange={e => setForm("grams", e.target.value)} className="mt-1 rounded-xl text-sm h-8" placeholder="e.g. 250g" data-testid="input-product-grams" />
+                          </div>
+                          <div>
+                            <Label className="text-xs font-semibold">Quantity</Label>
+                            <Input value={formData.quantity || ""} onChange={e => setForm("quantity", e.target.value)} className="mt-1 rounded-xl text-sm h-8" placeholder="e.g. 12 pcs" data-testid="input-product-quantity" />
+                          </div>
+                          <div>
+                            <Label className="text-xs font-semibold">Size</Label>
+                            <Input value={formData.size || ""} onChange={e => setForm("size", e.target.value)} className="mt-1 rounded-xl text-sm h-8" placeholder="e.g. M / XL" data-testid="input-product-size" />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <Button onClick={() => handleSave("products")} disabled={saveMutation.isPending} className="rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 shadow-md shadow-blue-500/20 mt-1" data-testid="button-save-product">
+                      {saveMutation.isPending ? "Saving..." : `Save ${formData.type === "service" ? "Service" : "Product"}`}
                     </Button>
                   </div>
                 </DialogContent>
@@ -926,15 +1068,19 @@ export default function AdminDashboard() {
 
           {activeTab === "coupons" && (
             <div className="flex flex-col gap-4">
-              <div className="flex justify-end">
-                <Button onClick={() => openCreate({ is_active: true, type: "percentage" })} size="sm" className="rounded-xl gap-2 bg-gradient-to-r from-blue-500 to-violet-600 shadow-lg shadow-blue-500/25" data-testid="button-create-coupon">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="relative flex-1 min-w-[160px] max-w-xs">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                  <Input value={couponSearch} onChange={e => setCouponSearch(e.target.value)} placeholder="Search coupons or shops..." className="pl-8 rounded-xl h-9 text-sm" data-testid="input-coupon-search" />
+                </div>
+                <Button onClick={() => openCreate({ is_active: true, type: "percentage" })} size="sm" className="rounded-xl gap-2 bg-gradient-to-r from-blue-500 to-violet-600 shadow-lg shadow-blue-500/25 shrink-0" data-testid="button-create-coupon">
                   <Plus className="w-4 h-4" /> Add Coupon
                 </Button>
               </div>
               <Card className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900">
                 <CardContent className="p-0">
                   <div className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800">
-                    {coupons.map(coupon => {
+                    {filteredCoupons.map(coupon => {
                       const typeLabel: Record<string, string> = {
                         percentage: `${coupon.value}% off`,
                         flat: `₹${coupon.value} off`,

@@ -45,10 +45,15 @@ export const shops = pgTable("shops", {
 export const products = pgTable("products", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   shop_id: varchar("shop_id").references(() => shops.id),
+  type: text("type").notNull().default("product"),
   name: text("name").notNull(),
   description: text("description"),
-  price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+  price: numeric("price", { precision: 10, scale: 2 }),
+  images: text("images").array(),
   image: text("image"),
+  grams: text("grams"),
+  quantity: text("quantity"),
+  size: text("size"),
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });
 
