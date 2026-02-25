@@ -29,6 +29,7 @@ export const shops = pgTable("shops", {
   name: text("name").notNull(),
   description: text("description"),
   banner_image: text("banner_image"),
+  banners: text("banners").array(),
   logo: text("logo"),
   address: text("address"),
   whatsapp_number: text("whatsapp_number"),

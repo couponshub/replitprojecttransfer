@@ -358,9 +358,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(await storage.getCouponProducts(req.params.id));
   });
 
+  app.post("/api/users", adminMiddleware, async (req, res) => {
+    try {
+      const { name, email, phone, password } = req.body;
+      if (!name || !email || !password) return res.status(400).json({ error: "Name, email and password required" });
+      const existing = await storage.getUserByEmail(email);
+      if (existing) return res.status(400).json({ error: "Email already registered" });
+      const hashed = await bcrypt.hash(password, 10);
+      const user = await storage.createUser({ name, email, phone: phone || null, password: hashed, role: "user" });
+      res.json({ id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role, created_at: user.created_at });
+    } catch (err: any) { res.status(400).json({ error: err.message }); }
+  });
+
   app.post("/api/coupons", adminMiddleware, async (req, res) => {
     try {
       const { coupon_products: cpItems, ...rest } = req.body;
+      if (rest.expiry_date) rest.expiry_date = new Date(rest.expiry_date);
       const data = insertCouponSchema.parse(rest);
       const coupon = await storage.createCoupon(data);
       if (cpItems && Array.isArray(cpItems) && cpItems.length > 0) {
@@ -373,6 +386,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.put("/api/coupons/:id", adminMiddleware, async (req, res) => {
     try {
       const { coupon_products: cpItems, ...rest } = req.body;
+      if (rest.expiry_date) rest.expiry_date = new Date(rest.expiry_date);
       const updated = await storage.updateCoupon(req.params.id, rest);
       if (!updated) return res.status(404).json({ error: "Not found" });
       if (cpItems !== undefined) {

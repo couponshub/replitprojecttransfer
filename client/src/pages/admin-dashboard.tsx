@@ -54,7 +54,7 @@ const STAT_CARDS = [
 
 export default function AdminDashboard() {
   const [, navigate] = useLocation();
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, loading } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -70,6 +70,16 @@ export default function AdminDashboard() {
   const [productSearch, setProductSearch] = useState("");
   const [couponSearch, setCouponSearch] = useState("");
   const [productImageUrls, setProductImageUrls] = useState<string[]>([""]);
+  const [shopBanners, setShopBanners] = useState<string[]>([""]);
+  const [userDialogOpen, setUserDialogOpen] = useState(false);
+  const [userForm, setUserForm] = useState({ name: "", email: "", phone: "", password: "" });
+
+  useEffect(() => {
+    if (!dialogOpen || activeTab !== "shops") return;
+    const bans = editItem?.banners && Array.isArray(editItem.banners) && editItem.banners.length > 0
+      ? editItem.banners : [""];
+    setShopBanners(bans);
+  }, [editItem, dialogOpen, activeTab]);
 
   useEffect(() => {
     if (!dialogOpen || activeTab !== "products") return;
@@ -95,10 +105,11 @@ export default function AdminDashboard() {
     setCouponProdSearch("");
   }, [editItem, dialogOpen, activeTab]);
 
-  if (!isAdmin) {
+  if (!loading && !isAdmin) {
     navigate("/login");
     return null;
   }
+  if (loading) return null;
 
   const { data: stats } = useQuery<any>({ queryKey: ["/api/admin/stats"] });
   const { data: recentOrders = [] } = useQuery<(Order & { user?: User })[]>({ queryKey: ["/api/admin/recent-orders"] });
@@ -158,6 +169,10 @@ export default function AdminDashboard() {
 
   const handleSave = (type: string) => {
     const data = { ...formData };
+    if (type === "shops") {
+      const cleanBanners = shopBanners.filter(u => u.trim());
+      data.banners = cleanBanners.length > 0 ? cleanBanners : null;
+    }
     if (type === "products") {
       const cleanUrls = productImageUrls.filter(u => u.trim());
       data.images = cleanUrls.length > 0 ? cleanUrls : null;
@@ -429,6 +444,44 @@ export default function AdminDashboard() {
 
           {activeTab === "users" && (
             <div className="flex flex-col gap-4">
+              <div className="flex justify-end">
+                <Button onClick={() => { setUserForm({ name: "", email: "", phone: "", password: "" }); setUserDialogOpen(true); }} size="sm" className="rounded-xl gap-2 bg-gradient-to-r from-blue-500 to-violet-600 shadow-lg shadow-blue-500/25" data-testid="button-create-user">
+                  <Plus className="w-4 h-4" /> Create User
+                </Button>
+              </div>
+              <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
+                <DialogContent className="rounded-2xl max-w-md">
+                  <DialogHeader><DialogTitle className="text-lg font-bold">Create New User</DialogTitle></DialogHeader>
+                  <div className="flex flex-col gap-4 pb-2">
+                    <div><Label className="text-xs font-semibold">Full Name</Label><Input value={userForm.name} onChange={e => setUserForm(f => ({ ...f, name: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="e.g. Rahul Patel" data-testid="input-new-user-name" /></div>
+                    <div><Label className="text-xs font-semibold">Email</Label><Input type="email" value={userForm.email} onChange={e => setUserForm(f => ({ ...f, email: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="user@example.com" data-testid="input-new-user-email" /></div>
+                    <div>
+                      <Label className="text-xs font-semibold">Mobile <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                      <div className="relative mt-1.5">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">+91</span>
+                        <Input value={userForm.phone} onChange={e => setUserForm(f => ({ ...f, phone: e.target.value.replace(/\D/g, "").slice(0, 10) }))} className="rounded-xl pl-10" placeholder="9876543210" data-testid="input-new-user-phone" />
+                      </div>
+                    </div>
+                    <div><Label className="text-xs font-semibold">Password</Label><Input type="password" value={userForm.password} onChange={e => setUserForm(f => ({ ...f, password: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="Min 6 characters" data-testid="input-new-user-password" /></div>
+                    <Button
+                      onClick={async () => {
+                        if (!userForm.name || !userForm.email || userForm.password.length < 6) {
+                          toast({ title: "Please fill all required fields (password min 6 chars)", variant: "destructive" }); return;
+                        }
+                        try {
+                          await apiRequest("POST", "/api/users", { ...userForm, phone: userForm.phone || null });
+                          queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+                          queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
+                          setUserDialogOpen(false);
+                          toast({ title: `User "${userForm.name}" created! They can login with email: ${userForm.email}` });
+                        } catch (err: any) { toast({ title: err.message, variant: "destructive" }); }
+                      }}
+                      className="rounded-xl bg-gradient-to-r from-blue-500 to-violet-600"
+                      data-testid="button-save-user"
+                    >Create User</Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
               <Card className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900">
                 <CardContent className="p-0">
                   <div className="overflow-x-auto">
@@ -837,12 +890,34 @@ export default function AdminDashboard() {
                     <div className="flex flex-col gap-4">
                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Media</p>
                       <div>
-                        <Label className="text-sm flex items-center gap-1.5"><Image className="w-3.5 h-3.5" /> Banner Image URL</Label>
+                        <Label className="text-sm flex items-center gap-1.5"><Image className="w-3.5 h-3.5" /> Logo URL</Label>
+                        <Input value={formData.logo || ""} onChange={e => setForm("logo", e.target.value)} className="mt-1.5 rounded-xl" placeholder="https://..." data-testid="input-shop-logo" />
+                      </div>
+                      <div>
+                        <Label className="text-sm flex items-center gap-1.5"><Image className="w-3.5 h-3.5" /> Main Banner URL</Label>
                         <Input value={formData.banner_image || ""} onChange={e => setForm("banner_image", e.target.value)} className="mt-1.5 rounded-xl" placeholder="https://..." data-testid="input-shop-banner" />
                       </div>
                       <div>
-                        <Label className="text-sm flex items-center gap-1.5"><Image className="w-3.5 h-3.5" /> Logo URL</Label>
-                        <Input value={formData.logo || ""} onChange={e => setForm("logo", e.target.value)} className="mt-1.5 rounded-xl" placeholder="https://..." data-testid="input-shop-logo" />
+                        <div className="flex items-center justify-between mb-1.5">
+                          <Label className="text-sm flex items-center gap-1.5"><Image className="w-3.5 h-3.5" /> Extra Banners (Slideshow)</Label>
+                          <button type="button" onClick={() => setShopBanners(b => [...b, ""])} className="text-[11px] text-blue-600 font-semibold px-2 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/20" data-testid="button-add-banner">+ Add Banner</button>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          {shopBanners.map((url, idx) => (
+                            <div key={idx} className="flex gap-2 items-center">
+                              <div className="relative flex-1">
+                                <Image className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                                <Input value={url} onChange={e => setShopBanners(b => b.map((v, i) => i === idx ? e.target.value : v))} className="rounded-xl pl-8 text-sm" placeholder="https://banner-url.jpg" data-testid={`input-banner-url-${idx}`} />
+                              </div>
+                              {shopBanners.length > 1 && (
+                                <button type="button" onClick={() => setShopBanners(b => b.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600 p-1 rounded-lg" data-testid={`button-remove-banner-${idx}`}>
+                                  <X className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-1.5">These images appear as a slideshow on the shop page</p>
                       </div>
                     </div>
 
@@ -1250,7 +1325,7 @@ export default function AdminDashboard() {
                                     {attached ? (
                                       <button type="button" onClick={() => setBundleItems(prev => prev.filter(b => b.product_id !== p.id))} className="text-[11px] text-red-500 font-semibold px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20">Remove</button>
                                     ) : (
-                                      <button type="button" onClick={() => setBundleItems(prev => [...prev, { product_id: p.id, custom_price: p.price.toString(), name: p.name }])} className="text-[11px] text-blue-600 font-semibold px-2 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/20">Add</button>
+                                      <button type="button" onClick={() => setBundleItems(prev => [...prev, { product_id: p.id, custom_price: p.price ? p.price.toString() : "0", name: p.name }])} className="text-[11px] text-blue-600 font-semibold px-2 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/20">Add</button>
                                     )}
                                   </div>
                                 );

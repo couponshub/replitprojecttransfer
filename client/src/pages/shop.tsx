@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { Navbar } from "@/components/Navbar";
@@ -9,28 +9,48 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/lib/cart";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Crown, MapPin, Phone, ShoppingCart, Tag, Copy, Check, Plus, Minus } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
+import {
+  ArrowLeft, Crown, MapPin, Phone, ShoppingCart, Tag, Copy, Check,
+  Plus, Minus, Globe, ExternalLink, ChevronLeft, ChevronRight, Zap
+} from "lucide-react";
 import type { Category, Shop, Product, Coupon } from "@shared/schema";
 
 export default function ShopPage() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
-  const { addItem, items, updateQuantity } = useCart();
+  const { addItem, items, updateQuantity, itemCount } = useCart();
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [bannerIdx, setBannerIdx] = useState(0);
+  const [claimingCoupon, setClaimingCoupon] = useState<string | null>(null);
 
   const { data: shop, isLoading: shopLoading } = useQuery<Shop & { category?: Category }>({
     queryKey: [`/api/shops/${id}`],
   });
-
   const { data: shopProducts = [], isLoading: prodLoading } = useQuery<Product[]>({
     queryKey: [`/api/products?shopId=${id}`],
   });
-
-  const { data: shopCoupons = [], isLoading: couponLoading } = useQuery<Coupon[]>({
+  const { data: shopCoupons = [] } = useQuery<Coupon[]>({
     queryKey: [`/api/coupons?shopId=${id}`],
   });
+
+  const allBanners: string[] = [];
+  if (shop) {
+    if (shop.banner_image) allBanners.push(shop.banner_image);
+    const extras = (shop as any).banners;
+    if (extras && Array.isArray(extras)) extras.forEach((b: string) => { if (b && !allBanners.includes(b)) allBanners.push(b); });
+  }
+
+  useEffect(() => {
+    if (allBanners.length < 2) return;
+    const t = setInterval(() => setBannerIdx(i => (i + 1) % allBanners.length), 3500);
+    return () => clearInterval(t);
+  }, [allBanners.length]);
+
+  const prevBanner = () => setBannerIdx(i => (i - 1 + allBanners.length) % allBanners.length);
+  const nextBanner = () => setBannerIdx(i => (i + 1) % allBanners.length);
 
   const copyCode = (code: string) => {
     navigator.clipboard.writeText(code);
@@ -39,9 +59,25 @@ export default function ShopPage() {
     setTimeout(() => setCopiedCode(null), 2000);
   };
 
-  const getItemQuantity = (productId: string) => {
-    return items.find(i => i.id === productId)?.quantity || 0;
+  const handleClaimCoupon = async (coupon: Coupon) => {
+    if (!isAuthenticated) {
+      toast({ title: "Please sign in to claim coupons", variant: "destructive" });
+      navigate("/login");
+      return;
+    }
+    setClaimingCoupon(coupon.id);
+    try {
+      const result = await apiRequest("POST", "/api/coupons/validate", { code: coupon.code, shopId: id });
+      toast({ title: `✓ Coupon claimed!`, description: `${coupon.code} — go to cart to apply it.` });
+      copyCode(coupon.code);
+    } catch (err: any) {
+      toast({ title: err.message || "Could not claim coupon", variant: "destructive" });
+    } finally {
+      setClaimingCoupon(null);
+    }
   };
+
+  const getItemQuantity = (productId: string) => items.find(i => i.id === productId)?.quantity || 0;
 
   const handleAddToCart = (product: Product) => {
     if (!isAuthenticated) {
@@ -53,7 +89,6 @@ export default function ShopPage() {
       id: product.id,
       name: product.name,
       price: parseFloat(product.price as string),
-      image: product.image || undefined,
       shop_id: shop?.id || "",
       shopName: shop?.name || "",
     });
@@ -76,47 +111,90 @@ export default function ShopPage() {
 
   if (!shop) return null;
 
+  const activeCoupons = shopCoupons.filter(c => c.is_active);
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-28">
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1 as any)} className="mb-4 -ml-2" data-testid="button-back">
           <ArrowLeft className="w-4 h-4 mr-1" /> Back
         </Button>
 
-        <div className="relative h-56 sm:h-72 rounded-3xl overflow-hidden mb-6 bg-gradient-to-br from-blue-600 to-violet-700">
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-8xl">{shop.name[0]}</span>
-          </div>
+        {/* Banner Slideshow */}
+        <div className="relative h-56 sm:h-72 rounded-3xl overflow-hidden mb-6 bg-gradient-to-br from-blue-600 to-violet-700 group">
+          {allBanners.length > 0 ? (
+            <>
+              {allBanners.map((src, idx) => (
+                <img
+                  key={src}
+                  src={src}
+                  alt="banner"
+                  className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${idx === bannerIdx ? "opacity-100" : "opacity-0"}`}
+                />
+              ))}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+              {allBanners.length > 1 && (
+                <>
+                  <button onClick={prevBanner} className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 backdrop-blur text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" data-testid="button-prev-banner"><ChevronLeft className="w-4 h-4" /></button>
+                  <button onClick={nextBanner} className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 backdrop-blur text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" data-testid="button-next-banner"><ChevronRight className="w-4 h-4" /></button>
+                  <div className="absolute bottom-14 left-1/2 -translate-x-1/2 flex gap-1.5">
+                    {allBanners.map((_, i) => (
+                      <button key={i} onClick={() => setBannerIdx(i)} className={`w-1.5 h-1.5 rounded-full transition-all ${i === bannerIdx ? "bg-white w-4" : "bg-white/50"}`} />
+                    ))}
+                  </div>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-8xl opacity-60">{shop.name[0]}</span>
+              </div>
+            </>
+          )}
           <div className="absolute bottom-6 left-6 right-6 text-white">
             <div className="flex items-center gap-3 flex-wrap">
+              {shop.logo && <img src={shop.logo} alt="logo" className="w-12 h-12 rounded-2xl object-cover border-2 border-white/30 shadow-lg" />}
               <h1 className="text-2xl sm:text-3xl font-bold">{shop.name}</h1>
               {shop.is_premium && (
-                <Badge className="bg-amber-400 text-amber-900 gap-1 border-0">
-                  <Crown className="w-3.5 h-3.5" /> Premium
-                </Badge>
+                <Badge className="bg-amber-400 text-amber-900 gap-1 border-0"><Crown className="w-3.5 h-3.5" /> Premium</Badge>
               )}
-              {shop.featured && (
-                <Badge className="bg-blue-500 text-white border-0">Featured</Badge>
-              )}
+              {shop.featured && <Badge className="bg-blue-500 text-white border-0">Featured</Badge>}
             </div>
-            {shop.category && (
-              <Badge className="mt-2 bg-white/20 text-white border-0 backdrop-blur">{shop.category.name}</Badge>
-            )}
+            {shop.category && <Badge className="mt-2 bg-white/20 text-white border-0 backdrop-blur">{shop.category.name}</Badge>}
           </div>
         </div>
 
+        {/* Info + Contact */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <div className="lg:col-span-2">
-            <Card className="rounded-2xl border-0 shadow-md">
+            <Card className="rounded-2xl border-0 shadow-md h-full">
               <CardContent className="p-6">
                 <h2 className="font-semibold text-gray-900 dark:text-white mb-2">About</h2>
                 <p className="text-gray-600 dark:text-gray-400">{shop.description || "No description available."}</p>
                 {shop.address && (
-                  <div className="flex items-center gap-2 mt-4 text-sm text-muted-foreground">
-                    <MapPin className="w-4 h-4 shrink-0" />
+                  <div className="flex items-start gap-2 mt-4 text-sm text-muted-foreground">
+                    <MapPin className="w-4 h-4 shrink-0 mt-0.5" />
                     <span>{shop.address}</span>
+                  </div>
+                )}
+                {/* Map & Website buttons */}
+                {(shop.map_link || shop.website_link) && (
+                  <div className="flex flex-wrap gap-2 mt-4">
+                    {shop.map_link && (
+                      <Button size="sm" variant="outline" className="rounded-xl gap-2 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                        onClick={() => window.open(shop.map_link!, "_blank")} data-testid="button-map-link">
+                        <MapPin className="w-3.5 h-3.5" /> View on Map
+                      </Button>
+                    )}
+                    {shop.website_link && (
+                      <Button size="sm" variant="outline" className="rounded-xl gap-2 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/30"
+                        onClick={() => window.open(shop.website_link!, "_blank")} data-testid="button-website-link">
+                        <Globe className="w-3.5 h-3.5" /> Visit Website
+                      </Button>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -126,11 +204,8 @@ export default function ShopPage() {
             <Card className="rounded-2xl border-0 shadow-md">
               <CardContent className="p-6 flex flex-col gap-3">
                 <h2 className="font-semibold text-gray-900 dark:text-white">Contact Shop</h2>
-                <Button
-                  className="bg-green-500 border-0 rounded-xl gap-2 text-white w-full"
-                  onClick={() => window.open(`https://wa.me/${shop.whatsapp_number?.replace(/\D/g, "")}`, "_blank")}
-                  data-testid="button-whatsapp"
-                >
+                <Button className="bg-green-500 border-0 rounded-xl gap-2 text-white w-full"
+                  onClick={() => window.open(`https://wa.me/${shop.whatsapp_number?.replace(/\D/g, "")}`, "_blank")} data-testid="button-whatsapp">
                   <Phone className="w-4 h-4" /> WhatsApp Us
                 </Button>
                 <p className="text-xs text-muted-foreground text-center">{shop.whatsapp_number}</p>
@@ -139,42 +214,48 @@ export default function ShopPage() {
           )}
         </div>
 
-        {shopCoupons.length > 0 && (
+        {/* Coupons with Claim */}
+        {activeCoupons.length > 0 && (
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4">
               <Tag className="w-5 h-5 text-primary" />
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">Active Coupons</h2>
-              <Badge className="bg-primary/10 text-primary border-0">{shopCoupons.length}</Badge>
+              <Badge className="bg-primary/10 text-primary border-0">{activeCoupons.length}</Badge>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {shopCoupons.map(coupon => (
+              {activeCoupons.map(coupon => (
                 <div key={coupon.id} className="relative rounded-2xl bg-gradient-to-br from-blue-500 to-violet-600 p-0.5 shadow-lg" data-testid={`card-coupon-${coupon.id}`}>
-                  <div className="rounded-[calc(1rem-2px)] bg-white dark:bg-gray-900 p-4">
-                    <div className="flex items-center justify-between mb-2">
+                  <div className="rounded-[calc(1rem-2px)] bg-white dark:bg-gray-900 p-4 flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
                       <span className="font-bold text-lg text-gray-900 dark:text-white">
                         {coupon.type === "percentage" ? `${coupon.value}% OFF`
                           : coupon.type === "flat" ? `₹${coupon.value} OFF`
                           : "FREE ITEM"}
                       </span>
                       <Badge className={`border-0 text-xs capitalize ${
-                        coupon.type === "flash" ? "bg-orange-100 text-orange-700" :
-                        coupon.type === "percentage" ? "bg-blue-100 text-blue-700" :
-                        "bg-emerald-100 text-emerald-700"
-                      }`}>
-                        {coupon.type}
-                      </Badge>
+                        coupon.type === "percentage" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
+                        coupon.type === "flat" ? "bg-emerald-100 text-emerald-700" : "bg-violet-100 text-violet-700"
+                      }`}>{coupon.type.replace("_", " ")}</Badge>
                     </div>
                     <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800 rounded-xl px-3 py-2">
                       <code className="font-bold text-sm tracking-wider text-gray-900 dark:text-white">{coupon.code}</code>
                       <button onClick={() => copyCode(coupon.code)} className="text-primary" data-testid={`button-copy-coupon-${coupon.id}`}>
-                        {copiedCode === coupon.code ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        {copiedCode === coupon.code ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
                       </button>
                     </div>
                     {coupon.expiry_date && (
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Valid until {new Date(coupon.expiry_date).toLocaleDateString()}
-                      </p>
+                      <p className="text-xs text-muted-foreground">Valid until {new Date(coupon.expiry_date).toLocaleDateString()}</p>
                     )}
+                    <Button
+                      size="sm"
+                      onClick={() => handleClaimCoupon(coupon)}
+                      disabled={claimingCoupon === coupon.id}
+                      className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 border-0 gap-2 text-white"
+                      data-testid={`button-claim-coupon-${coupon.id}`}
+                    >
+                      <Zap className="w-3.5 h-3.5" />
+                      {claimingCoupon === coupon.id ? "Claiming..." : "Claim Offer"}
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -182,10 +263,11 @@ export default function ShopPage() {
           </div>
         )}
 
+        {/* Products / Services */}
         <div>
           <div className="flex items-center gap-2 mb-4">
             <ShoppingCart className="w-5 h-5 text-primary" />
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Products</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Products & Services</h2>
             <Badge className="bg-primary/10 text-primary border-0">{shopProducts.length}</Badge>
           </div>
           {prodLoading ? (
@@ -200,44 +282,56 @@ export default function ShopPage() {
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
               {shopProducts.map(product => {
+                const isService = (product as any).type === "service";
                 const qty = getItemQuantity(product.id);
+                const imgs = (product as any).images;
+                const firstImg = (imgs && imgs.length > 0) ? imgs[0] : product.image;
+                const prodCoupons = shopCoupons.filter(c => c.is_active);
                 return (
-                  <Card key={product.id} className="rounded-2xl border-0 shadow-md overflow-visible" data-testid={`card-product-${product.id}`}>
-                    <div className="h-36 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 rounded-t-2xl flex items-center justify-center overflow-hidden">
-                      <span className="text-5xl">{product.name[0]}</span>
+                  <Card key={product.id} className="rounded-2xl border-0 shadow-md overflow-hidden flex flex-col" data-testid={`card-product-${product.id}`}>
+                    <div className="h-36 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 relative overflow-hidden">
+                      {firstImg ? (
+                        <img src={firstImg} alt={product.name} className="w-full h-full object-cover" onError={e => { (e.target as any).style.display = "none"; }} />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <span className="text-5xl">{product.name[0]}</span>
+                        </div>
+                      )}
+                      {isService && (
+                        <div className="absolute top-2 left-2">
+                          <Badge className="bg-blue-500 text-white border-0 text-[10px] px-1.5 py-0.5">Service</Badge>
+                        </div>
+                      )}
                     </div>
-                    <CardContent className="p-4">
+                    <CardContent className="p-4 flex flex-col flex-1">
                       <h3 className="font-semibold text-sm text-gray-900 dark:text-white line-clamp-1">{product.name}</h3>
                       <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{product.description}</p>
-                      <div className="flex items-center justify-between mt-3">
-                        <span className="text-base font-bold text-gray-900 dark:text-white">₹{parseFloat(product.price as string).toLocaleString()}</span>
-                        {qty > 0 ? (
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => updateQuantity(product.id, qty - 1)}
-                              className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center"
-                              data-testid={`button-decrease-${product.id}`}
-                            >
-                              <Minus className="w-3 h-3" />
-                            </button>
-                            <span className="text-sm font-medium w-4 text-center">{qty}</span>
-                            <button
-                              onClick={() => handleAddToCart(product)}
-                              className="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center"
-                              data-testid={`button-increase-${product.id}`}
-                            >
-                              <Plus className="w-3 h-3" />
-                            </button>
-                          </div>
+                      {((product as any).grams || (product as any).size || (product as any).quantity) && (
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {(product as any).grams && <span className="text-[10px] bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-md text-muted-foreground">{(product as any).grams}</span>}
+                          {(product as any).quantity && <span className="text-[10px] bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-md text-muted-foreground">{(product as any).quantity}</span>}
+                          {(product as any).size && <span className="text-[10px] bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-md text-muted-foreground">{(product as any).size}</span>}
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between mt-auto pt-3">
+                        {product.price ? (
+                          <span className="text-base font-bold text-gray-900 dark:text-white">₹{parseFloat(product.price as string).toLocaleString()}</span>
                         ) : (
-                          <Button
-                            size="sm"
-                            onClick={() => handleAddToCart(product)}
-                            className="rounded-xl h-8 px-3 text-xs bg-primary"
-                            data-testid={`button-add-cart-${product.id}`}
-                          >
-                            Add
-                          </Button>
+                          <span className="text-xs text-blue-600 font-semibold">Service</span>
+                        )}
+                        {!isService && (
+                          qty > 0 ? (
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => updateQuantity(product.id, qty - 1)} className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center" data-testid={`button-decrease-${product.id}`}><Minus className="w-3 h-3" /></button>
+                              <span className="text-sm font-medium w-4 text-center">{qty}</span>
+                              <button onClick={() => handleAddToCart(product)} className="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center" data-testid={`button-increase-${product.id}`}><Plus className="w-3 h-3" /></button>
+                            </div>
+                          ) : (
+                            <Button size="sm" onClick={() => handleAddToCart(product)} className="rounded-xl h-8 px-3 text-xs bg-primary" data-testid={`button-add-cart-${product.id}`}>Add</Button>
+                          )
+                        )}
+                        {isService && (
+                          <Button size="sm" variant="outline" onClick={() => shop.whatsapp_number && window.open(`https://wa.me/${shop.whatsapp_number.replace(/\D/g, "")}`, "_blank")} className="rounded-xl h-8 px-3 text-xs border-blue-200 text-blue-600" data-testid={`button-enquire-${product.id}`}>Enquire</Button>
                         )}
                       </div>
                     </CardContent>
@@ -248,6 +342,20 @@ export default function ShopPage() {
           )}
         </div>
       </div>
+
+      {/* Floating Cart Button */}
+      {itemCount > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50" data-testid="floating-cart-button">
+          <button
+            onClick={() => navigate("/cart")}
+            className="flex items-center gap-3 bg-gradient-to-r from-blue-500 to-violet-600 text-white px-6 py-3.5 rounded-2xl shadow-2xl shadow-blue-500/40 hover:shadow-blue-500/60 transition-all hover:scale-105 active:scale-95"
+          >
+            <ShoppingCart className="w-5 h-5" />
+            <span className="font-semibold text-sm">{itemCount} item{itemCount !== 1 ? "s" : ""} in cart</span>
+            <span className="bg-white/20 text-white text-xs px-2 py-0.5 rounded-full font-bold">View Cart →</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
