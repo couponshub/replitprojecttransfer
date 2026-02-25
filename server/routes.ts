@@ -324,23 +324,30 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
 
       let items_to_add: { id: string; name: string; price: number; shop_id: string; shopName: string; isFreeItem?: boolean }[] = [];
+      const shop = coupon.shop_id ? await storage.getShop(coupon.shop_id) : null;
+      const shopName = shop?.name || "Shop";
 
-      if (coupon.type === "free_item" && coupon.free_item_product_id) {
-        const product = await storage.getProduct(coupon.free_item_product_id);
-        if (product) {
-          const shop = coupon.shop_id ? await storage.getShop(coupon.shop_id) : null;
-          items_to_add = [{ id: product.id, name: product.name, price: 0, shop_id: product.shop_id || "", shopName: shop?.name || "Shop", isFreeItem: true }];
-        }
-      } else if (coupon.type === "bundle") {
-        const cpItems = await storage.getCouponProducts(coupon.id);
-        const shop = coupon.shop_id ? await storage.getShop(coupon.shop_id) : null;
+      // Attached products (optional, any coupon type)
+      const cpItems = await storage.getCouponProducts(coupon.id);
+      if (cpItems.length > 0) {
         items_to_add = cpItems.map(cp => ({
           id: cp.product?.id || cp.product_id || "",
           name: cp.product?.name || "Product",
           price: parseFloat(cp.custom_price),
           shop_id: cp.product?.shop_id || coupon.shop_id || "",
-          shopName: shop?.name || "Shop",
+          shopName,
         }));
+      }
+
+      // Free item — always added for free_item type
+      if (coupon.type === "free_item" && coupon.free_item_product_id) {
+        const product = await storage.getProduct(coupon.free_item_product_id);
+        if (product) {
+          items_to_add = [
+            ...items_to_add,
+            { id: product.id, name: product.name, price: 0, shop_id: product.shop_id || "", shopName, isFreeItem: true },
+          ];
+        }
       }
 
       res.json({ ...coupon, items_to_add });

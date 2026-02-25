@@ -149,17 +149,12 @@ export default function AdminDashboard() {
     const data = { ...formData };
     if (data.price) data.price = data.price.toString();
     if (type === "coupons") {
-      if (data.type === "bundle") {
+      data.coupon_products = bundleItems.map(i => ({ product_id: i.product_id, custom_price: i.custom_price }));
+      if (data.type === "free_item") {
         data.value = "0";
-        data.free_item_product_id = null;
-        data.coupon_products = bundleItems.map(i => ({ product_id: i.product_id, custom_price: i.custom_price }));
-      } else if (data.type === "free_item") {
-        data.value = "0";
-        data.coupon_products = [];
       } else {
         data.value = data.value ? data.value.toString() : "0";
-        data.free_item_product_id = null;
-        data.coupon_products = [];
+        data.free_item_product_id = data.free_item_product_id || null;
       }
     } else {
       if (data.value) data.value = data.value.toString();
@@ -979,15 +974,14 @@ export default function AdminDashboard() {
                   <DialogHeader><DialogTitle className="text-lg font-bold">{editItem ? "Edit Coupon" : "Add Coupon"}</DialogTitle></DialogHeader>
                   <div className="flex flex-col gap-5 pb-2">
 
-                    {/* Coupon Type Selector */}
+                    {/* Coupon Type Selector — 3 types */}
                     <div>
                       <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Coupon Type</Label>
-                      <div className="grid grid-cols-2 gap-2 mt-2">
+                      <div className="grid grid-cols-3 gap-2 mt-2">
                         {([
-                          { value: "percentage", label: "% Discount", desc: "Percentage off total", icon: "%" },
-                          { value: "flat", label: "₹ Flat Off", desc: "Fixed amount discount", icon: "₹" },
-                          { value: "bundle", label: "Bundle Deal", desc: "Auto-add products to cart", icon: "📦" },
-                          { value: "free_item", label: "Free Item", desc: "Auto-add free item to cart", icon: "🎁" },
+                          { value: "percentage", label: "% Discount", desc: "Percentage off", icon: "%" },
+                          { value: "flat", label: "₹ Flat Off", desc: "Fixed amount off", icon: "₹" },
+                          { value: "free_item", label: "Free Item", desc: "Add free item to cart", icon: "🎁" },
                         ] as const).map(opt => {
                           const active = (formData.type || "percentage") === opt.value;
                           return (
@@ -998,8 +992,8 @@ export default function AdminDashboard() {
                               data-testid={`coupon-type-${opt.value}`}
                               className={`flex flex-col items-start gap-0.5 p-3 rounded-xl border-2 text-left transition-all ${active ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30" : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"}`}
                             >
-                              <span className="text-lg leading-none mb-1">{opt.icon}</span>
-                              <span className={`text-xs font-bold ${active ? "text-blue-700 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}>{opt.label}</span>
+                              <span className="text-base leading-none mb-1">{opt.icon}</span>
+                              <span className={`text-[11px] font-bold ${active ? "text-blue-700 dark:text-blue-400" : "text-gray-700 dark:text-gray-300"}`}>{opt.label}</span>
                               <span className="text-[10px] text-muted-foreground leading-tight">{opt.desc}</span>
                             </button>
                           );
@@ -1015,7 +1009,7 @@ export default function AdminDashboard() {
                       </div>
                       <div>
                         <Label className="text-xs font-semibold">Shop</Label>
-                        <Select value={formData.shop_id || ""} onValueChange={v => { setForm("shop_id", v); setBundleItems([]); }}>
+                        <Select value={formData.shop_id || ""} onValueChange={v => { setForm("shop_id", v); setBundleItems([]); setCouponProdSearch(""); }}>
                           <SelectTrigger className="mt-1.5 rounded-xl"><SelectValue placeholder="Select shop" /></SelectTrigger>
                           <SelectContent>{shops.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                         </Select>
@@ -1044,117 +1038,96 @@ export default function AdminDashboard() {
                       </div>
                     )}
 
-                    {/* Bundle product picker */}
-                    {formData.type === "bundle" && (
-                      <div className="flex flex-col gap-3">
-                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Add Products to Bundle</Label>
-                        {!formData.shop_id && (
-                          <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 rounded-lg px-3 py-2">Select a shop first to pick products</p>
-                        )}
-                        {formData.shop_id && (
-                          <>
-                            <Input
-                              placeholder="Search products..."
-                              value={couponProdSearch}
-                              onChange={e => setCouponProdSearch(e.target.value)}
-                              className="rounded-xl"
-                              data-testid="input-bundle-product-search"
-                            />
-                            <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1">
-                              {products
-                                .filter(p => p.shop_id === formData.shop_id)
-                                .filter(p => !couponProdSearch || p.name.toLowerCase().includes(couponProdSearch.toLowerCase()))
-                                .map(p => {
-                                  const inBundle = bundleItems.some(b => b.product_id === p.id);
-                                  return (
-                                    <div key={p.id} className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${inBundle ? "border-blue-400 bg-blue-50 dark:bg-blue-950/20" : "border-gray-200 dark:border-gray-700"}`} data-testid={`bundle-product-${p.id}`}>
-                                      <div>
-                                        <p className="text-xs font-semibold text-gray-900 dark:text-white">{p.name}</p>
-                                        <p className="text-[10px] text-muted-foreground">₹{Number(p.price).toLocaleString()}</p>
-                                      </div>
-                                      {inBundle ? (
-                                        <button type="button" onClick={() => setBundleItems(prev => prev.filter(b => b.product_id !== p.id))} className="text-[11px] text-red-500 font-semibold px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20">Remove</button>
-                                      ) : (
-                                        <button type="button" onClick={() => setBundleItems(prev => [...prev, { product_id: p.id, custom_price: p.price.toString(), name: p.name }])} className="text-[11px] text-blue-600 font-semibold px-2 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/20">Add</button>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              {products.filter(p => p.shop_id === formData.shop_id).length === 0 && (
-                                <p className="text-xs text-muted-foreground text-center py-4">No products in this shop</p>
-                              )}
-                            </div>
-                          </>
-                        )}
-                        {bundleItems.length > 0 && (
-                          <div className="flex flex-col gap-2 mt-1">
-                            <p className="text-xs font-semibold text-muted-foreground">Bundle Items ({bundleItems.length}) — set custom prices:</p>
-                            {bundleItems.map((item, idx) => (
-                              <div key={item.product_id} className="flex items-center gap-2 p-2.5 rounded-xl bg-gradient-to-r from-blue-50 to-violet-50 dark:from-blue-950/20 dark:to-violet-950/20 border border-blue-200 dark:border-blue-800">
-                                <span className="text-xs font-medium text-gray-800 dark:text-gray-200 flex-1 truncate">{item.name}</span>
-                                <div className="relative w-24 shrink-0">
-                                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₹</span>
-                                  <Input
-                                    type="number"
-                                    value={item.custom_price}
-                                    onChange={e => setBundleItems(prev => prev.map((b, i) => i === idx ? { ...b, custom_price: e.target.value } : b))}
-                                    className="h-7 text-xs rounded-lg pl-5 pr-1"
-                                    data-testid={`input-bundle-price-${item.product_id}`}
-                                  />
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Free item picker */}
+                    {/* Free item picker — specific to free_item type */}
                     {formData.type === "free_item" && (
                       <div className="flex flex-col gap-3">
                         <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Select Free Item</Label>
-                        {!formData.shop_id && (
-                          <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 rounded-lg px-3 py-2">Select a shop first to pick the free item</p>
-                        )}
-                        {formData.shop_id && (
+                        {!formData.shop_id ? (
+                          <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 rounded-lg px-3 py-2">Select a shop first</p>
+                        ) : (
                           <>
-                            <Input
-                              placeholder="Search products..."
-                              value={couponProdSearch}
-                              onChange={e => setCouponProdSearch(e.target.value)}
-                              className="rounded-xl"
-                              data-testid="input-free-product-search"
-                            />
-                            <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1">
+                            <Input placeholder="Search products..." value={couponProdSearch} onChange={e => setCouponProdSearch(e.target.value)} className="rounded-xl h-8 text-xs" data-testid="input-free-product-search" />
+                            <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto pr-1">
                               {products
-                                .filter(p => p.shop_id === formData.shop_id)
-                                .filter(p => !couponProdSearch || p.name.toLowerCase().includes(couponProdSearch.toLowerCase()))
+                                .filter(p => p.shop_id === formData.shop_id && (!couponProdSearch || p.name.toLowerCase().includes(couponProdSearch.toLowerCase())))
                                 .map(p => {
                                   const selected = formData.free_item_product_id === p.id;
                                   return (
-                                    <button
-                                      key={p.id}
-                                      type="button"
-                                      onClick={() => setForm("free_item_product_id", selected ? null : p.id)}
-                                      data-testid={`free-item-product-${p.id}`}
-                                      className={`flex items-center justify-between p-2.5 rounded-xl border-2 text-left w-full transition-all ${selected ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/20" : "border-gray-200 dark:border-gray-700 hover:border-gray-300"}`}
-                                    >
+                                    <button key={p.id} type="button" onClick={() => setForm("free_item_product_id", selected ? null : p.id)} data-testid={`free-item-product-${p.id}`}
+                                      className={`flex items-center justify-between p-2.5 rounded-xl border-2 text-left w-full transition-all ${selected ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/20" : "border-gray-200 dark:border-gray-700 hover:border-gray-300"}`}>
                                       <div>
                                         <p className="text-xs font-semibold text-gray-900 dark:text-white">{p.name}</p>
-                                        <p className="text-[10px] text-muted-foreground">Original: ₹{Number(p.price).toLocaleString()}</p>
+                                        <p className="text-[10px] text-muted-foreground">₹{Number(p.price).toLocaleString()}</p>
                                       </div>
                                       {selected && <Badge className="bg-emerald-500 text-white border-0 text-[10px]">FREE ✓</Badge>}
                                     </button>
                                   );
                                 })}
-                              {products.filter(p => p.shop_id === formData.shop_id).length === 0 && (
-                                <p className="text-xs text-muted-foreground text-center py-4">No products in this shop</p>
-                              )}
+                              {products.filter(p => p.shop_id === formData.shop_id).length === 0 && <p className="text-xs text-muted-foreground text-center py-3">No products in this shop</p>}
                             </div>
                           </>
                         )}
                       </div>
                     )}
+
+                    {/* Optional Products Section — available for ALL coupon types */}
+                    <div className="rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 p-4 flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-bold text-gray-800 dark:text-gray-200">📦 Attach Products / Services <span className="text-[10px] font-normal text-muted-foreground ml-1">Optional</span></p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">When user claims this coupon, selected products auto-add to cart. If none selected, normal offer applies.</p>
+                        </div>
+                      </div>
+                      {!formData.shop_id ? (
+                        <p className="text-xs text-muted-foreground italic">Select a shop above to attach products</p>
+                      ) : (
+                        <>
+                          <Input
+                            placeholder="Search products to attach..."
+                            value={couponProdSearch}
+                            onChange={e => setCouponProdSearch(e.target.value)}
+                            className="rounded-xl h-8 text-xs"
+                            data-testid="input-attach-product-search"
+                          />
+                          <div className="flex flex-col gap-1.5 max-h-44 overflow-y-auto pr-1">
+                            {products
+                              .filter(p => p.shop_id === formData.shop_id)
+                              .filter(p => !couponProdSearch || p.name.toLowerCase().includes(couponProdSearch.toLowerCase()))
+                              .map(p => {
+                                const attached = bundleItems.some(b => b.product_id === p.id);
+                                return (
+                                  <div key={p.id} className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${attached ? "border-blue-400 bg-blue-50 dark:bg-blue-950/20" : "border-gray-200 dark:border-gray-700"}`} data-testid={`attach-product-${p.id}`}>
+                                    <div>
+                                      <p className="text-xs font-semibold text-gray-900 dark:text-white">{p.name}</p>
+                                      <p className="text-[10px] text-muted-foreground">₹{Number(p.price).toLocaleString()}</p>
+                                    </div>
+                                    {attached ? (
+                                      <button type="button" onClick={() => setBundleItems(prev => prev.filter(b => b.product_id !== p.id))} className="text-[11px] text-red-500 font-semibold px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20">Remove</button>
+                                    ) : (
+                                      <button type="button" onClick={() => setBundleItems(prev => [...prev, { product_id: p.id, custom_price: p.price.toString(), name: p.name }])} className="text-[11px] text-blue-600 font-semibold px-2 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/20">Add</button>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            {products.filter(p => p.shop_id === formData.shop_id).length === 0 && <p className="text-xs text-muted-foreground text-center py-3">No products in this shop</p>}
+                          </div>
+                          {bundleItems.length > 0 && (
+                            <div className="flex flex-col gap-2">
+                              <p className="text-[11px] font-semibold text-muted-foreground">Attached ({bundleItems.length}) — set offer prices:</p>
+                              {bundleItems.map((item, idx) => (
+                                <div key={item.product_id} className="flex items-center gap-2 p-2 rounded-xl bg-gradient-to-r from-blue-50 to-violet-50 dark:from-blue-950/20 dark:to-violet-950/20 border border-blue-200 dark:border-blue-800">
+                                  <span className="text-xs font-medium text-gray-800 dark:text-gray-200 flex-1 truncate">{item.name}</span>
+                                  <div className="relative w-24 shrink-0">
+                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₹</span>
+                                    <Input type="number" value={item.custom_price} onChange={e => setBundleItems(prev => prev.map((b, i) => i === idx ? { ...b, custom_price: e.target.value } : b))} className="h-7 text-xs rounded-lg pl-5 pr-1" data-testid={`input-attach-price-${item.product_id}`} />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
 
                     {/* Expiry Date */}
                     <div>

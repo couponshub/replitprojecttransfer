@@ -73,7 +73,11 @@ export default function CartPage() {
       });
       setAppliedCoupon({ code: result.code, type: result.type, value: result.value, items_to_add: result.items_to_add });
 
-      if (result.items_to_add && result.items_to_add.length > 0) {
+      const hasItems = result.items_to_add && result.items_to_add.length > 0;
+      const hasFreeItem = hasItems && result.items_to_add.some((i: any) => i.isFreeItem);
+      const hasAttached = hasItems && result.items_to_add.some((i: any) => !i.isFreeItem);
+
+      if (hasItems) {
         addItems(result.items_to_add.map((item: any) => ({
           id: item.id,
           name: item.name,
@@ -82,19 +86,20 @@ export default function CartPage() {
           shopName: item.shopName,
           isFreeItem: item.isFreeItem ?? false,
         })));
-
-        if (result.type === "free_item") {
-          toast({ title: `🎁 Free item added!`, description: `${result.items_to_add[0]?.name} added to your cart for free.` });
-        } else if (result.type === "bundle") {
-          toast({ title: `📦 Bundle applied!`, description: `${result.items_to_add.length} item(s) added to your cart.` });
-        }
-      } else if (result.type === "percentage") {
-        toast({ title: `Coupon applied! Saving ${result.value}% on your order.` });
-      } else if (result.type === "flat") {
-        toast({ title: `Coupon applied! Saving ₹${result.value} on your order.` });
-      } else {
-        toast({ title: "Coupon applied successfully!" });
       }
+
+      // Build toast message based on what happened
+      const parts: string[] = [];
+      if (result.type === "percentage" && parseFloat(result.value) > 0) parts.push(`${result.value}% off applied`);
+      if (result.type === "flat" && parseFloat(result.value) > 0) parts.push(`₹${result.value} off applied`);
+      if (hasFreeItem) parts.push("free item added to cart");
+      if (hasAttached) {
+        const n = result.items_to_add.filter((i: any) => !i.isFreeItem).length;
+        parts.push(`${n} product${n > 1 ? "s" : ""} added to cart`);
+      }
+      if (parts.length === 0) parts.push("coupon applied");
+
+      toast({ title: `Coupon applied!`, description: parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" • ") });
     } catch (err: any) {
       toast({ title: err.message, variant: "destructive" });
     } finally {
