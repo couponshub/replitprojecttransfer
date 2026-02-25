@@ -387,5 +387,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(await storage.getRecentOrders());
   });
 
+  app.get("/api/admin/users", adminMiddleware, async (req, res) => {
+    const allUsers = await storage.getAllUsers();
+    res.json(allUsers.map(u => ({ id: u.id, name: u.name, email: u.email, phone: u.phone, role: u.role, created_at: u.created_at })));
+  });
+
+  app.get("/api/admin/top-shops", adminMiddleware, async (req, res) => {
+    res.json(await storage.getTopShops());
+  });
+
+  app.get("/api/admin/top-coupons", adminMiddleware, async (req, res) => {
+    res.json(await storage.getTopCoupons());
+  });
+
   return httpServer;
 }

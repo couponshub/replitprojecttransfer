@@ -64,8 +64,10 @@ export interface IStorage {
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
 
   // Stats
-  getStats(): Promise<{ users: number; categories: number; shops: number; products: number; orders: number }>;
+  getStats(): Promise<{ users: number; categories: number; shops: number; products: number; orders: number; coupons: number; vendors: number }>;
   getRecentOrders(): Promise<(Order & { user?: User })[]>;
+  getTopShops(): Promise<Shop[]>;
+  getTopCoupons(): Promise<(Coupon & { shop?: Shop })[]>;
 }
 
 export class PgStorage implements IStorage {
@@ -269,13 +271,15 @@ export class PgStorage implements IStorage {
     return result[0];
   }
 
-  async getStats(): Promise<{ users: number; categories: number; shops: number; products: number; orders: number }> {
-    const [u, c, s, p, o] = await Promise.all([
+  async getStats(): Promise<{ users: number; categories: number; shops: number; products: number; orders: number; coupons: number; vendors: number }> {
+    const [u, c, s, p, o, cp, v] = await Promise.all([
       db.select({ count: sql<number>`count(*)` }).from(users),
       db.select({ count: sql<number>`count(*)` }).from(categories),
       db.select({ count: sql<number>`count(*)` }).from(shops),
       db.select({ count: sql<number>`count(*)` }).from(products),
       db.select({ count: sql<number>`count(*)` }).from(orders),
+      db.select({ count: sql<number>`count(*)` }).from(coupons),
+      db.select({ count: sql<number>`count(*)` }).from(shops).where(eq(shops.is_premium, true)),
     ]);
     return {
       users: Number(u[0].count),
@@ -283,6 +287,8 @@ export class PgStorage implements IStorage {
       shops: Number(s[0].count),
       products: Number(p[0].count),
       orders: Number(o[0].count),
+      coupons: Number(cp[0].count),
+      vendors: Number(v[0].count),
     };
   }
 
@@ -292,6 +298,19 @@ export class PgStorage implements IStorage {
       .orderBy(desc(orders.created_at))
       .limit(5);
     return result.map(r => ({ ...r.orders, user: r.users || undefined }));
+  }
+
+  async getTopShops(): Promise<Shop[]> {
+    return db.select().from(shops).where(eq(shops.is_premium, true)).orderBy(desc(shops.created_at)).limit(5);
+  }
+
+  async getTopCoupons(): Promise<(Coupon & { shop?: Shop })[]> {
+    const result = await db.select().from(coupons)
+      .leftJoin(shops, eq(coupons.shop_id, shops.id))
+      .where(eq(coupons.is_active, true))
+      .orderBy(desc(coupons.created_at))
+      .limit(5);
+    return result.map(r => ({ ...r.coupons, shop: r.shops || undefined }));
   }
 }
 
