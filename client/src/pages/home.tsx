@@ -229,6 +229,9 @@ export default function Home() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">Shop by Category</h2>
+          <button onClick={() => navigate("/shops")} className="flex items-center gap-1 text-sm font-semibold text-primary hover:underline" data-testid="button-view-all-shops">
+            View All <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
         <div className="flex gap-6 overflow-x-auto pb-2 scrollbar-hide">
           {catLoading

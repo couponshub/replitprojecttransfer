@@ -879,11 +879,25 @@ export default function AdminDashboard() {
                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Links</p>
                       <div>
                         <Label className="text-sm flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" /> Website</Label>
-                        <Input value={formData.website_link || ""} onChange={e => setForm("website_link", e.target.value)} className="mt-1.5 rounded-xl" placeholder="https://yourshop.com" data-testid="input-shop-website" />
+                        <div className="flex gap-2 mt-1.5">
+                          <Input value={formData.website_link || ""} onChange={e => setForm("website_link", e.target.value)} className="rounded-xl flex-1" placeholder="https://yourshop.com" data-testid="input-shop-website" />
+                          {formData.website_link && (
+                            <button type="button" onClick={() => window.open(formData.website_link, "_blank")} className="shrink-0 w-10 h-10 rounded-xl bg-violet-50 dark:bg-violet-950/30 text-violet-600 flex items-center justify-center hover:bg-violet-100 transition-colors" title="Open website" data-testid="button-open-website">
+                              <ExternalLink className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <div>
                         <Label className="text-sm flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> Google Maps Link</Label>
-                        <Input value={formData.map_link || ""} onChange={e => setForm("map_link", e.target.value)} className="mt-1.5 rounded-xl" placeholder="https://maps.google.com/..." data-testid="input-shop-map" />
+                        <div className="flex gap-2 mt-1.5">
+                          <Input value={formData.map_link || ""} onChange={e => setForm("map_link", e.target.value)} className="rounded-xl flex-1" placeholder="https://maps.google.com/..." data-testid="input-shop-map" />
+                          {formData.map_link && (
+                            <button type="button" onClick={() => window.open(formData.map_link, "_blank")} className="shrink-0 w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/30 text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-colors" title="Open map" data-testid="button-open-map">
+                              <MapPin className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
 

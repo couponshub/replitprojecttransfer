@@ -13,6 +13,8 @@ import ShopPage from "@/pages/shop";
 import CartPage from "@/pages/cart";
 import ProfilePage from "@/pages/profile";
 import AdminDashboard from "@/pages/admin-dashboard";
+import AllShopsPage from "@/pages/shops";
+import OrderConfirmPage from "@/pages/order-confirm";
 
 function Router() {
   const { user, loading, isAdmin } = useAuth();
@@ -42,6 +44,8 @@ function Router() {
       <Route path="/cart" component={CartPage} />
       <Route path="/profile" component={ProfilePage} />
       <Route path="/admin-dashboard" component={AdminDashboard} />
+      <Route path="/shops" component={AllShopsPage} />
+      <Route path="/order-confirm" component={OrderConfirmPage} />
       <Route component={NotFound} />
     </Switch>
   );

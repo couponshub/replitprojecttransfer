@@ -19,7 +19,7 @@ import type { Category, Shop, Product, Coupon } from "@shared/schema";
 export default function ShopPage() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
-  const { addItem, items, updateQuantity, itemCount } = useCart();
+  const { addItem, items, updateQuantity, itemCount, addItems } = useCart();
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -65,11 +65,26 @@ export default function ShopPage() {
       navigate("/login");
       return;
     }
+    if (itemCount === 0) {
+      toast({ title: "Add items to cart first, then claim the coupon!", variant: "destructive" });
+      return;
+    }
     setClaimingCoupon(coupon.id);
     try {
       const result = await apiRequest("POST", "/api/coupons/validate", { code: coupon.code, shopId: id });
-      toast({ title: `✓ Coupon claimed!`, description: `${coupon.code} — go to cart to apply it.` });
-      copyCode(coupon.code);
+      if (result.items_to_add && result.items_to_add.length > 0) {
+        addItems(result.items_to_add.map((item: any) => ({
+          id: item.id, name: item.name, price: item.price,
+          shop_id: item.shop_id, shopName: item.shopName, isFreeItem: item.isFreeItem ?? false,
+        })));
+      }
+      const parts: string[] = [];
+      if (result.type === "percentage" && parseFloat(result.value) > 0) parts.push(`${result.value}% off`);
+      if (result.type === "flat" && parseFloat(result.value) > 0) parts.push(`₹${result.value} off`);
+      if (result.items_to_add?.some((i: any) => i.isFreeItem)) parts.push("free item added");
+      sessionStorage.setItem("pendingCoupon", JSON.stringify({ code: result.code, type: result.type, value: result.value, items_to_add: result.items_to_add }));
+      toast({ title: `✓ Coupon "${coupon.code}" applied!`, description: parts.join(" • ") || "Coupon applied to cart" });
+      setTimeout(() => navigate("/cart"), 800);
     } catch (err: any) {
       toast({ title: err.message || "Could not claim coupon", variant: "destructive" });
     } finally {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { Navbar } from "@/components/Navbar";
@@ -38,6 +38,8 @@ export default function CartPage() {
 
   const finalAmount = Math.max(0, total - discount);
 
+  const shopName = items.length > 0 ? items[0].shopName : "";
+
   const { mutate: placeOrder, isPending } = useMutation({
     mutationFn: async () => {
       return apiRequest("POST", "/api/orders", {
@@ -52,11 +54,23 @@ export default function CartPage() {
         final_amount: finalAmount.toString(),
       });
     },
-    onSuccess: () => {
-      clearCart();
+    onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders/my"] });
-      toast({ title: "Order placed successfully!" });
-      navigate("/profile");
+      const shopWhatsapp = await (async () => {
+        try { const s = await fetch(`/api/shops/${shopId}`); const data = await s.json(); return data?.whatsapp_number; } catch { return undefined; }
+      })();
+      const pendingOrder = {
+        shopName,
+        shopWhatsapp,
+        items: items.map(i => ({ name: i.name, quantity: i.quantity, price: i.price, isFreeItem: i.isFreeItem })),
+        subtotal: total,
+        discount,
+        finalAmount,
+        couponCode: appliedCoupon?.code,
+      };
+      sessionStorage.setItem("pendingOrder", JSON.stringify(pendingOrder));
+      clearCart();
+      navigate("/order-confirm");
     },
     onError: (err: any) => {
       toast({ title: err.message, variant: "destructive" });
@@ -124,6 +138,17 @@ export default function CartPage() {
     placeOrder();
   };
 
+  useEffect(() => {
+    const raw = sessionStorage.getItem("pendingCoupon");
+    if (!raw || appliedCoupon) return;
+    try {
+      const coupon = JSON.parse(raw);
+      sessionStorage.removeItem("pendingCoupon");
+      setAppliedCoupon({ code: coupon.code, type: coupon.type, value: coupon.value, items_to_add: coupon.items_to_add });
+      setCouponCode(coupon.code);
+    } catch {}
+  }, []);
+
   const couponTypeLabel = appliedCoupon
     ? appliedCoupon.type === "percentage"
       ? `${appliedCoupon.value}% off`
@@ -162,9 +187,17 @@ export default function CartPage() {
           <ArrowLeft className="w-4 h-4 mr-1" /> Continue Shopping
         </Button>
 
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-          Shopping Cart <span className="text-muted-foreground text-lg font-normal">({items.reduce((s, i) => s + i.quantity, 0)} items)</span>
-        </h1>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Shopping Cart <span className="text-muted-foreground text-lg font-normal">({items.reduce((s, i) => s + i.quantity, 0)} items)</span>
+          </h1>
+          {shopName && (
+            <div className="flex items-center gap-2 mt-1.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-primary"></div>
+              <span className="text-sm text-muted-foreground">From <span className="font-semibold text-gray-700 dark:text-gray-300">{shopName}</span></span>
+            </div>
+          )}
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 flex flex-col gap-3">
