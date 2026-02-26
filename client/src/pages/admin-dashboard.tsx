@@ -16,7 +16,7 @@ import {
   LayoutDashboard, Tag, Store, Package, Ticket, ShoppingBag,
   Plus, Edit, Trash2, Crown, LogOut, ChevronRight, Users, TrendingUp,
   Zap, Star, Check, X, Menu, Award, Flame, UserCheck, Phone, Mail,
-  Globe, MapPin, Wifi, WifiOff, Search, Image, Link, ExternalLink
+  Globe, MapPin, Wifi, WifiOff, Search, Image, Link, ExternalLink, Upload, Loader2
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import type { Category, Shop, Product, Coupon, Order, User } from "@shared/schema";
@@ -71,6 +71,7 @@ export default function AdminDashboard() {
   const [couponSearch, setCouponSearch] = useState("");
   const [productImageUrls, setProductImageUrls] = useState<string[]>([""]);
   const [shopBanners, setShopBanners] = useState<string[]>([""]);
+  const [qrUploading, setQrUploading] = useState(false);
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   const [userForm, setUserForm] = useState({ name: "", email: "", phone: "", password: "" });
 
@@ -127,6 +128,23 @@ export default function AdminDashboard() {
   const openCreate = (defaults: any = {}) => { setEditItem(null); setFormData(defaults); setDialogOpen(true); };
   const openEdit = (item: any) => { setEditItem(item); setFormData({ ...item }); setDialogOpen(true); };
   const setForm = (key: string, value: any) => setFormData((f: any) => ({ ...f, [key]: value }));
+
+  const handleQrUpload = async (file: File) => {
+    setQrUploading(true);
+    try {
+      const token = localStorage.getItem("coupons_hub_token");
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
+      const data = await res.json();
+      if (data.url) setForm("payment_qr", data.url);
+      else toast({ title: "Upload failed", description: data.error || "Unknown error", variant: "destructive" });
+    } catch {
+      toast({ title: "Upload failed", description: "Network error", variant: "destructive" });
+    } finally {
+      setQrUploading(false);
+    }
+  };
 
   const deleteMutation = useMutation({
     mutationFn: ({ type, id }: { type: string; id: string }) => apiRequest("DELETE", `/api/${type}/${id}`),
@@ -883,13 +901,26 @@ export default function AdminDashboard() {
                         <p className="text-[11px] text-muted-foreground mt-1">e.g. shopname@okicici, 9876543210@ybl</p>
                       </div>
                       <div>
-                        <Label className="text-sm">Payment QR Code (Image URL)</Label>
-                        <Input value={(formData as any).payment_qr || ""} onChange={e => setForm("payment_qr", e.target.value)} className="mt-1.5 rounded-xl" placeholder="https://... (QR image URL)" data-testid="input-shop-payment-qr" />
-                        {(formData as any).payment_qr && (
-                          <div className="mt-2 p-2 rounded-xl border border-gray-200 dark:border-gray-700 inline-block bg-white dark:bg-gray-900">
-                            <img src={(formData as any).payment_qr} alt="QR Preview" className="w-28 h-28 object-contain rounded-lg" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                          </div>
-                        )}
+                        <Label className="text-sm">Payment QR Code</Label>
+                        <div className="mt-1.5 flex flex-col gap-2">
+                          <label className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed cursor-pointer transition-colors ${qrUploading ? "opacity-60 pointer-events-none" : "border-blue-300 dark:border-blue-700 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/20"}`} data-testid="input-shop-payment-qr">
+                            {qrUploading ? <Loader2 className="w-4 h-4 animate-spin text-blue-500" /> : <Upload className="w-4 h-4 text-blue-500" />}
+                            <span className="text-sm text-muted-foreground">{qrUploading ? "Uploading..." : "Click to upload QR image"}</span>
+                            <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleQrUpload(f); e.target.value = ""; }} />
+                          </label>
+                          {(formData as any).payment_qr && (
+                            <div className="flex items-center gap-3 p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                              <img src={(formData as any).payment_qr} alt="QR Preview" className="w-16 h-16 object-contain rounded-lg shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-emerald-600 font-medium">QR uploaded ✓</p>
+                                <p className="text-[11px] text-muted-foreground truncate">{(formData as any).payment_qr}</p>
+                              </div>
+                              <button type="button" onClick={() => setForm("payment_qr", "")} className="shrink-0 text-gray-400 hover:text-red-500 transition-colors" title="Remove QR">
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
 

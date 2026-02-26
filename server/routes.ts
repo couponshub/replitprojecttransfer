@@ -3,6 +3,9 @@ import { createServer, type Server } from "http";
 import { storage, db } from "./storage";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import { insertUserSchema, insertCategorySchema, insertShopSchema, insertProductSchema, insertCouponSchema, users, categories, shops, products, coupons, orders, orderItems } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 
@@ -13,6 +16,20 @@ interface JwtPayload { id: string; email: string; role: string; }
 function generateToken(payload: JwtPayload) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
 }
+
+const uploadsDir = path.join(process.cwd(), "public", "uploads");
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadsDir),
+    filename: (_req, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.]/g, "_")}`),
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) cb(null, true);
+    else cb(new Error("Only image files allowed"));
+  },
+});
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
   const token = req.cookies?.token || req.headers.authorization?.replace("Bearer ", "");
@@ -165,6 +182,8 @@ async function seedDatabase() {
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   const cookieParser = (await import("cookie-parser")).default;
   app.use(cookieParser());
+  const express = (await import("express")).default;
+  app.use("/uploads", express.static(uploadsDir));
 
   await seedDatabase();
 
@@ -240,6 +259,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ success: true });
   });
 
+  // File upload
+  app.post("/api/upload", adminMiddleware, upload.single("file"), (req: any, res) => {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    const url = `/uploads/${req.file.filename}`;
+    res.json({ url });
+  });
+
   // Shops
   app.get("/api/shops", async (req, res) => {
     const { categoryId } = req.query;
@@ -264,9 +290,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.put("/api/shops/:id", adminMiddleware, async (req, res) => {
-    const updated = await storage.updateShop(req.params.id, req.body);
-    if (!updated) return res.status(404).json({ error: "Not found" });
-    res.json(updated);
+    try {
+      const { id, created_at, category, ...body } = req.body;
+      const updated = await storage.updateShop(req.params.id, body);
+      if (!updated) return res.status(404).json({ error: "Not found" });
+      res.json(updated);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
   app.delete("/api/shops/:id", adminMiddleware, async (req, res) => {
