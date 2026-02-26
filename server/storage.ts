@@ -63,10 +63,11 @@ export interface IStorage {
 
   // Orders
   getAllOrders(): Promise<(Order & { user?: User })[]>;
-  getUserOrders(userId: string): Promise<Order[]>;
+  getUserOrders(userId: string): Promise<(Order & { items: (OrderItem & { product?: Product })[] })[]>;
   getOrder(id: string): Promise<(Order & { items: (OrderItem & { product?: Product })[] }) | undefined>;
   createOrder(order: InsertOrder, items: InsertOrderItem[]): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
+  updateOrderPayment(id: string, paymentStatus: string, razorpayOrderId?: string): Promise<Order | undefined>;
 
   // Stats
   getStats(): Promise<{ users: number; categories: number; shops: number; products: number; orders: number; coupons: number; vendors: number }>;
@@ -264,10 +265,17 @@ export class PgStorage implements IStorage {
     return result.map(r => ({ ...r.orders, user: r.users || undefined }));
   }
 
-  async getUserOrders(userId: string): Promise<Order[]> {
-    return db.select().from(orders)
+  async getUserOrders(userId: string): Promise<(Order & { items: (OrderItem & { product?: Product })[] })[]> {
+    const userOrders = await db.select().from(orders)
       .where(eq(orders.user_id, userId))
       .orderBy(desc(orders.created_at));
+    const result = await Promise.all(userOrders.map(async (o) => {
+      const items = await db.select().from(orderItems)
+        .leftJoin(products, eq(orderItems.product_id, products.id))
+        .where(eq(orderItems.order_id, o.id));
+      return { ...o, items: items.map(r => ({ ...r.order_items, product: r.products || undefined })) };
+    }));
+    return result;
   }
 
   async getOrder(id: string): Promise<(Order & { items: (OrderItem & { product?: Product })[] }) | undefined> {
@@ -291,6 +299,14 @@ export class PgStorage implements IStorage {
 
   async updateOrderStatus(id: string, status: string): Promise<Order | undefined> {
     const result = await db.update(orders).set({ status: status as any }).where(eq(orders.id, id)).returning();
+    return result[0];
+  }
+
+  async updateOrderPayment(id: string, paymentStatus: string, razorpayOrderId?: string): Promise<Order | undefined> {
+    const update: any = { payment_status: paymentStatus };
+    if (razorpayOrderId) update.razorpay_order_id = razorpayOrderId;
+    if (paymentStatus === "paid") update.status = "confirmed";
+    const result = await db.update(orders).set(update).where(eq(orders.id, id)).returning();
     return result[0];
   }
 

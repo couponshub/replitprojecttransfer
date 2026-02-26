@@ -450,10 +450,27 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/orders", authMiddleware, async (req, res) => {
     try {
-      const { items, total_amount, discount_amount, final_amount } = req.body;
+      const { items, total_amount, discount_amount, final_amount, shop_id, shop_name, coupon_code } = req.body;
       const order = await storage.createOrder(
-        { user_id: (req as any).user.id, total_amount, discount_amount: discount_amount || "0", final_amount, status: "pending" },
-        items
+        {
+          user_id: (req as any).user.id,
+          shop_id: shop_id || null,
+          shop_name: shop_name || null,
+          total_amount,
+          discount_amount: discount_amount || "0",
+          final_amount,
+          status: "pending",
+          payment_status: "unpaid",
+          coupon_code: coupon_code || null,
+        },
+        (items || []).map((i: any) => ({
+          product_id: i.product_id,
+          product_name: i.product_name || null,
+          quantity: i.quantity,
+          price: i.price,
+          is_free_item: i.is_free_item || false,
+          order_id: "",
+        }))
       );
       res.json(order);
     } catch (err: any) { res.status(400).json({ error: err.message }); }
@@ -464,6 +481,43 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const order = await storage.updateOrderStatus(req.params.id, status);
     if (!order) return res.status(404).json({ error: "Not found" });
     res.json(order);
+  });
+
+  // Razorpay payment
+  app.post("/api/payment/create-order", authMiddleware, async (req, res) => {
+    try {
+      const keyId = process.env.RAZORPAY_KEY_ID;
+      const keySecret = process.env.RAZORPAY_KEY_SECRET;
+      if (!keyId || !keySecret) {
+        return res.status(503).json({ error: "Payment gateway not configured. Please contact admin." });
+      }
+      const Razorpay = (await import("razorpay")).default;
+      const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
+      const { orderId, amount } = req.body;
+      const razorpayOrder = await razorpay.orders.create({
+        amount: Math.round(parseFloat(amount) * 100),
+        currency: "INR",
+        receipt: orderId,
+      });
+      await storage.updateOrderPayment(orderId, "pending", razorpayOrder.id);
+      res.json({ razorpayOrderId: razorpayOrder.id, amount: razorpayOrder.amount, currency: "INR", keyId });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.post("/api/payment/verify", authMiddleware, async (req, res) => {
+    try {
+      const keySecret = process.env.RAZORPAY_KEY_SECRET;
+      if (!keySecret) return res.status(503).json({ error: "Payment gateway not configured." });
+      const crypto = (await import("crypto")).default;
+      const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderId } = req.body;
+      const body = razorpay_order_id + "|" + razorpay_payment_id;
+      const expectedSignature = crypto.createHmac("sha256", keySecret).update(body).digest("hex");
+      if (expectedSignature !== razorpay_signature) {
+        return res.status(400).json({ error: "Payment verification failed. Please contact support." });
+      }
+      const order = await storage.updateOrderPayment(orderId, "paid", razorpay_order_id);
+      res.json({ success: true, order });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
   // Admin stats

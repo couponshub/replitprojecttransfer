@@ -83,10 +83,15 @@ export const couponProducts = pgTable("coupon_products", {
 export const orders = pgTable("orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   user_id: varchar("user_id").references(() => users.id),
+  shop_id: varchar("shop_id").references(() => shops.id),
+  shop_name: text("shop_name"),
   total_amount: numeric("total_amount", { precision: 10, scale: 2 }).notNull(),
   discount_amount: numeric("discount_amount", { precision: 10, scale: 2 }).notNull().default("0"),
   final_amount: numeric("final_amount", { precision: 10, scale: 2 }).notNull(),
   status: orderStatusEnum("status").notNull().default("pending"),
+  payment_status: text("payment_status").notNull().default("unpaid"),
+  razorpay_order_id: text("razorpay_order_id"),
+  coupon_code: text("coupon_code"),
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -94,8 +99,10 @@ export const orderItems = pgTable("order_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   order_id: varchar("order_id").references(() => orders.id),
   product_id: varchar("product_id").references(() => products.id),
+  product_name: text("product_name"),
   quantity: integer("quantity").notNull(),
   price: numeric("price", { precision: 10, scale: 2 }).notNull(),
+  is_free_item: boolean("is_free_item").notNull().default(false),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, created_at: true });

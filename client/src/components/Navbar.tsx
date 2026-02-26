@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { ShoppingCart, User, Search, Menu, X, Tag, Zap } from "lucide-react";
+import { ShoppingCart, User, Search, Menu, X, Tag, Zap, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth";
@@ -96,6 +96,9 @@ export function Navbar({ onSearch }: { onSearch?: (q: string) => void }) {
                   <DropdownMenuContent align="end" className="w-48">
                     <DropdownMenuItem onClick={() => navigate("/profile")} data-testid="link-profile">
                       <User className="w-4 h-4 mr-2" /> My Profile
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/my-orders")} data-testid="link-my-orders">
+                      <Package className="w-4 h-4 mr-2" /> My Orders
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleLogout} className="text-destructive" data-testid="button-logout">

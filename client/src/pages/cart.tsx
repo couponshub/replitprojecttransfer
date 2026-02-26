@@ -45,21 +45,27 @@ export default function CartPage() {
       return apiRequest("POST", "/api/orders", {
         items: items.map(i => ({
           product_id: i.id,
+          product_name: i.name,
           quantity: i.quantity,
           price: i.price.toString(),
+          is_free_item: i.isFreeItem || false,
           order_id: "",
         })),
         total_amount: total.toString(),
         discount_amount: discount.toString(),
         final_amount: finalAmount.toString(),
+        shop_id: shopId || null,
+        shop_name: shopName || null,
+        coupon_code: appliedCoupon?.code || null,
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (order: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders/my"] });
       const shopData = await (async () => {
         try { const s = await fetch(`/api/shops/${shopId}`); return await s.json(); } catch { return {}; }
       })();
       const pendingOrder = {
+        orderId: order?.id,
         shopName,
         shopWhatsapp: shopData?.whatsapp_number,
         shopPaymentId: shopData?.payment_id,

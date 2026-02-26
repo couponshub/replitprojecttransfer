@@ -15,6 +15,7 @@ import ProfilePage from "@/pages/profile";
 import AdminDashboard from "@/pages/admin-dashboard";
 import AllShopsPage from "@/pages/shops";
 import OrderConfirmPage from "@/pages/order-confirm";
+import MyOrdersPage from "@/pages/my-orders";
 
 function Router() {
   const { user, loading, isAdmin } = useAuth();
@@ -46,6 +47,7 @@ function Router() {
       <Route path="/admin-dashboard" component={AdminDashboard} />
       <Route path="/shops" component={AllShopsPage} />
       <Route path="/order-confirm" component={OrderConfirmPage} />
+      <Route path="/my-orders" component={MyOrdersPage} />
       <Route component={NotFound} />
     </Switch>
   );
