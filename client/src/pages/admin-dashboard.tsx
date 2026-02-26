@@ -833,6 +833,30 @@ export default function AdminDashboard() {
                         <Label className="text-sm">Description</Label>
                         <Textarea value={formData.description || ""} onChange={e => setForm("description", e.target.value)} className="mt-1.5 rounded-xl resize-none" rows={3} placeholder="Brief description of the shop..." />
                       </div>
+                      <div>
+                        <Label className="text-sm mb-2 block">Listing Type</Label>
+                        <div className="flex rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                          {[
+                            { value: "products", label: "Products Only" },
+                            { value: "services", label: "Services Only" },
+                            { value: "both", label: "Both" },
+                          ].map(opt => (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => setForm("listing_type", opt.value)}
+                              className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+                                (formData as any).listing_type === opt.value || (!((formData as any).listing_type) && opt.value === "both")
+                                  ? "bg-gradient-to-r from-blue-500 to-violet-600 text-white"
+                                  : "text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-800"
+                              }`}
+                              data-testid={`button-listing-type-${opt.value}`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
 
                     <div className="flex flex-col gap-3">

@@ -329,7 +329,9 @@ export default function ShopPage() {
         <div>
           <div className="flex items-center gap-2 mb-4">
             <ShoppingCart className="w-5 h-5 text-primary" />
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Products & Services</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+              {(shop as any)?.listing_type === "products" ? "Products" : (shop as any)?.listing_type === "services" ? "Services" : "Products & Services"}
+            </h2>
             <Badge className="bg-primary/10 text-primary border-0">{shopProducts.length}</Badge>
           </div>
           {prodLoading ? (

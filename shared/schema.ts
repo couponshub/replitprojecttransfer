@@ -42,6 +42,7 @@ export const shops = pgTable("shops", {
   commission_percentage: numeric("commission_percentage", { precision: 5, scale: 2 }).default("0"),
   subscription_active: boolean("subscription_active").notNull().default(true),
   featured: boolean("featured").notNull().default(false),
+  listing_type: text("listing_type").notNull().default("both"),
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });
 
