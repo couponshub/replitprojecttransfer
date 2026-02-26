@@ -35,6 +35,8 @@ export const shops = pgTable("shops", {
   whatsapp_number: text("whatsapp_number"),
   map_link: text("map_link"),
   website_link: text("website_link"),
+  payment_id: text("payment_id"),
+  payment_qr: text("payment_qr"),
   category_id: varchar("category_id").references(() => categories.id),
   is_premium: boolean("is_premium").notNull().default(false),
   commission_percentage: numeric("commission_percentage", { precision: 5, scale: 2 }).default("0"),

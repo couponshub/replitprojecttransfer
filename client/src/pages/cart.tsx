@@ -56,12 +56,14 @@ export default function CartPage() {
     },
     onSuccess: async () => {
       queryClient.invalidateQueries({ queryKey: ["/api/orders/my"] });
-      const shopWhatsapp = await (async () => {
-        try { const s = await fetch(`/api/shops/${shopId}`); const data = await s.json(); return data?.whatsapp_number; } catch { return undefined; }
+      const shopData = await (async () => {
+        try { const s = await fetch(`/api/shops/${shopId}`); return await s.json(); } catch { return {}; }
       })();
       const pendingOrder = {
         shopName,
-        shopWhatsapp,
+        shopWhatsapp: shopData?.whatsapp_number,
+        shopPaymentId: shopData?.payment_id,
+        shopPaymentQr: shopData?.payment_qr,
         items: items.map(i => ({ name: i.name, quantity: i.quantity, price: i.price, isFreeItem: i.isFreeItem })),
         subtotal: total,
         discount,

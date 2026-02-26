@@ -876,6 +876,24 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="flex flex-col gap-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Online Payment</p>
+                      <div>
+                        <Label className="text-sm">UPI ID / Payment ID</Label>
+                        <Input value={(formData as any).payment_id || ""} onChange={e => setForm("payment_id", e.target.value)} className="mt-1.5 rounded-xl" placeholder="yourname@upi or UPI ID" data-testid="input-shop-payment-id" />
+                        <p className="text-[11px] text-muted-foreground mt-1">e.g. shopname@okicici, 9876543210@ybl</p>
+                      </div>
+                      <div>
+                        <Label className="text-sm">Payment QR Code (Image URL)</Label>
+                        <Input value={(formData as any).payment_qr || ""} onChange={e => setForm("payment_qr", e.target.value)} className="mt-1.5 rounded-xl" placeholder="https://... (QR image URL)" data-testid="input-shop-payment-qr" />
+                        {(formData as any).payment_qr && (
+                          <div className="mt-2 p-2 rounded-xl border border-gray-200 dark:border-gray-700 inline-block bg-white dark:bg-gray-900">
+                            <img src={(formData as any).payment_qr} alt="QR Preview" className="w-28 h-28 object-contain rounded-lg" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-4">
                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Links</p>
                       <div>
                         <Label className="text-sm flex items-center gap-1.5"><Globe className="w-3.5 h-3.5" /> Website</Label>
