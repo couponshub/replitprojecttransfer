@@ -520,8 +520,110 @@ function CouponCard({ coupon }: { coupon: Coupon & { shop?: Shop } }) {
   );
 }
 
+function RadarMap({ lat, lng, onClick }: { lat: number | null; lng: number | null; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      data-testid="button-radar-map"
+      className="relative w-24 h-24 rounded-full cursor-pointer group transition-transform hover:scale-105 active:scale-95"
+      style={{
+        background: "radial-gradient(circle at 40% 35%, rgba(0,30,60,0.97) 0%, rgba(0,10,30,0.99) 100%)",
+        boxShadow: "0 0 32px rgba(0,220,200,0.22), 0 0 72px rgba(0,100,220,0.14), 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.12), inset 0 -1px 0 rgba(0,0,0,0.4)",
+        border: "1.5px solid rgba(0,220,200,0.28)",
+      }}
+    >
+      {/* Concentric rings */}
+      {[0.88, 0.64, 0.4].map((scale, i) => (
+        <div
+          key={i}
+          className="absolute inset-0 rounded-full"
+          style={{
+            border: `1px solid rgba(0,220,200,${0.12 + i * 0.07})`,
+            transform: `scale(${scale})`,
+          }}
+        />
+      ))}
+      {/* Cross hair lines */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute w-full h-px" style={{ background: "rgba(0,220,200,0.12)" }} />
+        <div className="absolute h-full w-px" style={{ background: "rgba(0,220,200,0.12)" }} />
+      </div>
+      {/* Sweeping radar beam */}
+      <div
+        className="absolute inset-0 rounded-full radar-sweep overflow-hidden"
+        style={{
+          background: "conic-gradient(from 0deg at 50% 50%, transparent 310deg, rgba(0,255,200,0.08) 330deg, rgba(0,255,200,0.35) 360deg)",
+        }}
+      />
+      {/* Center dot + ping */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        {lat && (
+          <div
+            className="absolute w-4 h-4 rounded-full radar-ping"
+            style={{ background: "rgba(0,255,200,0.25)" }}
+          />
+        )}
+        <div
+          className="w-3 h-3 rounded-full z-10"
+          style={{
+            background: "radial-gradient(circle at 35% 30%, #5fffda, #00c8aa)",
+            boxShadow: "0 0 10px rgba(0,255,200,0.9), 0 0 20px rgba(0,255,200,0.4)",
+          }}
+        />
+      </div>
+      {/* 3D gloss highlight */}
+      <div
+        className="absolute inset-0 rounded-full pointer-events-none"
+        style={{
+          background: "radial-gradient(ellipse at 35% 28%, rgba(255,255,255,0.14) 0%, transparent 60%)",
+        }}
+      />
+    </button>
+  );
+}
+
 export default function Home() {
   const [, navigate] = useLocation();
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; address: string } | null>(null);
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+            { headers: { "Accept-Language": "en" } }
+          );
+          const data = await res.json();
+          const city =
+            data.address?.city ||
+            data.address?.town ||
+            data.address?.village ||
+            data.address?.county ||
+            "";
+          const state = data.address?.state || "";
+          const address = [city, state].filter(Boolean).join(", ");
+          setUserLocation({ lat, lng, address: address || "Your Location" });
+        } catch {
+          setUserLocation({ lat, lng, address: "Your Location" });
+        }
+      },
+      () => {}
+    );
+  }, []);
+
+  const openMap = () => {
+    if (userLocation) {
+      window.open(`https://www.google.com/maps?q=${userLocation.lat},${userLocation.lng}`, "_blank");
+    } else {
+      navigator.geolocation?.getCurrentPosition(
+        (pos) => window.open(`https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`, "_blank"),
+        () => window.open("https://www.google.com/maps", "_blank")
+      );
+    }
+  };
 
   const { data: categories = [], isLoading: catLoading } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
@@ -549,8 +651,29 @@ export default function Home() {
           <div className="absolute top-0 right-0 w-72 h-72 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3" />
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/3 -translate-x-1/4" />
         </div>
-        <div className="relative pt-8 pb-10">
+        <div className="relative pt-8 pb-8">
           <SearchBar activeCoupons={activeCoupons} />
+
+          {/* Location label */}
+          <div className="flex items-center justify-center gap-1.5 mt-3 mb-5">
+            <MapPin className="w-3.5 h-3.5 text-teal-300 shrink-0" />
+            {userLocation ? (
+              <span className="text-white/80 text-xs font-medium" data-testid="text-user-location">
+                {userLocation.address}
+              </span>
+            ) : (
+              <span className="text-white/45 text-xs">Detecting your location…</span>
+            )}
+          </div>
+
+          {/* 3D Radar — click to open map */}
+          <div className="flex justify-center pb-2">
+            <RadarMap
+              lat={userLocation?.lat ?? null}
+              lng={userLocation?.lng ?? null}
+              onClick={openMap}
+            />
+          </div>
         </div>
       </div>
 
