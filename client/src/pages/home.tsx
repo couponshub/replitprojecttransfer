@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Crown, ChevronRight, Star, MapPin, Percent, ChevronLeft, Search, Mic, X } from "lucide-react";
+import { Crown, ChevronRight, Star, MapPin, Percent, ChevronLeft, Search, Mic, X, LocateFixed, Navigation } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Category, Shop, Coupon, Banner, Product } from "@shared/schema";
 
@@ -378,7 +378,42 @@ const CATEGORY_COLORS = [
   "from-amber-400 to-yellow-500",
 ];
 
-const CATEGORY_ICONS = ["🍔", "👗", "📱", "💄", "✈️", "🥦", "🏋️", "🎬", "🛋️", "📚"];
+const CATEGORY_ICON_MAP: Record<string, string> = {
+  "food & dining": "🍽️",
+  "food": "🍽️",
+  "restaurants": "🍴",
+  "biryani": "🍛",
+  "bakery": "🎂",
+  "electronics": "📱",
+  "fashion": "👗",
+  "beauty & wellness": "💆",
+  "beauty": "💆",
+  "wellness": "💆",
+  "jewelry": "💎",
+  "jewellery": "💎",
+  "groceries": "🛒",
+  "grocery": "🛒",
+  "pharmacy & health": "💊",
+  "pharmacy": "💊",
+  "health": "💊",
+  "sports & fitness": "🏋️",
+  "sports": "🏋️",
+  "fitness": "🏋️",
+  "education": "📚",
+  "entertainment": "🎬",
+  "travel": "✈️",
+  "home & living": "🛋️",
+  "home": "🛋️",
+};
+
+function getCategoryIcon(name: string): string {
+  const key = name.toLowerCase();
+  if (CATEGORY_ICON_MAP[key]) return CATEGORY_ICON_MAP[key];
+  for (const [k, v] of Object.entries(CATEGORY_ICON_MAP)) {
+    if (key.includes(k) || k.includes(key)) return v;
+  }
+  return "🏪";
+}
 
 function CategoryCard({ category, index }: { category: Category; index: number }) {
   const [, navigate] = useLocation();
@@ -389,7 +424,7 @@ function CategoryCard({ category, index }: { category: Category; index: number }
       data-testid={`card-category-${category.id}`}
     >
       <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${CATEGORY_COLORS[index % CATEGORY_COLORS.length]} flex items-center justify-center text-2xl shadow-md transition-transform group-hover:scale-105`}>
-        {CATEGORY_ICONS[index % CATEGORY_ICONS.length]}
+        {getCategoryIcon(category.name)}
       </div>
       <span className="text-xs font-medium text-gray-700 dark:text-gray-300 text-center max-w-16 leading-tight">{category.name}</span>
     </div>
@@ -555,6 +590,7 @@ function NearbyMapPanel({
   shops: (Shop & { category?: Category })[];
   coupons?: (Coupon & { shop?: Shop })[];
 }) {
+  const [, navigate] = useLocation();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const userMarkerRef = useRef<any>(null);
@@ -774,11 +810,35 @@ function NearbyMapPanel({
           </div>
 
           {/* Leaflet Map area */}
-          <div
-            ref={mapContainerRef}
-            className="w-full shrink-0"
-            style={{ height: "55vw", maxHeight: "360px", minHeight: "240px" }}
-          />
+          <div className="relative w-full shrink-0" style={{ height: "55vw", maxHeight: "360px", minHeight: "240px" }}>
+            <div ref={mapContainerRef} className="absolute inset-0" />
+            {/* Locate Me button */}
+            <button
+              onClick={() => {
+                if (userPos && mapRef.current) {
+                  mapRef.current.flyTo([userPos.lat, userPos.lng], 16, { animate: true, duration: 0.8 });
+                } else {
+                  navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                      const { latitude: lat, longitude: lng } = pos.coords;
+                      if (mapRef.current) mapRef.current.flyTo([lat, lng], 16, { animate: true, duration: 0.8 });
+                    },
+                    () => {}
+                  );
+                }
+              }}
+              data-testid="button-locate-me"
+              title="Go to my location"
+              className="absolute right-3 top-3 z-[1000] flex items-center justify-center w-10 h-10 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95"
+              style={{
+                background: "linear-gradient(135deg,#3b82f6,#8b5cf6)",
+                boxShadow: "0 4px 20px rgba(59,130,246,0.5)",
+                border: "1.5px solid rgba(255,255,255,0.3)",
+              }}
+            >
+              <LocateFixed className="w-5 h-5 text-white" />
+            </button>
+          </div>
 
           {/* Empty state — no map links at all */}
           {linkedShops.length === 0 && (
@@ -803,11 +863,10 @@ function NearbyMapPanel({
                 const hasActiveCoupon = shopCoupons.length > 0;
                 const borderColor = hasActiveCoupon ? "#fbbf2466" : `${shop.color}33`;
                 return (
-                  <button
+                  <div
                     key={shop.id}
-                    onClick={() => { window.open(shop.map_link!, "_blank"); }}
                     data-testid={`button-map-shop-${shop.id}`}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-left"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors"
                     style={{
                       border: `1px solid ${borderColor}`,
                       background: hasActiveCoupon ? "rgba(251,191,36,0.05)" : "transparent",
@@ -815,22 +874,26 @@ function NearbyMapPanel({
                   >
                     {/* Coupon ticket icon */}
                     <div
-                      className="shrink-0 flex items-center justify-center w-11 h-8 rounded-md border relative"
+                      className="shrink-0 flex items-center justify-center w-11 h-8 rounded-md border relative cursor-pointer"
                       style={{
                         background: hasActiveCoupon ? "linear-gradient(135deg,#f59e0b,#d97706)" : shop.color,
                         boxShadow: hasActiveCoupon ? "0 0 14px #fbbf24aa" : `0 0 10px ${shop.color}66`,
                         borderColor: hasActiveCoupon ? "#fef08a" : "rgba(255,255,255,0.2)",
                       }}
+                      onClick={() => { onClose(); navigate(`/shop/${shop.id}`); }}
                     >
                       <div className="absolute -left-1 w-2 h-2 rounded-full bg-black/50" />
                       <div className="absolute -right-1 w-2 h-2 rounded-full bg-black/50" />
                       <span className="text-white text-[9px] font-black leading-none text-center px-1">
-                        {hasActiveCoupon ? "🏷️" : ((shop as any).category?.name?.slice(0, 3).toUpperCase() || "MAP")}
+                        {hasActiveCoupon ? "🏷️" : getCategoryIcon((shop as any).category?.name || "")}
                       </span>
                     </div>
 
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
+                    {/* Info — clicking opens shop page */}
+                    <div
+                      className="flex-1 min-w-0 cursor-pointer"
+                      onClick={() => { onClose(); navigate(`/shop/${shop.id}`); }}
+                    >
                       <p className="text-white text-sm font-semibold truncate">{shop.name}</p>
                       {hasActiveCoupon ? (
                         <div className="flex flex-wrap gap-1 mt-0.5">
@@ -852,23 +915,31 @@ function NearbyMapPanel({
                       )}
                     </div>
 
-                    {/* Live distance or navigate */}
-                    <div className="shrink-0 text-right">
-                      {shop.hasCoords && dist != null ? (
-                        <>
-                          <span
-                            className="text-sm font-bold"
-                            style={{ color: hasActiveCoupon ? "#fbbf24" : shop.color }}
-                          >
-                            {formatDist(dist)}
-                          </span>
-                          <p className="text-white/30 text-[9px]">away</p>
-                        </>
-                      ) : (
-                        <span className="text-white/30 text-xs">Navigate →</span>
+                    {/* Right side: distance + separate Navigate button */}
+                    <div className="shrink-0 flex flex-col items-end gap-1">
+                      {shop.hasCoords && dist != null && (
+                        <span
+                          className="text-xs font-bold"
+                          style={{ color: hasActiveCoupon ? "#fbbf24" : shop.color }}
+                        >
+                          {formatDist(dist)}
+                        </span>
                       )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); window.open(shop.map_link!, "_blank"); }}
+                        data-testid={`button-navigate-shop-${shop.id}`}
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold transition-all hover:scale-105 active:scale-95"
+                        style={{
+                          background: "linear-gradient(135deg,#3b82f6,#8b5cf6)",
+                          color: "white",
+                          boxShadow: "0 2px 8px rgba(59,130,246,0.4)",
+                        }}
+                      >
+                        <Navigation className="w-3 h-3" />
+                        Nav
+                      </button>
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
