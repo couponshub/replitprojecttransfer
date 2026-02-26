@@ -12,9 +12,45 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
   ArrowLeft, Crown, MapPin, Phone, ShoppingCart, Tag, Copy, Check,
-  Plus, Minus, Globe, ExternalLink, ChevronLeft, ChevronRight, Zap
+  Plus, Minus, Globe, ChevronLeft, ChevronRight, Zap, Package
 } from "lucide-react";
 import type { Category, Shop, Product, Coupon } from "@shared/schema";
+
+interface CouponProduct {
+  id: string;
+  coupon_id: string;
+  product_id: string;
+  custom_price: string;
+  product?: Product;
+}
+
+function CouponProductsList({ couponId }: { couponId: string }) {
+  const { data: cpItems = [], isLoading } = useQuery<CouponProduct[]>({
+    queryKey: [`/api/coupons/${couponId}/products`],
+  });
+
+  if (isLoading) return <div className="h-4 w-full bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />;
+  if (cpItems.length === 0) return null;
+
+  return (
+    <div className="mt-1">
+      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Included Items</p>
+      <div className="flex flex-col gap-1.5">
+        {cpItems.map(cp => (
+          <div key={cp.id} className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800/60 rounded-xl px-3 py-1.5">
+            <Package className="w-3.5 h-3.5 text-violet-500 shrink-0" />
+            <span className="text-xs font-medium text-gray-800 dark:text-gray-200 truncate flex-1">{cp.product?.name || "Product"}</span>
+            {parseFloat(cp.custom_price) === 0 ? (
+              <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded-md">FREE</span>
+            ) : (
+              <span className="text-[10px] font-bold text-blue-600">₹{parseFloat(cp.custom_price).toLocaleString()}</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function ShopPage() {
   const { id } = useParams<{ id: string }>();
@@ -65,23 +101,31 @@ export default function ShopPage() {
       navigate("/login");
       return;
     }
-    if (itemCount === 0) {
-      toast({ title: "Add items to cart first, then claim the coupon!", variant: "destructive" });
-      return;
-    }
     setClaimingCoupon(coupon.id);
     try {
       const result = await apiRequest("POST", "/api/coupons/validate", { code: coupon.code, shopId: id });
-      if (result.items_to_add && result.items_to_add.length > 0) {
+
+      const hasItemsToAdd = result.items_to_add && result.items_to_add.length > 0;
+
+      if (!hasItemsToAdd && itemCount === 0) {
+        toast({ title: "Add items to cart first, then claim the coupon!", variant: "destructive" });
+        setClaimingCoupon(null);
+        return;
+      }
+
+      if (hasItemsToAdd) {
         addItems(result.items_to_add.map((item: any) => ({
           id: item.id, name: item.name, price: item.price,
           shop_id: item.shop_id, shopName: item.shopName, isFreeItem: item.isFreeItem ?? false,
         })));
       }
+
       const parts: string[] = [];
       if (result.type === "percentage" && parseFloat(result.value) > 0) parts.push(`${result.value}% off`);
       if (result.type === "flat" && parseFloat(result.value) > 0) parts.push(`₹${result.value} off`);
       if (result.items_to_add?.some((i: any) => i.isFreeItem)) parts.push("free item added");
+      if (hasItemsToAdd && !result.items_to_add?.some((i: any) => i.isFreeItem)) parts.push(`${result.items_to_add.length} item${result.items_to_add.length > 1 ? "s" : ""} added`);
+
       sessionStorage.setItem("pendingCoupon", JSON.stringify({ code: result.code, type: result.type, value: result.value, items_to_add: result.items_to_add }));
       toast({ title: `✓ Coupon "${coupon.code}" applied!`, description: parts.join(" • ") || "Coupon applied to cart" });
       setTimeout(() => navigate("/cart"), 800);
@@ -195,7 +239,6 @@ export default function ShopPage() {
                     <span>{shop.address}</span>
                   </div>
                 )}
-                {/* Map & Website buttons */}
                 {(shop.map_link || shop.website_link) && (
                   <div className="flex flex-wrap gap-2 mt-4">
                     {shop.map_link && (
@@ -229,7 +272,7 @@ export default function ShopPage() {
           )}
         </div>
 
-        {/* Coupons with Claim */}
+        {/* Coupons */}
         {activeCoupons.length > 0 && (
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4">
@@ -252,6 +295,10 @@ export default function ShopPage() {
                         coupon.type === "flat" ? "bg-emerald-100 text-emerald-700" : "bg-violet-100 text-violet-700"
                       }`}>{coupon.type.replace("_", " ")}</Badge>
                     </div>
+
+                    {/* Products attached to this coupon */}
+                    <CouponProductsList couponId={coupon.id} />
+
                     <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800 rounded-xl px-3 py-2">
                       <code className="font-bold text-sm tracking-wider text-gray-900 dark:text-white">{coupon.code}</code>
                       <button onClick={() => copyCode(coupon.code)} className="text-primary" data-testid={`button-copy-coupon-${coupon.id}`}>
@@ -301,7 +348,6 @@ export default function ShopPage() {
                 const qty = getItemQuantity(product.id);
                 const imgs = (product as any).images;
                 const firstImg = (imgs && imgs.length > 0) ? imgs[0] : product.image;
-                const prodCoupons = shopCoupons.filter(c => c.is_active);
                 return (
                   <Card key={product.id} className="rounded-2xl border-0 shadow-md overflow-hidden flex flex-col" data-testid={`card-product-${product.id}`}>
                     <div className="h-36 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 relative overflow-hidden">
