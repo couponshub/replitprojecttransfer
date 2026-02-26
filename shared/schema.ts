@@ -43,6 +43,7 @@ export const shops = pgTable("shops", {
   subscription_active: boolean("subscription_active").notNull().default(true),
   featured: boolean("featured").notNull().default(false),
   listing_type: text("listing_type").notNull().default("both"),
+  business_hours: text("business_hours"),
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -58,6 +59,7 @@ export const products = pgTable("products", {
   grams: text("grams"),
   quantity: text("quantity"),
   size: text("size"),
+  is_active: boolean("is_active").notNull().default(true),
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });
 

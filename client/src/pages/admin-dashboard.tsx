@@ -996,6 +996,11 @@ export default function AdminDashboard() {
                         <Label className="text-sm">Address</Label>
                         <Input value={formData.address || ""} onChange={e => setForm("address", e.target.value)} className="mt-1.5 rounded-xl" placeholder="Full address..." data-testid="input-shop-address" />
                       </div>
+                      <div>
+                        <Label className="text-sm">Business Hours</Label>
+                        <Input value={(formData as any).business_hours || ""} onChange={e => setForm("business_hours", e.target.value)} className="mt-1.5 rounded-xl" placeholder="e.g. 09:00-22:00 or Mon-Sat 10:00-21:00" data-testid="input-shop-business-hours" />
+                        <p className="text-[11px] text-muted-foreground mt-1">Orders outside hours will be blocked. Format: HH:MM-HH:MM</p>
+                      </div>
                     </div>
 
                     <div className="flex flex-col gap-4">
@@ -1180,7 +1185,16 @@ export default function AdminDashboard() {
                               </p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1 shrink-0">
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              onClick={() => saveMutation.mutate({ type: "products", data: { is_active: !(prod as any).is_active }, id: prod.id })}
+                              className={`relative w-10 h-5.5 rounded-full transition-colors shrink-0 focus:outline-none ${(prod as any).is_active !== false ? "bg-emerald-500" : "bg-gray-300 dark:bg-gray-600"}`}
+                              title={(prod as any).is_active !== false ? "Active — click to deactivate" : "Inactive — click to activate"}
+                              data-testid={`toggle-product-active-${prod.id}`}
+                              style={{ minWidth: 36, height: 22 }}
+                            >
+                              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${(prod as any).is_active !== false ? "translate-x-[18px]" : "translate-x-0.5"}`} />
+                            </button>
                             <Button size="icon" variant="ghost" className="rounded-xl h-9 w-9" onClick={() => openEdit(prod)} data-testid={`button-edit-product-${prod.id}`}><Edit className="w-4 h-4" /></Button>
                             <Button size="icon" variant="ghost" className="rounded-xl h-9 w-9" onClick={() => deleteMutation.mutate({ type: "products", id: prod.id })} data-testid={`button-delete-product-${prod.id}`}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                           </div>
@@ -1348,7 +1362,31 @@ export default function AdminDashboard() {
                               {typeLabel[coupon.type] || coupon.type} &middot; {coupon.shop?.name}
                             </p>
                           </div>
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex flex-col items-center gap-0.5">
+                              <button
+                                onClick={() => saveMutation.mutate({ type: "coupons", data: { is_active: !coupon.is_active }, id: coupon.id })}
+                                className={`relative rounded-full transition-colors focus:outline-none ${coupon.is_active ? "bg-emerald-500" : "bg-gray-300 dark:bg-gray-600"}`}
+                                title={coupon.is_active ? "Live — click to pause" : "Paused — click to activate"}
+                                data-testid={`toggle-coupon-live-${coupon.id}`}
+                                style={{ minWidth: 36, height: 22 }}
+                              >
+                                <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${coupon.is_active ? "translate-x-[18px]" : "translate-x-0.5"}`} />
+                              </button>
+                              <span className="text-[9px] text-muted-foreground">{coupon.is_active ? "Live" : "Off"}</span>
+                            </div>
+                            <div className="flex flex-col items-center gap-0.5">
+                              <button
+                                onClick={() => saveMutation.mutate({ type: "coupons", data: { featured: !(coupon as any).featured }, id: coupon.id })}
+                                className={`relative rounded-full transition-colors focus:outline-none ${(coupon as any).featured ? "bg-violet-500" : "bg-gray-300 dark:bg-gray-600"}`}
+                                title={(coupon as any).featured ? "Top — click to unfeature" : "Not featured — click to feature"}
+                                data-testid={`toggle-coupon-featured-${coupon.id}`}
+                                style={{ minWidth: 36, height: 22 }}
+                              >
+                                <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${(coupon as any).featured ? "translate-x-[18px]" : "translate-x-0.5"}`} />
+                              </button>
+                              <span className="text-[9px] text-muted-foreground">Top</span>
+                            </div>
                             <Button size="icon" variant="ghost" className="rounded-xl h-9 w-9" onClick={() => openEdit(coupon)} data-testid={`button-edit-coupon-${coupon.id}`}><Edit className="w-4 h-4" /></Button>
                             <Button size="icon" variant="ghost" className="rounded-xl h-9 w-9" onClick={() => deleteMutation.mutate({ type: "coupons", id: coupon.id })} data-testid={`button-delete-coupon-${coupon.id}`}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                           </div>

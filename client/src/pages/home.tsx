@@ -6,8 +6,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Crown, ChevronRight, Star, MapPin, Percent, ChevronLeft, Search, Mic, X, LocateFixed, Navigation } from "lucide-react";
+import { Crown, ChevronRight, Star, MapPin, Percent, ChevronLeft, Search, Mic, X, LocateFixed, Navigation, Zap } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useCart } from "@/lib/cart";
+import { useAuth } from "@/lib/auth";
+import { apiRequest } from "@/lib/queryClient";
 import type { Category, Shop, Coupon, Banner, Product } from "@shared/schema";
 
 type BannerWithCoupon = Banner & { coupon?: Coupon & { shop?: Shop } };
@@ -483,6 +486,12 @@ function ShopCard({ shop }: { shop: Shop & { category?: Category } }) {
 }
 
 function CouponCard({ coupon }: { coupon: Coupon & { shop?: Shop } }) {
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const { addItems } = useCart();
+  const { isAuthenticated } = useAuth();
+  const [claiming, setClaiming] = useState(false);
+
   const typeColors: Record<string, string> = {
     percentage: "from-blue-500 to-cyan-500",
     flat: "from-emerald-500 to-teal-500",
@@ -491,37 +500,75 @@ function CouponCard({ coupon }: { coupon: Coupon & { shop?: Shop } }) {
   };
   const typeIcons: Record<string, string> = { percentage: "🏷️", flat: "💰", free_item: "🎁", flash: "⚡" };
 
+  const handleClaim = async () => {
+    if (!isAuthenticated) {
+      toast({ title: "Please sign in to claim coupons", variant: "destructive" });
+      navigate("/login");
+      return;
+    }
+    setClaiming(true);
+    try {
+      const result = await apiRequest("POST", "/api/coupons/validate", { code: coupon.code, shopId: coupon.shop_id });
+      if (result.items_to_add?.length > 0) {
+        addItems(result.items_to_add.map((item: any) => ({
+          id: item.id, name: item.name, price: item.price,
+          shop_id: item.shop_id, shopName: item.shopName, isFreeItem: item.isFreeItem ?? false,
+        })));
+      }
+      sessionStorage.setItem("pendingCoupon", JSON.stringify({ code: result.code, type: result.type, value: result.value, items_to_add: result.items_to_add }));
+      const desc = result.type === "percentage" ? `${result.value}% off` : result.type === "flat" ? `₹${result.value} off` : "free item added";
+      toast({ title: `✓ Coupon "${coupon.code}" claimed!`, description: desc });
+      setTimeout(() => navigate("/cart"), 700);
+    } catch (err: any) {
+      toast({ title: err.message || "Could not claim coupon", variant: "destructive" });
+    } finally {
+      setClaiming(false);
+    }
+  };
+
   return (
     <div className={`relative rounded-2xl bg-gradient-to-br ${typeColors[coupon.type] || "from-blue-500 to-violet-500"} p-0.5 shadow-lg`} data-testid={`card-coupon-${coupon.id}`}>
-      <div className="rounded-[calc(1rem-2px)] bg-white dark:bg-gray-900 p-4">
-        <div className="flex items-start justify-between mb-3">
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-lg">{typeIcons[coupon.type]}</span>
-              <span className="font-bold text-lg text-gray-900 dark:text-white">
-                {coupon.type === "percentage" ? `${coupon.value}% OFF` : coupon.type === "flat" ? `₹${coupon.value} OFF` : "FREE ITEM"}
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5">{coupon.shop?.name || "All Shops"}</p>
-          </div>
-          <Badge className={`bg-gradient-to-r ${typeColors[coupon.type]} text-white border-0 text-xs capitalize`}>
-            {coupon.type}
-          </Badge>
+      <div className="rounded-[calc(1rem-2px)] bg-white dark:bg-gray-900 p-4 flex flex-col gap-3">
+        {/* Shop info row */}
+        <div className="flex items-center gap-2">
+          {coupon.shop?.logo ? (
+            <img src={coupon.shop.logo} alt={coupon.shop.name} className="w-8 h-8 rounded-xl object-cover border border-gray-100 dark:border-gray-800 shrink-0" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+          ) : coupon.shop ? (
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm shrink-0">{coupon.shop.name[0]}</div>
+          ) : null}
+          <span className="text-xs font-semibold text-muted-foreground truncate">{coupon.shop?.name || "All Shops"}</span>
+          <Badge className={`bg-gradient-to-r ${typeColors[coupon.type]} text-white border-0 text-[10px] capitalize ml-auto shrink-0`}>{coupon.type.replace("_", " ")}</Badge>
         </div>
+
+        {/* Value */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-lg leading-none">{typeIcons[coupon.type]}</span>
+          <span className="font-bold text-xl text-gray-900 dark:text-white">
+            {coupon.type === "percentage" ? `${coupon.value}% OFF` : coupon.type === "flat" ? `₹${coupon.value} OFF` : "FREE ITEM"}
+          </span>
+        </div>
+
+        {/* Code row */}
         <div className="bg-gray-100 dark:bg-gray-800 rounded-lg px-3 py-2 flex items-center justify-between">
           <code className="text-sm font-bold text-gray-900 dark:text-white tracking-wider">{coupon.code}</code>
-          <button
-            onClick={() => navigator.clipboard.writeText(coupon.code)}
-            className="text-xs text-primary font-medium"
-          >
-            Copy
-          </button>
+          <button onClick={() => navigator.clipboard.writeText(coupon.code)} className="text-xs text-primary font-medium">Copy</button>
         </div>
+
         {coupon.expiry_date && (
-          <p className="text-xs text-muted-foreground mt-2">
-            Expires {new Date(coupon.expiry_date).toLocaleDateString()}
-          </p>
+          <p className="text-xs text-muted-foreground">Expires {new Date(coupon.expiry_date).toLocaleDateString()}</p>
         )}
+
+        {/* Claim button */}
+        <Button
+          size="sm"
+          onClick={handleClaim}
+          disabled={claiming}
+          className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 border-0 gap-1.5 text-white"
+          data-testid={`button-claim-coupon-${coupon.id}`}
+        >
+          <Zap className="w-3.5 h-3.5" />
+          {claiming ? "Claiming..." : "Claim Offer →"}
+        </Button>
       </div>
     </div>
   );
@@ -1163,24 +1210,32 @@ export default function Home() {
         )}
       </div>
 
-      {/* Active Coupons */}
+      {/* Top Coupons */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 pb-16">
-        <div className="flex items-center gap-2 mb-6">
-          <Percent className="w-5 h-5 text-emerald-500" />
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Active Coupons</h2>
-          <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 border-0 ml-1">
-            {activeCoupons.length} live
-          </Badge>
-        </div>
-        {couponLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {Array(8).fill(0).map((_, i) => <Skeleton key={i} className="h-36 rounded-2xl" />)}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {activeCoupons.map(coupon => <CouponCard key={coupon.id} coupon={coupon} />)}
-          </div>
-        )}
+        {(() => {
+          const featured = activeCoupons.filter(c => (c as any).featured);
+          const topCoupons = featured.length > 0 ? featured : activeCoupons;
+          return (
+            <>
+              <div className="flex items-center gap-2 mb-6">
+                <Percent className="w-5 h-5 text-emerald-500" />
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Top Coupons</h2>
+                <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 border-0 ml-1">
+                  {topCoupons.length} live
+                </Badge>
+              </div>
+              {couponLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {Array(8).fill(0).map((_, i) => <Skeleton key={i} className="h-44 rounded-2xl" />)}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {topCoupons.map(coupon => <CouponCard key={coupon.id} coupon={coupon} />)}
+                </div>
+              )}
+            </>
+          );
+        })()}
       </div>
     </div>
   );

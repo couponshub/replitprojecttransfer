@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
   ArrowLeft, Crown, MapPin, Phone, ShoppingCart, Tag, Copy, Check,
-  Plus, Minus, Globe, ChevronLeft, ChevronRight, Zap, Package
+  Plus, Minus, Globe, ChevronLeft, ChevronRight, Zap, Package, Clock
 } from "lucide-react";
 import type { Category, Shop, Product, Coupon } from "@shared/schema";
 
@@ -50,6 +50,24 @@ function CouponProductsList({ couponId }: { couponId: string }) {
       </div>
     </div>
   );
+}
+
+function parseBusinessHours(hours: string | null | undefined): { open: number; close: number } | null {
+  if (!hours) return null;
+  const match = hours.match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+  return {
+    open: parseInt(match[1]) * 60 + parseInt(match[2]),
+    close: parseInt(match[3]) * 60 + parseInt(match[4]),
+  };
+}
+
+function isShopOpen(hours: string | null | undefined): boolean {
+  const parsed = parseBusinessHours(hours);
+  if (!parsed) return true;
+  const now = new Date();
+  const currentMins = now.getHours() * 60 + now.getMinutes();
+  return currentMins >= parsed.open && currentMins < parsed.close;
 }
 
 export default function ShopPage() {
@@ -171,6 +189,8 @@ export default function ShopPage() {
   if (!shop) return null;
 
   const activeCoupons = shopCoupons.filter(c => c.is_active);
+  const shopHours = (shop as any).business_hours as string | null | undefined;
+  const shopOpen = isShopOpen(shopHours);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-28">
@@ -237,6 +257,15 @@ export default function ShopPage() {
                   <div className="flex items-start gap-2 mt-4 text-sm text-muted-foreground">
                     <MapPin className="w-4 h-4 shrink-0 mt-0.5" />
                     <span>{shop.address}</span>
+                  </div>
+                )}
+                {shopHours && (
+                  <div className="flex items-center gap-2 mt-3">
+                    <Clock className="w-4 h-4 shrink-0 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">{shopHours}</span>
+                    <Badge className={`border-0 text-xs px-2 ${shopOpen ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"}`} data-testid="badge-shop-status">
+                      {shopOpen ? "Open Now" : "Closed"}
+                    </Badge>
                   </div>
                 )}
                 {(shop.map_link || shop.website_link) && (
@@ -327,12 +356,17 @@ export default function ShopPage() {
 
         {/* Products / Services */}
         <div>
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
             <ShoppingCart className="w-5 h-5 text-primary" />
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">
               {(shop as any)?.listing_type === "products" ? "Products" : (shop as any)?.listing_type === "services" ? "Services" : "Products & Services"}
             </h2>
             <Badge className="bg-primary/10 text-primary border-0">{shopProducts.length}</Badge>
+            {shopHours && !shopOpen && (
+              <Badge className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-0 gap-1 ml-auto">
+                <Clock className="w-3 h-3" /> Ordering paused — Shop is closed
+              </Badge>
+            )}
           </div>
           {prodLoading ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
@@ -383,7 +417,9 @@ export default function ShopPage() {
                           <span className="text-xs text-blue-600 font-semibold">Service</span>
                         )}
                         {!isService && (
-                          qty > 0 ? (
+                          shopHours && !shopOpen ? (
+                            <Button size="sm" disabled className="rounded-xl h-8 px-3 text-xs opacity-50" data-testid={`button-add-cart-${product.id}`}>Closed</Button>
+                          ) : qty > 0 ? (
                             <div className="flex items-center gap-2">
                               <button onClick={() => updateQuantity(product.id, qty - 1)} className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center" data-testid={`button-decrease-${product.id}`}><Minus className="w-3 h-3" /></button>
                               <span className="text-sm font-medium w-4 text-center">{qty}</span>

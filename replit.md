@@ -15,9 +15,9 @@ A full-stack marketplace web application for discovering and using coupons from 
 ### Database Tables
 - `users` - Admin and user accounts (role: admin | user, supports phone field)
 - `categories` - Shop categories (Food, Fashion, Electronics, etc.)
-- `shops` - Marketplace shops with premium/featured flags, listing_type (products/services/both)
-- `products` - Products within shops
-- `coupons` - Discount coupons (percentage, flat, free_item, flash types)
+- `shops` - Marketplace shops with premium/featured flags, listing_type (products/services/both), business_hours (format: HH:MM-HH:MM)
+- `products` - Products within shops (is_active toggle supported)
+- `coupons` - Discount coupons (percentage, flat, free_item, flash types) with is_active + featured flags
 - `orders` - Customer orders (pending, confirmed, completed)
 - `order_items` - Line items within orders
 - `vendors` - Vendor login accounts (one per shop, separate JWT auth via VENDOR_SECRET)
