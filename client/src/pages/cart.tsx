@@ -191,7 +191,7 @@ export default function CartPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Navbar />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1 as any)} className="mb-4 -ml-2" data-testid="button-back">
+        <Button variant="ghost" size="sm" onClick={() => shopId ? navigate(`/shop/${shopId}`) : navigate("/home")} className="mb-4 -ml-2" data-testid="button-back">
           <ArrowLeft className="w-4 h-4 mr-1" /> Continue Shopping
         </Button>
 

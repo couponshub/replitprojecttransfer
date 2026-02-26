@@ -32,13 +32,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addItem = (item: Omit<CartItem, "quantity">) => {
     setItems(prev => {
-      if (shopId && item.shop_id !== shopId) {
-        const confirm = window.confirm("Adding items from a different shop will clear your current cart. Continue?");
-        if (!confirm) return prev;
-        const existing = prev.find(i => i.id === item.id);
-        if (existing) {
-          return [{ ...existing, quantity: existing.quantity + 1 }];
-        }
+      if (prev.length > 0 && item.shop_id !== prev[0].shop_id) {
+        // Different shop — silently clear previous cart and start fresh
         return [{ ...item, quantity: 1 }];
       }
       const existing = prev.find(i => i.id === item.id);
