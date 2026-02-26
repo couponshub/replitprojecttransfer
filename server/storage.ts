@@ -1,6 +1,6 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, ilike, or } from "drizzle-orm";
 import * as schema from "@shared/schema";
 import {
   type User, type InsertUser,
@@ -85,6 +85,9 @@ export interface IStorage {
   createBanner(banner: InsertBanner): Promise<Banner>;
   updateBanner(id: string, banner: Partial<InsertBanner>): Promise<Banner | undefined>;
   deleteBanner(id: string): Promise<void>;
+
+  // Search
+  search(query: string): Promise<{ shops: (Shop & { category?: Category })[]; products: (Product & { shop?: Shop })[]; coupons: (Coupon & { shop?: Shop })[] }>;
 
   // Stats
   getStats(): Promise<{ users: number; categories: number; shops: number; products: number; orders: number; coupons: number; vendors: number }>;
@@ -429,6 +432,23 @@ export class PgStorage implements IStorage {
       .orderBy(desc(coupons.created_at))
       .limit(6);
     return result.map(r => ({ ...r.coupons, shop: r.shops || undefined }));
+  }
+
+  async search(query: string): Promise<{ shops: (Shop & { category?: Category })[]; products: (Product & { shop?: Shop })[]; coupons: (Coupon & { shop?: Shop })[] }> {
+    const q = `%${query}%`;
+    const [shopRows, productRows, couponRows] = await Promise.all([
+      db.select().from(shops).leftJoin(categories, eq(shops.category_id, categories.id))
+        .where(or(ilike(shops.name, q), ilike(shops.description, q))).limit(8),
+      db.select().from(products).leftJoin(shops, eq(products.shop_id, shops.id))
+        .where(or(ilike(products.name, q), ilike(products.description, q))).limit(8),
+      db.select().from(coupons).leftJoin(shops, eq(coupons.shop_id, shops.id))
+        .where(and(eq(coupons.is_active, true), ilike(coupons.code, q))).limit(8),
+    ]);
+    return {
+      shops: shopRows.map(r => ({ ...r.shops, category: r.categories || undefined })),
+      products: productRows.map(r => ({ ...r.products, shop: r.shops || undefined })),
+      coupons: couponRows.map(r => ({ ...r.coupons, shop: r.shops || undefined })),
+    };
   }
 }
 

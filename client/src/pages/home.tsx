@@ -6,9 +6,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Crown, Tag, ChevronRight, Star, MapPin, Zap, Percent, Flame, ChevronLeft } from "lucide-react";
+import { Crown, Tag, ChevronRight, Star, MapPin, Zap, Percent, Flame, ChevronLeft, Search, Mic, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { Category, Shop, Coupon, Banner } from "@shared/schema";
+import type { Category, Shop, Coupon, Banner, Product } from "@shared/schema";
 
 type BannerWithCoupon = Banner & { coupon?: Coupon & { shop?: Shop } };
 
@@ -53,7 +53,6 @@ function BannerSlider({ banners }: { banners: BannerWithCoupon[] }) {
   return (
     <div className="w-full bg-black" data-testid="section-banners">
       <div className="relative max-w-7xl mx-auto overflow-hidden" style={{ aspectRatio: "16/6.5" }}>
-        {/* Slides */}
         <div
           className="flex h-full transition-transform duration-500 ease-in-out"
           style={{ transform: `translateX(-${current * 100}%)`, width: `${banners.length * 100}%` }}
@@ -86,7 +85,6 @@ function BannerSlider({ banners }: { banners: BannerWithCoupon[] }) {
           ))}
         </div>
 
-        {/* Prev/Next arrows */}
         {banners.length > 1 && (
           <>
             <button
@@ -106,7 +104,6 @@ function BannerSlider({ banners }: { banners: BannerWithCoupon[] }) {
           </>
         )}
 
-        {/* Dot indicators */}
         {banners.length > 1 && (
           <div className="absolute bottom-3 right-4 flex gap-1.5">
             {banners.map((_, i) => (
@@ -117,6 +114,278 @@ function BannerSlider({ banners }: { banners: BannerWithCoupon[] }) {
                 data-testid={`button-banner-dot-${i}`}
               />
             ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+type SearchResults = {
+  shops: (Shop & { category?: Category })[];
+  products: (Product & { shop?: Shop })[];
+  coupons: (Coupon & { shop?: Shop })[];
+};
+
+const FLOAT_POSITIONS = [
+  { top: "-36px", left: "4%" },
+  { top: "-44px", left: "18%" },
+  { top: "-38px", left: "36%" },
+  { top: "-42px", left: "54%" },
+  { top: "-36px", right: "22%" },
+  { top: "-40px", right: "6%" },
+  { bottom: "-34px", left: "12%" },
+  { bottom: "-38px", right: "18%" },
+];
+
+const FLOAT_COLORS = [
+  "from-blue-500 to-cyan-500",
+  "from-violet-500 to-purple-600",
+  "from-emerald-500 to-teal-500",
+  "from-orange-500 to-red-500",
+  "from-pink-500 to-rose-500",
+  "from-amber-500 to-yellow-400",
+  "from-indigo-500 to-blue-600",
+  "from-teal-500 to-emerald-400",
+];
+
+function SearchBar({ activeCoupons }: { activeCoupons: (Coupon & { shop?: Shop })[] }) {
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 380);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const { data: results, isLoading: searching } = useQuery<SearchResults>({
+    queryKey: ["/api/search", debouncedQuery],
+    enabled: debouncedQuery.trim().length >= 2,
+    queryFn: () => fetch(`/api/search?q=${encodeURIComponent(debouncedQuery.trim())}`).then(r => r.json()),
+  });
+
+  const startVoice = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast({ title: "Voice search not supported", description: "Try typing your search instead." });
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-IN";
+    recognition.interimResults = false;
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onresult = (e: any) => {
+      const transcript = e.results[0][0].transcript;
+      setQuery(transcript);
+      setOpen(true);
+      inputRef.current?.focus();
+    };
+    recognition.onerror = () => { setIsListening(false); };
+    recognition.start();
+  };
+
+  const hasResults = results && (results.shops.length > 0 || results.products.length > 0 || results.coupons.length > 0);
+  const totalResults = results ? results.shops.length + results.products.length + results.coupons.length : 0;
+
+  return (
+    <div className="relative max-w-3xl mx-auto px-4 sm:px-6 z-30 -mt-5 mb-4">
+      <div ref={containerRef} className="relative">
+
+        {/* Floating coupon chips */}
+        <div className="absolute inset-0 pointer-events-none" style={{ overflow: "visible" }}>
+          {activeCoupons.slice(0, 8).map((c, i) => (
+            <div
+              key={c.id}
+              className="absolute coupon-float"
+              style={{
+                ...FLOAT_POSITIONS[i % FLOAT_POSITIONS.length],
+                animationDelay: `${i * 0.45}s`,
+                animationDuration: `${2.4 + i * 0.25}s`,
+              }}
+            >
+              <span
+                className={`inline-flex items-center gap-1 bg-gradient-to-r ${FLOAT_COLORS[i % FLOAT_COLORS.length]} text-white text-[10px] sm:text-xs font-bold px-2.5 py-1 rounded-full shadow-xl border border-white/30 whitespace-nowrap backdrop-blur-sm`}
+              >
+                🏷️ {c.code}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Frosted glass search bar */}
+        <div className="relative flex items-center bg-white/88 dark:bg-gray-900/88 backdrop-blur-3xl rounded-2xl shadow-2xl border border-white/60 dark:border-white/10 ring-1 ring-blue-200/60 dark:ring-blue-700/30 transition-all focus-within:ring-2 focus-within:ring-blue-400/50 focus-within:shadow-blue-200/30">
+          <Search className="absolute left-4 w-5 h-5 text-blue-400 dark:text-blue-500 shrink-0" />
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={e => { setQuery(e.target.value); if (e.target.value.length >= 2) setOpen(true); else setOpen(false); }}
+            onFocus={() => { if (query.length >= 2) setOpen(true); }}
+            placeholder="Search shops, products, coupons..."
+            className="w-full pl-12 pr-[4.5rem] py-4 bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 rounded-2xl focus:outline-none text-base font-medium"
+            data-testid="input-search-bar"
+          />
+          {query && (
+            <button
+              onClick={() => { setQuery(""); setDebouncedQuery(""); setOpen(false); }}
+              className="absolute right-14 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
+              data-testid="button-search-clear"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+          <button
+            onClick={startVoice}
+            className={`absolute right-3 w-9 h-9 flex items-center justify-center rounded-xl transition-all shadow-md ${
+              isListening
+                ? "bg-red-500 text-white animate-pulse shadow-red-300"
+                : "bg-gradient-to-br from-blue-500 to-violet-600 text-white hover:opacity-90 shadow-blue-300/50"
+            }`}
+            data-testid="button-voice-search"
+            title={isListening ? "Listening..." : "Voice search"}
+          >
+            <Mic className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Search hint label */}
+        {!open && !query && (
+          <p className="text-center text-xs text-gray-400 dark:text-gray-600 mt-2 font-medium">
+            Search any store, product, service, or coupon code
+          </p>
+        )}
+
+        {/* Results dropdown */}
+        {open && debouncedQuery.trim().length >= 2 && (
+          <div className="absolute top-full left-0 right-0 mt-2 bg-white/96 dark:bg-gray-950/96 backdrop-blur-2xl rounded-2xl shadow-2xl border border-gray-100 dark:border-white/10 overflow-hidden z-50 max-h-[72vh] overflow-y-auto">
+            {searching ? (
+              <div className="p-8 text-center">
+                <div className="inline-block w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                <p className="text-sm text-muted-foreground mt-3">Searching across shops, products & coupons…</p>
+              </div>
+            ) : !hasResults ? (
+              <div className="p-8 text-center">
+                <span className="text-3xl">🔍</span>
+                <p className="text-sm text-muted-foreground mt-2">No results for "<strong>{debouncedQuery}</strong>"</p>
+                <p className="text-xs text-muted-foreground mt-1">Try a different keyword or browse categories below</p>
+              </div>
+            ) : (
+              <div>
+                <div className="px-4 pt-3 pb-1 flex items-center justify-between">
+                  <p className="text-xs font-semibold text-muted-foreground">{totalResults} result{totalResults !== 1 ? "s" : ""} for "<span className="text-blue-500">{debouncedQuery}</span>"</p>
+                  <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="divide-y divide-gray-100 dark:divide-gray-800/60">
+                  {results!.shops.length > 0 && (
+                    <div className="p-3">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-2 mb-2 flex items-center gap-1.5">
+                        <span className="w-4 h-4 rounded bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-600 dark:text-blue-400 text-[9px]">🏪</span>
+                        Shops
+                      </p>
+                      {results!.shops.map(shop => (
+                        <button
+                          key={shop.id}
+                          onClick={() => { navigate(`/shop/${shop.id}`); setOpen(false); setQuery(""); }}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-left group"
+                          data-testid={`search-result-shop-${shop.id}`}
+                        >
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-md">
+                            {shop.name[0]}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">{shop.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{shop.category?.name}{shop.description ? ` · ${shop.description.slice(0, 35)}` : ""}</p>
+                          </div>
+                          {shop.is_premium && <Crown className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {results!.products.length > 0 && (
+                    <div className="p-3">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-2 mb-2 flex items-center gap-1.5">
+                        <span className="w-4 h-4 rounded bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center text-emerald-600 dark:text-emerald-400 text-[9px]">🛍️</span>
+                        Products & Services
+                      </p>
+                      {results!.products.map(product => (
+                        <button
+                          key={product.id}
+                          onClick={() => { navigate(`/shop/${product.shop_id}`); setOpen(false); setQuery(""); }}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors text-left group"
+                          data-testid={`search-result-product-${product.id}`}
+                        >
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-lg shrink-0 shadow-md">
+                            🛍️
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">{product.name}</p>
+                            <p className="text-xs text-muted-foreground">{product.shop?.name} · <span className="font-semibold text-emerald-600 dark:text-emerald-400">₹{product.price}</span></p>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {results!.coupons.length > 0 && (
+                    <div className="p-3">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-2 mb-2 flex items-center gap-1.5">
+                        <span className="w-4 h-4 rounded bg-violet-100 dark:bg-violet-900 flex items-center justify-center text-violet-600 dark:text-violet-400 text-[9px]">🏷️</span>
+                        Coupons
+                      </p>
+                      {results!.coupons.map(coupon => (
+                        <button
+                          key={coupon.id}
+                          onClick={() => {
+                            navigator.clipboard.writeText(coupon.code).catch(() => {});
+                            toast({
+                              title: `🎉 "${coupon.code}" copied!`,
+                              description: coupon.shop ? `Apply at ${coupon.shop.name}` : "Apply at checkout",
+                            });
+                            if (coupon.shop_id) navigate(`/shop/${coupon.shop_id}`);
+                            setOpen(false);
+                            setQuery("");
+                          }}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors text-left group"
+                          data-testid={`search-result-coupon-${coupon.id}`}
+                        >
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white shrink-0 shadow-md">
+                            🏷️
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-sm text-gray-900 dark:text-white tracking-widest font-mono">{coupon.code}</p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {coupon.shop?.name} · {coupon.type === "percentage" ? `${coupon.value}% OFF` : coupon.type === "flat" ? `₹${coupon.value} OFF` : "Free Item"}
+                            </p>
+                          </div>
+                          <span className="text-xs text-primary font-semibold shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">Copy</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -253,7 +522,6 @@ function CouponCard({ coupon }: { coupon: Coupon & { shop?: Shop } }) {
 
 export default function Home() {
   const [, navigate] = useLocation();
-  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: categories = [], isLoading: catLoading } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
@@ -267,25 +535,15 @@ export default function Home() {
     queryKey: ["/api/coupons/active"],
   });
 
-  const { data: allShops = [] } = useQuery<(Shop & { category?: Category })[]>({
-    queryKey: ["/api/shops"],
-  });
-
   const { data: homeBanners = [] } = useQuery<BannerWithCoupon[]>({
     queryKey: ["/api/banners"],
   });
 
-  const filteredShops = searchQuery
-    ? allShops.filter(s =>
-        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.description?.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : [];
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <Navbar onSearch={setSearchQuery} />
+      <Navbar />
 
+      {/* Hero */}
       <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 text-white">
         <div className="absolute inset-0">
           <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
@@ -330,24 +588,16 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Banner slider */}
       {homeBanners.length > 0 && <BannerSlider banners={homeBanners} />}
 
-      {searchQuery && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-            Search results for "{searchQuery}"
-          </h2>
-          {filteredShops.length === 0 ? (
-            <p className="text-muted-foreground">No shops found</p>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {filteredShops.map(shop => <ShopCard key={shop.id} shop={shop} />)}
-            </div>
-          )}
-        </div>
-      )}
+      {/* Search bar with floating coupon animation */}
+      <div className="bg-gray-50 dark:bg-gray-950 pt-8 pb-2">
+        <SearchBar activeCoupons={activeCoupons} />
+      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      {/* Categories */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">Shop by Category</h2>
           <button onClick={() => navigate("/shops")} className="flex items-center gap-1 text-sm font-semibold text-primary hover:underline" data-testid="button-view-all-shops">
@@ -367,6 +617,7 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Featured Shops */}
       <div id="shops-section" className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
@@ -396,6 +647,7 @@ export default function Home() {
         )}
       </div>
 
+      {/* Active Coupons */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 pb-16">
         <div className="flex items-center gap-2 mb-6">
           <Percent className="w-5 h-5 text-emerald-500" />

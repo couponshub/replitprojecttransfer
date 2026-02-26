@@ -286,3 +286,13 @@
     inset: -1px;
   }
 }
+
+@keyframes floatCoupon {
+  0%, 100% { transform: translateY(0px) rotate(-1.5deg) scale(1); opacity: 0.92; }
+  33% { transform: translateY(-7px) rotate(1.5deg) scale(1.04); opacity: 1; }
+  66% { transform: translateY(-4px) rotate(-0.5deg) scale(0.98); opacity: 0.88; }
+}
+
+.coupon-float {
+  animation: floatCoupon 3s ease-in-out infinite;
+}

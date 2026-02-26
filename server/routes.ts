@@ -376,6 +376,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(await storage.getActiveCoupons());
   });
 
+  app.get("/api/search", async (req, res) => {
+    try {
+      const q = String(req.query.q || "").trim();
+      if (q.length < 2) return res.json({ shops: [], products: [], coupons: [] });
+      const results = await storage.search(q);
+      return res.json(results);
+    } catch (err: any) {
+      return res.status(500).json({ shops: [], products: [], coupons: [] });
+    }
+  });
+
   app.post("/api/coupons/validate", authMiddleware, async (req, res) => {
     try {
       const { code, shopId } = req.body;
