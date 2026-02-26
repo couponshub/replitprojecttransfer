@@ -548,10 +548,12 @@ function NearbyMapPanel({
   isOpen,
   onClose,
   shops,
+  coupons = [],
 }: {
   isOpen: boolean;
   onClose: () => void;
   shops: (Shop & { category?: Category })[];
+  coupons?: (Coupon & { shop?: Shop })[];
 }) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
@@ -559,6 +561,7 @@ function NearbyMapPanel({
   const shopMarkersRef = useRef<any[]>([]);
   const watchIdRef = useRef<number | null>(null);
   const mapReadyRef = useRef(false);
+  const firstFixRef = useRef(false);
 
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
   const [distances, setDistances] = useState<Record<string, number>>({});
@@ -587,6 +590,98 @@ function NearbyMapPanel({
     setDistances(d);
   }, [mappableShops]);
 
+  const addOrUpdateUserMarker = useCallback((lat: number, lng: number) => {
+    const L = (window as any).L;
+    if (!L || !mapRef.current) return;
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setLatLng([lat, lng]);
+    } else {
+      const icon = L.divIcon({
+        html: `
+          <div style="position:relative;width:36px;height:36px;">
+            <div style="position:absolute;inset:0;background:rgba(239,68,68,0.25);border-radius:50%;animation:nearbyPing 1.5s ease-out infinite;"></div>
+            <div style="position:absolute;inset:6px;background:rgba(239,68,68,0.4);border-radius:50%;animation:nearbyPing 1.5s ease-out 0.5s infinite;"></div>
+            <div style="position:absolute;inset:10px;background:radial-gradient(circle at 35% 30%,#ff6b6b,#dc2626);border:2.5px solid white;border-radius:50%;box-shadow:0 0 14px rgba(239,68,68,0.9);"></div>
+          </div>`,
+        className: "",
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
+      });
+      userMarkerRef.current = L.marker([lat, lng], { icon, zIndexOffset: 1000 }).addTo(mapRef.current);
+      userMarkerRef.current.bindPopup("<b>📍 You are here</b>");
+    }
+    if (!firstFixRef.current) {
+      firstFixRef.current = true;
+      mapRef.current.setView([lat, lng], 15, { animate: true });
+    }
+  }, []);
+
+  const addShopMarkersToMap = useCallback(() => {
+    const L = (window as any).L;
+    if (!L || !mapRef.current) return;
+    shopMarkersRef.current.forEach(m => m.remove());
+    shopMarkersRef.current = [];
+
+    mappableShops.forEach((shop) => {
+      const shopCoupons = coupons.filter(c => c.shop_id === shop.id);
+      const couponCount = shopCoupons.length;
+      const hasActiveCoupon = couponCount > 0;
+      const couponLabel = hasActiveCoupon
+        ? (shopCoupons[0].type === "percentage"
+            ? `${shopCoupons[0].value}% OFF`
+            : shopCoupons[0].type === "flat"
+            ? `₹${shopCoupons[0].value} OFF`
+            : "FREE")
+        : shop.name.slice(0, 7);
+
+      const glowColor = hasActiveCoupon ? "#fbbf24" : shop.color;
+      const bgColor = hasActiveCoupon
+        ? "linear-gradient(135deg,#f59e0b,#d97706)"
+        : shop.color;
+
+      const icon = L.divIcon({
+        html: `<div style="
+          background:${bgColor};
+          box-shadow:0 0 ${hasActiveCoupon ? "16px" : "10px"} ${glowColor}${hasActiveCoupon ? "cc" : "88"};
+          border:${hasActiveCoupon ? "2px solid #fef08a" : "1.5px solid rgba(255,255,255,0.4)"};
+          border-radius:8px;
+          padding:3px 7px;
+          color:white;
+          font-size:${hasActiveCoupon ? "10px" : "9px"};
+          font-weight:900;
+          white-space:nowrap;
+          cursor:pointer;
+          position:relative;
+          letter-spacing:0.02em;
+        ">
+          <div style="position:absolute;left:-4px;top:50%;transform:translateY(-50%);width:8px;height:8px;background:rgba(0,0,0,0.4);border-radius:50%;"></div>
+          <div style="position:absolute;right:-4px;top:50%;transform:translateY(-50%);width:8px;height:8px;background:rgba(0,0,0,0.4);border-radius:50%;"></div>
+          ${hasActiveCoupon ? "🏷️ " : ""}${couponLabel}
+          ${couponCount > 1 ? `<span style="background:rgba(0,0,0,0.3);border-radius:4px;padding:0 3px;font-size:8px;">+${couponCount - 1}</span>` : ""}
+        </div>`,
+        className: "",
+        iconSize: [hasActiveCoupon ? 100 : 80, 26],
+        iconAnchor: [hasActiveCoupon ? 50 : 40, 13],
+      });
+
+      const popupHtml = `
+        <div style="font-family:sans-serif;min-width:160px;">
+          <b style="font-size:13px;">${shop.name}</b><br>
+          <span style="font-size:11px;color:#666;">${shop.address}</span><br>
+          ${hasActiveCoupon ? `<div style="margin-top:6px;padding:4px 8px;background:#fef3c7;border-radius:6px;font-weight:bold;color:#92400e;font-size:11px;">
+            ${shopCoupons.map(c => `🏷️ ${c.code} · ${c.type === "percentage" ? c.value + "% OFF" : c.type === "flat" ? "₹" + c.value + " OFF" : "FREE ITEM"}`).join("<br>")}
+          </div>` : ""}
+          <div style="margin-top:6px;font-size:11px;color:#3b82f6;font-weight:bold;cursor:pointer;" onclick="window.open('${shop.map_link}','_blank')">📍 Open in Maps →</div>
+        </div>`;
+
+      const m = L.marker([shop.coords.lat, shop.coords.lng], { icon })
+        .addTo(mapRef.current)
+        .bindPopup(popupHtml, { maxWidth: 220 })
+        .on("click", () => { m.openPopup(); });
+      shopMarkersRef.current.push(m);
+    });
+  }, [mappableShops, coupons]);
+
   useEffect(() => {
     if (!isOpen) {
       if (watchIdRef.current !== null) { navigator.geolocation.clearWatch(watchIdRef.current); watchIdRef.current = null; }
@@ -594,35 +689,20 @@ function NearbyMapPanel({
     }
 
     loadLeaflet().then(() => {
-      if (!mapContainerRef.current || mapReadyRef.current) return;
-      const L = (window as any).L;
-      const initialCenter = userPos ? [userPos.lat, userPos.lng] : [17.0025, 81.0028];
-      const map = L.map(mapContainerRef.current, { zoom: 15, center: initialCenter, zoomControl: true });
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-        attribution: "© OpenStreetMap © CARTO",
-        maxZoom: 19,
-        subdomains: "abcd",
-      }).addTo(map);
-      mapRef.current = map;
-      mapReadyRef.current = true;
-
-      mappableShops.forEach((shop) => {
-        const icon = L.divIcon({
-          html: `<div style="background:${shop.color};box-shadow:0 0 10px ${shop.color}99;border:1.5px solid rgba(255,255,255,0.4);border-radius:6px;padding:2px 6px;color:white;font-size:9px;font-weight:900;white-space:nowrap;cursor:pointer;position:relative">
-            <div style="position:absolute;left:-4px;top:50%;transform:translateY(-50%);width:8px;height:8px;background:rgba(0,0,0,0.4);border-radius:50%"></div>
-            <div style="position:absolute;right:-4px;top:50%;transform:translateY(-50%);width:8px;height:8px;background:rgba(0,0,0,0.4);border-radius:50%"></div>
-            ${shop.name.slice(0, 8)}
-          </div>`,
-          className: "",
-          iconSize: [80, 24],
-          iconAnchor: [40, 12],
-        });
-        const m = L.marker([shop.coords.lat, shop.coords.lng], { icon })
-          .addTo(map)
-          .bindPopup(`<b>${shop.name}</b><br>Tap to navigate`)
-          .on("click", () => { window.open(shop.map_link!, "_blank"); });
-        shopMarkersRef.current.push(m);
-      });
+      if (!mapContainerRef.current) return;
+      if (!mapReadyRef.current) {
+        const L = (window as any).L;
+        const map = L.map(mapContainerRef.current, { zoom: 14, center: [17.0025, 81.0028], zoomControl: true });
+        L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+          attribution: "© OpenStreetMap © CARTO",
+          maxZoom: 19,
+          subdomains: "abcd",
+        }).addTo(map);
+        mapRef.current = map;
+        mapReadyRef.current = true;
+        addShopMarkersToMap();
+        if (userPos) addOrUpdateUserMarker(userPos.lat, userPos.lng);
+      }
     });
 
     const watchId = navigator.geolocation.watchPosition(
@@ -630,22 +710,7 @@ function NearbyMapPanel({
         const { latitude: lat, longitude: lng } = pos.coords;
         setUserPos({ lat, lng });
         recalcDistances(lat, lng);
-
-        if (mapRef.current) {
-          const L = (window as any).L;
-          if (userMarkerRef.current) {
-            userMarkerRef.current.setLatLng([lat, lng]);
-          } else if (L) {
-            const icon = L.divIcon({
-              html: `<div style="width:18px;height:18px;background:radial-gradient(circle at 35% 30%,#ff6b6b,#dc2626);border:2.5px solid white;border-radius:50%;box-shadow:0 0 14px rgba(239,68,68,0.9)"></div>`,
-              className: "",
-              iconSize: [18, 18],
-              iconAnchor: [9, 9],
-            });
-            userMarkerRef.current = L.marker([lat, lng], { icon }).addTo(mapRef.current);
-          }
-          if (!mapReadyRef.current) mapRef.current.setView([lat, lng], 15);
-        }
+        addOrUpdateUserMarker(lat, lng);
       },
       () => {},
       { enableHighAccuracy: true, maximumAge: 3000 }
@@ -655,7 +720,11 @@ function NearbyMapPanel({
     return () => {
       if (watchIdRef.current !== null) { navigator.geolocation.clearWatch(watchIdRef.current); watchIdRef.current = null; }
     };
-  }, [isOpen, mappableShops, recalcDistances]);
+  }, [isOpen, addShopMarkersToMap, addOrUpdateUserMarker, recalcDistances]);
+
+  useEffect(() => {
+    if (mapReadyRef.current) addShopMarkersToMap();
+  }, [coupons, addShopMarkersToMap]);
 
   const sortedShops = [...mappableShops].sort((a, b) => (distances[a.id] ?? Infinity) - (distances[b.id] ?? Infinity));
 
@@ -730,35 +799,69 @@ function NearbyMapPanel({
                 ...linkedShops.filter(s => !s.hasCoords),
               ].map((shop) => {
                 const dist = distances[shop.id];
+                const shopCoupons = coupons.filter(c => c.shop_id === shop.id);
+                const hasActiveCoupon = shopCoupons.length > 0;
+                const borderColor = hasActiveCoupon ? "#fbbf2466" : `${shop.color}33`;
                 return (
                   <button
                     key={shop.id}
                     onClick={() => { window.open(shop.map_link!, "_blank"); }}
                     data-testid={`button-map-shop-${shop.id}`}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-left"
-                    style={{ border: `1px solid ${shop.color}33` }}
+                    style={{
+                      border: `1px solid ${borderColor}`,
+                      background: hasActiveCoupon ? "rgba(251,191,36,0.05)" : "transparent",
+                    }}
                   >
-                    {/* Colored coupon icon */}
+                    {/* Coupon ticket icon */}
                     <div
-                      className="shrink-0 flex items-center justify-center w-10 h-7 rounded-md border border-white/20 relative"
-                      style={{ background: shop.color, boxShadow: `0 0 10px ${shop.color}66` }}
+                      className="shrink-0 flex items-center justify-center w-11 h-8 rounded-md border relative"
+                      style={{
+                        background: hasActiveCoupon ? "linear-gradient(135deg,#f59e0b,#d97706)" : shop.color,
+                        boxShadow: hasActiveCoupon ? "0 0 14px #fbbf24aa" : `0 0 10px ${shop.color}66`,
+                        borderColor: hasActiveCoupon ? "#fef08a" : "rgba(255,255,255,0.2)",
+                      }}
                     >
                       <div className="absolute -left-1 w-2 h-2 rounded-full bg-black/50" />
                       <div className="absolute -right-1 w-2 h-2 rounded-full bg-black/50" />
-                      <span className="text-white text-[9px] font-black">
-                        {(shop as any).category?.name?.slice(0, 3).toUpperCase() || "MAP"}
+                      <span className="text-white text-[9px] font-black leading-none text-center px-1">
+                        {hasActiveCoupon ? "🏷️" : ((shop as any).category?.name?.slice(0, 3).toUpperCase() || "MAP")}
                       </span>
                     </div>
+
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <p className="text-white text-sm font-semibold truncate">{shop.name}</p>
-                      <p className="text-white/40 text-xs truncate">{shop.address}</p>
+                      {hasActiveCoupon ? (
+                        <div className="flex flex-wrap gap-1 mt-0.5">
+                          {shopCoupons.slice(0, 2).map(c => (
+                            <span
+                              key={c.id}
+                              className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                              style={{ background: "rgba(251,191,36,0.2)", color: "#fbbf24" }}
+                            >
+                              {c.code} · {c.type === "percentage" ? `${c.value}% OFF` : c.type === "flat" ? `₹${c.value} OFF` : "FREE"}
+                            </span>
+                          ))}
+                          {shopCoupons.length > 2 && (
+                            <span className="text-[9px] text-white/40">+{shopCoupons.length - 2} more</span>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-white/40 text-xs truncate">{shop.address}</p>
+                      )}
                     </div>
-                    {/* Live distance or navigate icon */}
+
+                    {/* Live distance or navigate */}
                     <div className="shrink-0 text-right">
                       {shop.hasCoords && dist != null ? (
                         <>
-                          <span className="text-sm font-bold" style={{ color: shop.color }}>{formatDist(dist)}</span>
+                          <span
+                            className="text-sm font-bold"
+                            style={{ color: hasActiveCoupon ? "#fbbf24" : shop.color }}
+                          >
+                            {formatDist(dist)}
+                          </span>
                           <p className="text-white/30 text-[9px]">away</p>
                         </>
                       ) : (
@@ -772,7 +875,7 @@ function NearbyMapPanel({
           )}
 
           <div className="shrink-0 pb-safe pb-2 pt-1 flex justify-center">
-            <p className="text-white/20 text-[10px]">Tap a shop to open in Google Maps</p>
+            <p className="text-white/20 text-[10px]">Tap a shop to open in Google Maps · Live GPS</p>
           </div>
         </div>
       </div>
@@ -899,6 +1002,7 @@ export default function Home() {
         isOpen={mapOpen}
         onClose={() => setMapOpen(false)}
         shops={featuredShops}
+        coupons={activeCoupons}
       />
       <Navbar />
 
