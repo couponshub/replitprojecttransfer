@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Navbar } from "@/components/Navbar";
@@ -492,6 +492,58 @@ function CouponCard({ coupon }: { coupon: Coupon & { shop?: Shop } }) {
   );
 }
 
+function parseGoogleMapsCoords(url: string): { lat: number; lng: number } | null {
+  if (!url || url.length < 10 || url === "L") return null;
+  const patterns = [
+    /@(-?\d+\.?\d+),(-?\d+\.?\d+)/,
+    /[?&]q=(-?\d+\.?\d+),(-?\d+\.?\d+)/,
+    /[?&]ll=(-?\d+\.?\d+),(-?\d+\.?\d+)/,
+    /place\/(-?\d+\.?\d+),(-?\d+\.?\d+)/,
+    /center=(-?\d+\.?\d+),(-?\d+\.?\d+)/,
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) {
+      const lat = parseFloat(m[1]);
+      const lng = parseFloat(m[2]);
+      if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) return { lat, lng };
+    }
+  }
+  return null;
+}
+
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function formatDist(m: number): string {
+  return m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`;
+}
+
+let _leafletLoaded = false;
+let _leafletPromise: Promise<void> | null = null;
+function loadLeaflet(): Promise<void> {
+  if (_leafletLoaded) return Promise.resolve();
+  if (_leafletPromise) return _leafletPromise;
+  _leafletPromise = new Promise((resolve) => {
+    if (!(document.querySelector('link[href*="leaflet"]'))) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      document.head.appendChild(link);
+    }
+    const s = document.createElement("script");
+    s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    s.onload = () => { _leafletLoaded = true; resolve(); };
+    document.head.appendChild(s);
+  });
+  return _leafletPromise;
+}
+
 function NearbyMapPanel({
   isOpen,
   onClose,
@@ -501,21 +553,111 @@ function NearbyMapPanel({
   onClose: () => void;
   shops: (Shop & { category?: Category })[];
 }) {
-  const mapShops = shops.slice(0, 10).map((shop, idx) => {
-    const h1 = hashStr(shop.id);
-    const h2 = hashStr(shop.id + "_y");
-    const angle = ((h1 & 0xFFFF) / 65535) * Math.PI * 2;
-    const radius = 0.22 + ((h2 & 0xFF) / 255) * 0.28;
-    const dx = Math.cos(angle) * radius;
-    const dy = Math.sin(angle) * radius;
-    const distance = Math.round(Math.sqrt(dx * dx + dy * dy) * 1300) + 80;
-    return { ...shop, dx, dy, distance, color: SHOP_ICON_COLORS[idx % SHOP_ICON_COLORS.length] };
-  });
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null);
+  const userMarkerRef = useRef<any>(null);
+  const shopMarkersRef = useRef<any[]>([]);
+  const watchIdRef = useRef<number | null>(null);
+  const mapReadyRef = useRef(false);
 
-  const openShopNav = (shop: typeof mapShops[0]) => {
-    const q = shop.map_link && shop.map_link !== "L" ? shop.map_link : encodeURIComponent(`${shop.name}, ${shop.address}`);
-    window.open(shop.map_link && shop.map_link !== "L" ? shop.map_link : `https://www.google.com/maps/search/?api=1&query=${q}`, "_blank");
-  };
+  const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
+  const [distances, setDistances] = useState<Record<string, number>>({});
+
+  const mappableShops = useMemo(() =>
+    shops.map((s, i) => {
+      const coords = parseGoogleMapsCoords(s.map_link || "");
+      if (!coords) return null;
+      return { ...s, coords, color: SHOP_ICON_COLORS[i % SHOP_ICON_COLORS.length] };
+    }).filter(Boolean) as (Shop & { category?: Category; coords: { lat: number; lng: number }; color: string })[],
+    [shops]
+  );
+
+  const linkedShops = useMemo(() =>
+    shops.map((s, i) => ({
+      ...s,
+      color: SHOP_ICON_COLORS[i % SHOP_ICON_COLORS.length],
+      hasCoords: !!parseGoogleMapsCoords(s.map_link || ""),
+    })).filter(s => s.map_link && s.map_link !== "L" && s.map_link.length > 5),
+    [shops]
+  );
+
+  const recalcDistances = useCallback((lat: number, lng: number) => {
+    const d: Record<string, number> = {};
+    mappableShops.forEach(s => { d[s.id] = haversineDistance(lat, lng, s.coords.lat, s.coords.lng); });
+    setDistances(d);
+  }, [mappableShops]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      if (watchIdRef.current !== null) { navigator.geolocation.clearWatch(watchIdRef.current); watchIdRef.current = null; }
+      return;
+    }
+
+    loadLeaflet().then(() => {
+      if (!mapContainerRef.current || mapReadyRef.current) return;
+      const L = (window as any).L;
+      const initialCenter = userPos ? [userPos.lat, userPos.lng] : [17.0025, 81.0028];
+      const map = L.map(mapContainerRef.current, { zoom: 15, center: initialCenter, zoomControl: true });
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+        attribution: "© OpenStreetMap © CARTO",
+        maxZoom: 19,
+        subdomains: "abcd",
+      }).addTo(map);
+      mapRef.current = map;
+      mapReadyRef.current = true;
+
+      mappableShops.forEach((shop) => {
+        const icon = L.divIcon({
+          html: `<div style="background:${shop.color};box-shadow:0 0 10px ${shop.color}99;border:1.5px solid rgba(255,255,255,0.4);border-radius:6px;padding:2px 6px;color:white;font-size:9px;font-weight:900;white-space:nowrap;cursor:pointer;position:relative">
+            <div style="position:absolute;left:-4px;top:50%;transform:translateY(-50%);width:8px;height:8px;background:rgba(0,0,0,0.4);border-radius:50%"></div>
+            <div style="position:absolute;right:-4px;top:50%;transform:translateY(-50%);width:8px;height:8px;background:rgba(0,0,0,0.4);border-radius:50%"></div>
+            ${shop.name.slice(0, 8)}
+          </div>`,
+          className: "",
+          iconSize: [80, 24],
+          iconAnchor: [40, 12],
+        });
+        const m = L.marker([shop.coords.lat, shop.coords.lng], { icon })
+          .addTo(map)
+          .bindPopup(`<b>${shop.name}</b><br>Tap to navigate`)
+          .on("click", () => { window.open(shop.map_link!, "_blank"); });
+        shopMarkersRef.current.push(m);
+      });
+    });
+
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        setUserPos({ lat, lng });
+        recalcDistances(lat, lng);
+
+        if (mapRef.current) {
+          const L = (window as any).L;
+          if (userMarkerRef.current) {
+            userMarkerRef.current.setLatLng([lat, lng]);
+          } else if (L) {
+            const icon = L.divIcon({
+              html: `<div style="width:18px;height:18px;background:radial-gradient(circle at 35% 30%,#ff6b6b,#dc2626);border:2.5px solid white;border-radius:50%;box-shadow:0 0 14px rgba(239,68,68,0.9)"></div>`,
+              className: "",
+              iconSize: [18, 18],
+              iconAnchor: [9, 9],
+            });
+            userMarkerRef.current = L.marker([lat, lng], { icon }).addTo(mapRef.current);
+          }
+          if (!mapReadyRef.current) mapRef.current.setView([lat, lng], 15);
+        }
+      },
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 3000 }
+    );
+    watchIdRef.current = watchId;
+
+    return () => {
+      if (watchIdRef.current !== null) { navigator.geolocation.clearWatch(watchIdRef.current); watchIdRef.current = null; }
+    };
+  }, [isOpen, mappableShops, recalcDistances]);
+
+  const sortedShops = [...mappableShops].sort((a, b) => (distances[a.id] ?? Infinity) - (distances[b.id] ?? Infinity));
 
   return (
     <>
@@ -527,25 +669,31 @@ function NearbyMapPanel({
       {/* Panel — slides up from bottom */}
       <div
         className={`fixed bottom-0 left-0 right-0 z-50 transition-transform duration-500 ease-out ${isOpen ? "translate-y-0" : "translate-y-full"}`}
-        style={{ maxHeight: "90dvh" }}
+        style={{ maxHeight: "92dvh", display: "flex", flexDirection: "column" }}
       >
-        <div className="mx-auto max-w-lg w-full rounded-t-3xl overflow-hidden"
+        <div
+          className="mx-auto max-w-lg w-full rounded-t-3xl flex flex-col"
           style={{
-            background: "rgba(8,16,40,0.97)",
+            background: "rgba(6,12,36,0.98)",
             boxShadow: "0 -8px 60px rgba(0,100,255,0.25), 0 -2px 0 rgba(255,255,255,0.08)",
             border: "1px solid rgba(255,255,255,0.1)",
+            maxHeight: "92dvh",
           }}
         >
           {/* Handle */}
-          <div className="flex justify-center pt-3 pb-1">
+          <div className="flex justify-center pt-3 pb-1 shrink-0">
             <div className="w-10 h-1 rounded-full bg-white/25" />
           </div>
 
           {/* Header */}
-          <div className="flex items-center justify-between px-4 pb-2">
+          <div className="flex items-center justify-between px-4 pb-3 shrink-0">
             <div>
               <h3 className="text-white font-bold text-base">Nearby Shops</h3>
-              <p className="text-white/50 text-xs">Coupon hotspots around you</p>
+              <p className="text-white/50 text-xs">
+                {linkedShops.length === 0
+                  ? "Add Google Maps links to shops in admin panel"
+                  : `${linkedShops.length} shop${linkedShops.length !== 1 ? "s" : ""} nearby · tap to navigate`}
+              </p>
             </div>
             <button
               onClick={onClose}
@@ -556,129 +704,75 @@ function NearbyMapPanel({
             </button>
           </div>
 
-          {/* Map area — square */}
-          <div className="relative w-full mx-auto" style={{ aspectRatio: "1 / 1" }}>
-            {/* Map image background */}
-            <img
-              src="/map-theme.png"
-              alt="Map"
-              className="absolute inset-0 w-full h-full object-cover"
-              style={{ filter: "brightness(0.72) saturate(1.4) hue-rotate(10deg)" }}
-            />
-            {/* Futuristic overlay */}
-            <div
-              className="absolute inset-0"
-              style={{
-                background: "radial-gradient(ellipse at center, rgba(0,40,100,0.35) 0%, rgba(0,10,40,0.6) 100%)",
-              }}
-            />
-            {/* Grid lines overlay */}
-            <div
-              className="absolute inset-0"
-              style={{
-                backgroundImage: "linear-gradient(rgba(0,150,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(0,150,255,0.06) 1px, transparent 1px)",
-                backgroundSize: "32px 32px",
-              }}
-            />
+          {/* Leaflet Map area */}
+          <div
+            ref={mapContainerRef}
+            className="w-full shrink-0"
+            style={{ height: "55vw", maxHeight: "360px", minHeight: "240px" }}
+          />
 
-            {/* Shop coupon icons */}
-            {mapShops.map((shop) => (
-              <button
-                key={shop.id}
-                onClick={() => openShopNav(shop)}
-                data-testid={`button-map-shop-${shop.id}`}
-                className="absolute group"
-                style={{
-                  left: `${50 + shop.dx * 100}%`,
-                  top: `${50 + shop.dy * 100}%`,
-                  transform: "translate(-50%, -50%)",
-                  zIndex: 10,
-                }}
-              >
-                {/* Glow */}
-                <div
-                  className="absolute inset-0 rounded-lg blur-md opacity-60 group-hover:opacity-90 transition-opacity"
-                  style={{ background: shop.color, transform: "scale(1.3)" }}
-                />
-                {/* Coupon ticket icon */}
-                <div
-                  className="relative flex items-center justify-center w-9 h-6 rounded-md border border-white/30 shadow-lg"
-                  style={{
-                    background: shop.color,
-                    boxShadow: `0 0 12px ${shop.color}88`,
-                  }}
-                >
-                  {/* Ticket perforations */}
-                  <div className="absolute left-0 w-2 h-2 rounded-full bg-black/40 -translate-x-1" />
-                  <div className="absolute right-0 w-2 h-2 rounded-full bg-black/40 translate-x-1" />
-                  <span className="text-white text-[9px] font-black tracking-tight">
-                    {shop.category?.name?.slice(0, 3).toUpperCase() || "OFF"}
-                  </span>
-                </div>
-                {/* Distance badge */}
-                <div
-                  className="absolute top-full mt-1 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] font-bold rounded px-1.5 py-0.5 text-white"
-                  style={{ background: "rgba(0,0,0,0.75)" }}
-                >
-                  {shop.distance}m
-                </div>
-                {/* Shop name tooltip on hover */}
-                <div
-                  className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold rounded-lg px-2 py-1 text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-                  style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)" }}
-                >
-                  {shop.name}
-                </div>
-              </button>
-            ))}
-
-            {/* User location — center */}
-            <div
-              className="absolute"
-              style={{ left: "50%", top: "50%", transform: "translate(-50%, -50%)", zIndex: 20 }}
-            >
-              {/* Pulsing ring */}
-              <div
-                className="absolute rounded-full radar-ping"
-                style={{
-                  width: 32, height: 32,
-                  background: "rgba(239,68,68,0.3)",
-                  top: "50%", left: "50%",
-                  transform: "translate(-50%,-50%)",
-                }}
-              />
-              {/* Outer ring */}
-              <div
-                className="absolute rounded-full border-2 border-red-400/60"
-                style={{ width: 28, height: 28, top: "50%", left: "50%", transform: "translate(-50%,-50%)" }}
-              />
-              {/* Main pin */}
-              <div
-                className="w-5 h-5 rounded-full border-2 border-white flex items-center justify-center relative z-10"
-                style={{
-                  background: "radial-gradient(circle at 35% 30%, #ff6b6b, #dc2626)",
-                  boxShadow: "0 0 16px rgba(239,68,68,0.8), 0 2px 8px rgba(0,0,0,0.5)",
-                }}
-              >
-                <div className="w-2 h-2 rounded-full bg-white/80" />
-              </div>
+          {/* Empty state — no map links at all */}
+          {linkedShops.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-6 px-4 shrink-0">
+              <span className="text-3xl mb-2">🗺️</span>
+              <p className="text-white/50 text-sm text-center">
+                No shops with Google Maps links yet.<br />
+                Go to <strong className="text-white/70">Admin → Shops → Edit</strong> and paste a Google Maps URL to show shops here.
+              </p>
             </div>
+          )}
 
-            {/* Compass rose */}
-            <div className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center border border-white/15">
-              <span className="text-[10px] font-bold text-white/70">N</span>
+          {/* Shops list — linked shops (sorted: parseable-coord ones by real distance first, then others) */}
+          {linkedShops.length > 0 && (
+            <div className="overflow-y-auto flex-1 px-3 pb-4 space-y-2 pt-2">
+              {[
+                ...sortedShops.map(s => ({ ...s, hasCoords: true })),
+                ...linkedShops.filter(s => !s.hasCoords),
+              ].map((shop) => {
+                const dist = distances[shop.id];
+                return (
+                  <button
+                    key={shop.id}
+                    onClick={() => { window.open(shop.map_link!, "_blank"); }}
+                    data-testid={`button-map-shop-${shop.id}`}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-left"
+                    style={{ border: `1px solid ${shop.color}33` }}
+                  >
+                    {/* Colored coupon icon */}
+                    <div
+                      className="shrink-0 flex items-center justify-center w-10 h-7 rounded-md border border-white/20 relative"
+                      style={{ background: shop.color, boxShadow: `0 0 10px ${shop.color}66` }}
+                    >
+                      <div className="absolute -left-1 w-2 h-2 rounded-full bg-black/50" />
+                      <div className="absolute -right-1 w-2 h-2 rounded-full bg-black/50" />
+                      <span className="text-white text-[9px] font-black">
+                        {(shop as any).category?.name?.slice(0, 3).toUpperCase() || "MAP"}
+                      </span>
+                    </div>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm font-semibold truncate">{shop.name}</p>
+                      <p className="text-white/40 text-xs truncate">{shop.address}</p>
+                    </div>
+                    {/* Live distance or navigate icon */}
+                    <div className="shrink-0 text-right">
+                      {shop.hasCoords && dist != null ? (
+                        <>
+                          <span className="text-sm font-bold" style={{ color: shop.color }}>{formatDist(dist)}</span>
+                          <p className="text-white/30 text-[9px]">away</p>
+                        </>
+                      ) : (
+                        <span className="text-white/30 text-xs">Navigate →</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
+          )}
 
-            {/* Scale bar */}
-            <div className="absolute bottom-3 left-3 flex items-center gap-1">
-              <div className="w-10 h-0.5 bg-white/50" />
-              <span className="text-[9px] text-white/60 font-medium">500m</span>
-            </div>
-          </div>
-
-          {/* Bottom tap hint */}
-          <div className="px-4 py-3 flex items-center justify-center gap-2">
-            <span className="text-white/40 text-xs">Tap any icon to navigate · {mapShops.length} shops nearby</span>
+          <div className="shrink-0 pb-safe pb-2 pt-1 flex justify-center">
+            <p className="text-white/20 text-[10px]">Tap a shop to open in Google Maps</p>
           </div>
         </div>
       </div>
