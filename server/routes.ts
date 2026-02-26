@@ -542,5 +542,32 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(await storage.getTopCoupons());
   });
 
+  // Banners
+  app.get("/api/banners", async (req, res) => {
+    res.json(await storage.getActiveBanners());
+  });
+
+  app.get("/api/admin/banners", adminMiddleware, async (req, res) => {
+    res.json(await storage.getAllBanners());
+  });
+
+  app.post("/api/admin/banners", adminMiddleware, async (req, res) => {
+    try {
+      const banner = await storage.createBanner(req.body);
+      res.json(banner);
+    } catch (err: any) { res.status(400).json({ error: err.message }); }
+  });
+
+  app.put("/api/admin/banners/:id", adminMiddleware, async (req, res) => {
+    const banner = await storage.updateBanner(req.params.id, req.body);
+    if (!banner) return res.status(404).json({ error: "Not found" });
+    res.json(banner);
+  });
+
+  app.delete("/api/admin/banners/:id", adminMiddleware, async (req, res) => {
+    await storage.deleteBanner(req.params.id);
+    res.json({ ok: true });
+  });
+
   return httpServer;
 }

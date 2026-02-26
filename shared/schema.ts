@@ -105,6 +105,21 @@ export const orderItems = pgTable("order_items", {
   is_free_item: boolean("is_free_item").notNull().default(false),
 });
 
+export const banners = pgTable("banners", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  image_url: text("image_url").notNull(),
+  coupon_id: varchar("coupon_id").references(() => coupons.id),
+  sort_order: integer("sort_order").notNull().default(0),
+  is_active: boolean("is_active").notNull().default(true),
+  created_at: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertBannerSchema = createInsertSchema(banners).omit({ id: true, created_at: true });
+
+export type InsertBanner = z.infer<typeof insertBannerSchema>;
+export type Banner = typeof banners.$inferSelect;
+
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, created_at: true });
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true, created_at: true });
 export const insertShopSchema = createInsertSchema(shops).omit({ id: true, created_at: true });

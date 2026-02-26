@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
 import { Navbar } from "@/components/Navbar";
@@ -6,8 +6,123 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Crown, Tag, ChevronRight, Star, MapPin, Zap, Percent, Flame } from "lucide-react";
-import type { Category, Shop, Coupon } from "@shared/schema";
+import { Crown, Tag, ChevronRight, Star, MapPin, Zap, Percent, Flame, ChevronLeft } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import type { Category, Shop, Coupon, Banner } from "@shared/schema";
+
+type BannerWithCoupon = Banner & { coupon?: Coupon & { shop?: Shop } };
+
+function BannerSlider({ banners }: { banners: BannerWithCoupon[] }) {
+  const [current, setCurrent] = useState(0);
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startTimer = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setCurrent(c => (c + 1) % banners.length);
+    }, 4000);
+  }, [banners.length]);
+
+  useEffect(() => {
+    if (banners.length > 1) startTimer();
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [banners.length, startTimer]);
+
+  const go = (dir: number) => {
+    setCurrent(c => (c + dir + banners.length) % banners.length);
+    startTimer();
+  };
+
+  const handleClick = (banner: BannerWithCoupon) => {
+    if (banner.coupon) {
+      navigator.clipboard.writeText(banner.coupon.code).catch(() => {});
+      toast({
+        title: `🎉 Coupon "${banner.coupon.code}" claimed!`,
+        description: banner.coupon.shop
+          ? `Visit ${banner.coupon.shop.name} to use it`
+          : "Use this code at checkout",
+      });
+      if (banner.coupon.shop) navigate(`/shop/${banner.coupon.shop.id}`);
+    }
+  };
+
+  if (banners.length === 0) return null;
+
+  return (
+    <div className="w-full bg-black" data-testid="section-banners">
+      <div className="relative max-w-7xl mx-auto overflow-hidden" style={{ aspectRatio: "16/6.5" }}>
+        {/* Slides */}
+        <div
+          className="flex h-full transition-transform duration-500 ease-in-out"
+          style={{ transform: `translateX(-${current * 100}%)`, width: `${banners.length * 100}%` }}
+        >
+          {banners.map((b, i) => (
+            <div
+              key={b.id}
+              className="relative h-full cursor-pointer"
+              style={{ width: `${100 / banners.length}%` }}
+              onClick={() => handleClick(b)}
+              data-testid={`banner-slide-${b.id}`}
+            >
+              <img src={b.image_url} alt={b.title} className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+              <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
+                <p className="text-white font-bold text-base sm:text-xl drop-shadow-lg">{b.title}</p>
+                {b.coupon && (
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="bg-white/20 backdrop-blur-sm text-white text-xs sm:text-sm font-bold px-3 py-1 rounded-full border border-white/30">
+                      {b.coupon.code}
+                    </span>
+                    <span className="text-white/80 text-xs sm:text-sm">
+                      {b.coupon.type === "percentage" ? `${b.coupon.value}% OFF` : b.coupon.type === "flat" ? `₹${b.coupon.value} OFF` : "Free Item"}
+                    </span>
+                    <span className="text-emerald-300 text-xs font-semibold animate-pulse">Tap to claim →</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Prev/Next arrows */}
+        {banners.length > 1 && (
+          <>
+            <button
+              onClick={e => { e.stopPropagation(); go(-1); }}
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm flex items-center justify-center text-white transition-all"
+              data-testid="button-banner-prev"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <button
+              onClick={e => { e.stopPropagation(); go(1); }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm flex items-center justify-center text-white transition-all"
+              data-testid="button-banner-next"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </>
+        )}
+
+        {/* Dot indicators */}
+        {banners.length > 1 && (
+          <div className="absolute bottom-3 right-4 flex gap-1.5">
+            {banners.map((_, i) => (
+              <button
+                key={i}
+                onClick={e => { e.stopPropagation(); setCurrent(i); startTimer(); }}
+                className={`rounded-full transition-all ${i === current ? "w-5 h-2 bg-white" : "w-2 h-2 bg-white/40 hover:bg-white/70"}`}
+                data-testid={`button-banner-dot-${i}`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 const CATEGORY_COLORS = [
   "from-orange-400 to-red-500",
@@ -156,6 +271,10 @@ export default function Home() {
     queryKey: ["/api/shops"],
   });
 
+  const { data: homeBanners = [] } = useQuery<BannerWithCoupon[]>({
+    queryKey: ["/api/banners"],
+  });
+
   const filteredShops = searchQuery
     ? allShops.filter(s =>
         s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -210,6 +329,8 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {homeBanners.length > 0 && <BannerSlider banners={homeBanners} />}
 
       {searchQuery && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">

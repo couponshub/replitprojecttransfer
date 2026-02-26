@@ -21,7 +21,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import type { Category, Shop, Product, Coupon, Order, User } from "@shared/schema";
 
-type Tab = "overview" | "categories" | "shops" | "products" | "coupons" | "orders" | "users" | "vendors" | "top-shops" | "top-coupons";
+type Tab = "overview" | "categories" | "shops" | "products" | "coupons" | "orders" | "users" | "vendors" | "top-shops" | "top-coupons" | "banners";
 
 const NAV_ITEMS: { id: Tab; label: string; icon: any; section?: string }[] = [
   { id: "overview", label: "Dashboard", icon: LayoutDashboard, section: "Main" },
@@ -29,6 +29,7 @@ const NAV_ITEMS: { id: Tab; label: string; icon: any; section?: string }[] = [
   { id: "shops", label: "Shops", icon: Store, section: "Manage" },
   { id: "products", label: "Products", icon: Package, section: "Manage" },
   { id: "coupons", label: "Coupons", icon: Ticket, section: "Manage" },
+  { id: "banners", label: "Banners", icon: Image, section: "Manage" },
   { id: "orders", label: "Orders", icon: ShoppingBag, section: "Manage" },
   { id: "users", label: "Users", icon: Users, section: "People" },
   { id: "vendors", label: "Vendors", icon: Crown, section: "People" },
@@ -1521,8 +1522,226 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {activeTab === "banners" && <BannersTab toast={toast} allCoupons={coupons} />}
+
         </main>
       </div>
+    </div>
+  );
+}
+
+function BannersTab({ toast, allCoupons }: { toast: any; allCoupons: any[] }) {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editBanner, setEditBanner] = useState<any>(null);
+  const [form, setForm] = useState({ title: "", image_url: "", coupon_id: "", sort_order: "0", is_active: true });
+  const [imageMode, setImageMode] = useState<"url" | "file">("url");
+  const [uploading, setUploading] = useState(false);
+
+  const { data: banners = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/admin/banners"] });
+
+  const saveMutation = useMutation({
+    mutationFn: (data: any) => {
+      if (editBanner) return apiRequest("PUT", `/api/admin/banners/${editBanner.id}`, data);
+      return apiRequest("POST", "/api/admin/banners", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/banners"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/banners"] });
+      toast({ title: editBanner ? "Banner updated" : "Banner created" });
+      setDialogOpen(false);
+    },
+    onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/admin/banners/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/banners"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/banners"] });
+      toast({ title: "Banner deleted" });
+    },
+  });
+
+  const openAdd = () => {
+    setEditBanner(null);
+    setForm({ title: "", image_url: "", coupon_id: "", sort_order: "0", is_active: true });
+    setImageMode("url");
+    setDialogOpen(true);
+  };
+
+  const openEdit = (b: any) => {
+    setEditBanner(b);
+    setForm({ title: b.title, image_url: b.image_url, coupon_id: b.coupon_id || "", sort_order: String(b.sort_order), is_active: b.is_active });
+    setImageMode("url");
+    setDialogOpen(true);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("image", file);
+    try {
+      const token = localStorage.getItem("coupons_hub_token");
+      const res = await fetch("/api/upload", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
+      const data = await res.json();
+      if (data.url) setForm(f => ({ ...f, image_url: data.url }));
+      else toast({ title: "Upload failed", variant: "destructive" });
+    } catch { toast({ title: "Upload failed", variant: "destructive" }); }
+    finally { setUploading(false); }
+  };
+
+  const handleSave = () => {
+    if (!form.title.trim() || !form.image_url.trim()) {
+      toast({ title: "Title and image are required", variant: "destructive" }); return;
+    }
+    saveMutation.mutate({
+      title: form.title,
+      image_url: form.image_url,
+      coupon_id: form.coupon_id || null,
+      sort_order: parseInt(form.sort_order) || 0,
+      is_active: form.is_active,
+    });
+  };
+
+  return (
+    <div className="p-6 sm:p-8">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Banners</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">Manage homepage coupon banners</p>
+        </div>
+        <Button onClick={openAdd} className="rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 border-0 text-white gap-2" data-testid="button-add-banner">
+          <Plus className="w-4 h-4" /> Add Banner
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1,2,3].map(i => <Skeleton key={i} className="h-48 rounded-2xl" />)}
+        </div>
+      ) : banners.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground">
+          <Image className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p>No banners yet. Add your first banner!</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {banners.map((b: any) => (
+            <div key={b.id} className="rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 shadow-sm bg-white dark:bg-gray-900" data-testid={`card-banner-${b.id}`}>
+              <div className="relative aspect-video bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                <img src={b.image_url} alt={b.title} className="w-full h-full object-cover" />
+                <div className="absolute top-2 right-2 flex gap-1.5">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${b.is_active ? "bg-emerald-500 text-white" : "bg-gray-400 text-white"}`}>
+                    {b.is_active ? "Active" : "Hidden"}
+                  </span>
+                </div>
+              </div>
+              <div className="p-3">
+                <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">{b.title}</p>
+                {b.coupon && (
+                  <p className="text-xs text-violet-600 dark:text-violet-400 mt-0.5 flex items-center gap-1">
+                    <Ticket className="w-3 h-3" /> {b.coupon.code} — {b.coupon.type === "percentage" ? `${b.coupon.value}% OFF` : b.coupon.type === "flat" ? `₹${b.coupon.value} OFF` : "Free Item"}
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground mt-0.5">Order: {b.sort_order}</p>
+                <div className="flex gap-2 mt-3">
+                  <Button size="sm" variant="outline" onClick={() => openEdit(b)} className="rounded-xl h-8 flex-1 gap-1.5" data-testid={`button-edit-banner-${b.id}`}>
+                    <Edit className="w-3 h-3" /> Edit
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => deleteMutation.mutate(b.id)} className="rounded-xl h-8 text-red-500 hover:text-red-600 border-red-200" data-testid={`button-delete-banner-${b.id}`}>
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>{editBanner ? "Edit Banner" : "Add Banner"}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 pt-2">
+            <div className="flex flex-col gap-1.5">
+              <Label>Title</Label>
+              <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Summer Sale 50% OFF" className="rounded-xl" data-testid="input-banner-title" />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label>Banner Image</Label>
+              <div className="flex rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <button onClick={() => setImageMode("url")} className={`flex-1 py-2 text-sm font-medium transition-colors ${imageMode === "url" ? "bg-blue-500 text-white" : "text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-800"}`} data-testid="button-image-mode-url">
+                  URL
+                </button>
+                <button onClick={() => setImageMode("file")} className={`flex-1 py-2 text-sm font-medium transition-colors ${imageMode === "file" ? "bg-blue-500 text-white" : "text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-800"}`} data-testid="button-image-mode-file">
+                  Upload File
+                </button>
+              </div>
+              {imageMode === "url" ? (
+                <Input value={form.image_url} onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))} placeholder="https://..." className="rounded-xl" data-testid="input-banner-image-url" />
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <label className={`flex items-center gap-3 cursor-pointer border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:border-blue-400 transition-colors ${uploading ? "opacity-60 pointer-events-none" : ""}`} data-testid="input-banner-file">
+                    {uploading ? <Loader2 className="w-5 h-5 animate-spin text-blue-500" /> : <Upload className="w-5 h-5 text-muted-foreground" />}
+                    <span className="text-sm text-muted-foreground">{uploading ? "Uploading..." : "Click to upload image"}</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
+                  </label>
+                  {form.image_url && <p className="text-xs text-emerald-600 truncate">Uploaded: {form.image_url}</p>}
+                </div>
+              )}
+              {form.image_url && (
+                <div className="rounded-xl overflow-hidden aspect-video bg-gray-100 dark:bg-gray-800">
+                  <img src={form.image_url} alt="Preview" className="w-full h-full object-cover" />
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label>Link to Coupon (optional)</Label>
+              <Select value={form.coupon_id || "none"} onValueChange={v => setForm(f => ({ ...f, coupon_id: v === "none" ? "" : v }))}>
+                <SelectTrigger className="rounded-xl" data-testid="select-banner-coupon">
+                  <SelectValue placeholder="No coupon linked" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No coupon</SelectItem>
+                  {allCoupons.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.code} — {c.type === "percentage" ? `${c.value}% OFF` : c.type === "flat" ? `₹${c.value} OFF` : "Free Item"} ({c.shop?.name || "No shop"})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label>Sort Order</Label>
+                <Input type="number" value={form.sort_order} onChange={e => setForm(f => ({ ...f, sort_order: e.target.value }))} className="rounded-xl" data-testid="input-banner-sort" />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Status</Label>
+                <Select value={form.is_active ? "active" : "hidden"} onValueChange={v => setForm(f => ({ ...f, is_active: v === "active" }))}>
+                  <SelectTrigger className="rounded-xl" data-testid="select-banner-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="hidden">Hidden</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <Button onClick={handleSave} disabled={saveMutation.isPending} className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 border-0 text-white" data-testid="button-save-banner">
+              {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : editBanner ? "Save Changes" : "Create Banner"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

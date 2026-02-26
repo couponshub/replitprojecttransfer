@@ -11,7 +11,8 @@ import {
   type CouponProduct, type InsertCouponProduct,
   type Order, type InsertOrder,
   type OrderItem, type InsertOrderItem,
-  users, categories, shops, products, coupons, couponProducts, orders, orderItems
+  type Banner, type InsertBanner,
+  users, categories, shops, products, coupons, couponProducts, orders, orderItems, banners
 } from "@shared/schema";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -68,6 +69,13 @@ export interface IStorage {
   createOrder(order: InsertOrder, items: InsertOrderItem[]): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
   updateOrderPayment(id: string, paymentStatus: string, razorpayOrderId?: string): Promise<Order | undefined>;
+
+  // Banners
+  getAllBanners(): Promise<(Banner & { coupon?: Coupon })[]>;
+  getActiveBanners(): Promise<(Banner & { coupon?: Coupon & { shop?: Shop } })[]>;
+  createBanner(banner: InsertBanner): Promise<Banner>;
+  updateBanner(id: string, banner: Partial<InsertBanner>): Promise<Banner | undefined>;
+  deleteBanner(id: string): Promise<void>;
 
   // Stats
   getStats(): Promise<{ users: number; categories: number; shops: number; products: number; orders: number; coupons: number; vendors: number }>;
@@ -308,6 +316,39 @@ export class PgStorage implements IStorage {
     if (paymentStatus === "paid") update.status = "confirmed";
     const result = await db.update(orders).set(update).where(eq(orders.id, id)).returning();
     return result[0];
+  }
+
+  async getAllBanners(): Promise<(Banner & { coupon?: Coupon })[]> {
+    const result = await db.select().from(banners)
+      .leftJoin(coupons, eq(banners.coupon_id, coupons.id))
+      .orderBy(banners.sort_order, desc(banners.created_at));
+    return result.map(r => ({ ...r.banners, coupon: r.coupons || undefined }));
+  }
+
+  async getActiveBanners(): Promise<(Banner & { coupon?: Coupon & { shop?: Shop } })[]> {
+    const result = await db.select().from(banners)
+      .leftJoin(coupons, eq(banners.coupon_id, coupons.id))
+      .leftJoin(shops, eq(coupons.shop_id, shops.id))
+      .where(eq(banners.is_active, true))
+      .orderBy(banners.sort_order, desc(banners.created_at));
+    return result.map(r => ({
+      ...r.banners,
+      coupon: r.coupons ? { ...r.coupons, shop: r.shops || undefined } : undefined,
+    }));
+  }
+
+  async createBanner(banner: InsertBanner): Promise<Banner> {
+    const result = await db.insert(banners).values(banner).returning();
+    return result[0];
+  }
+
+  async updateBanner(id: string, banner: Partial<InsertBanner>): Promise<Banner | undefined> {
+    const result = await db.update(banners).set(banner).where(eq(banners.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteBanner(id: string): Promise<void> {
+    await db.delete(banners).where(eq(banners.id, id));
   }
 
   async getStats(): Promise<{ users: number; categories: number; shops: number; products: number; orders: number; coupons: number; vendors: number }> {
