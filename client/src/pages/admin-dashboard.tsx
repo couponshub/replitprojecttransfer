@@ -16,7 +16,7 @@ import {
   LayoutDashboard, Tag, Store, Package, Ticket, ShoppingBag,
   Plus, Edit, Trash2, Crown, LogOut, ChevronRight, Users, TrendingUp,
   Zap, Star, Check, X, Menu, Award, Flame, UserCheck, Phone, Mail,
-  Globe, MapPin, Wifi, WifiOff, Search, Image, Link, ExternalLink, Upload, Loader2
+  Globe, MapPin, Wifi, WifiOff, Search, Image, Link, ExternalLink, Upload, Loader2, Eye, EyeOff
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import type { Category, Shop, Product, Coupon, Order, User } from "@shared/schema";
@@ -123,8 +123,26 @@ export default function AdminDashboard() {
   const { data: allUsers = [] } = useQuery<any[]>({ queryKey: ["/api/admin/users"] });
   const { data: topShops = [] } = useQuery<Shop[]>({ queryKey: ["/api/admin/top-shops"] });
   const { data: topCoupons = [] } = useQuery<(Coupon & { shop?: Shop })[]>({ queryKey: ["/api/admin/top-coupons"] });
+  const { data: vendorAccounts = [], refetch: refetchVendors } = useQuery<any[]>({ queryKey: ["/api/admin/vendors"] });
 
   const premiumShops = shops.filter(s => s.is_premium);
+
+  const [vendorLoginDialog, setVendorLoginDialog] = useState(false);
+  const [vendorLoginShop, setVendorLoginShop] = useState<any>(null);
+  const [vendorLoginForm, setVendorLoginForm] = useState({ email: "", password: "", name: "" });
+  const [showVendorPass, setShowVendorPass] = useState(false);
+
+  const saveVendorLoginMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/admin/vendors", data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/admin/vendors"] }); queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] }); toast({ title: "Vendor login saved!" }); setVendorLoginDialog(false); },
+    onError: (err: any) => toast({ title: err.message, variant: "destructive" }),
+  });
+
+  const deleteVendorMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/admin/vendors/${id}`),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/admin/vendors"] }); queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] }); toast({ title: "Vendor login removed" }); },
+    onError: (err: any) => toast({ title: err.message, variant: "destructive" }),
+  });
 
   const openCreate = (defaults: any = {}) => { setEditItem(null); setFormData(defaults); setDialogOpen(true); };
   const openEdit = (item: any) => { setEditItem(item); setFormData({ ...item }); setDialogOpen(true); };
@@ -555,48 +573,110 @@ export default function AdminDashboard() {
 
           {activeTab === "vendors" && (
             <div className="flex flex-col gap-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {premiumShops.map(shop => (
-                  <Card key={shop.id} className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900 overflow-hidden" data-testid={`card-vendor-${shop.id}`}>
-                    <div className="h-2 bg-gradient-to-r from-amber-400 to-orange-500" />
-                    <CardContent className="p-5">
-                      <div className="flex items-start gap-3 mb-3">
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                          {shop.name[0]}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-gray-900 dark:text-white truncate">{shop.name}</h3>
-                          <p className="text-xs text-muted-foreground truncate">{shop.description}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-0 text-[11px] gap-1">
-                          <Crown className="w-3 h-3" /> Premium Vendor
-                        </Badge>
-                        {shop.featured && (
-                          <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-0 text-[11px]">Featured</Badge>
-                        )}
-                        <span className="text-xs text-muted-foreground ml-auto">{shop.commission_percentage}% commission</span>
-                      </div>
-                      <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground truncate flex-1">{shop.address}</span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => togglePremium(shop)}
-                          className="rounded-lg text-xs border-red-200 text-red-500 hover:bg-red-50 ml-2 shrink-0"
-                          data-testid={`button-remove-vendor-${shop.id}`}
-                        >
-                          <X className="w-3 h-3 mr-1" /> Remove
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-bold text-gray-900 dark:text-white">Vendor Login Accounts</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">Each shop can have one vendor login. Click "Set Login" to create or update.</p>
+                </div>
               </div>
-              {premiumShops.length === 0 && (
-                <div className="text-center py-12 text-muted-foreground">No premium vendors yet</div>
-              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {shops.map(shop => {
+                  const vendorAcc = vendorAccounts.find((v: any) => v.shop_id === shop.id);
+                  return (
+                    <Card key={shop.id} className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900 overflow-hidden" data-testid={`card-vendor-${shop.id}`}>
+                      <div className={`h-1.5 ${vendorAcc ? "bg-gradient-to-r from-emerald-400 to-teal-500" : "bg-gray-200 dark:bg-gray-700"}`} />
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shrink-0">
+                            {shop.name[0]}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-bold text-gray-900 dark:text-white truncate text-sm">{shop.name}</h3>
+                            <p className="text-[11px] text-muted-foreground truncate">{shop.description}</p>
+                          </div>
+                        </div>
+
+                        {vendorAcc ? (
+                          <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 mb-3">
+                            <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                              <Check className="w-3 h-3" /> Login Active
+                            </p>
+                            <p className="text-[11px] text-emerald-600 dark:text-emerald-500 truncate mt-0.5">{vendorAcc.email}</p>
+                          </div>
+                        ) : (
+                          <div className="p-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 mb-3">
+                            <p className="text-[11px] text-muted-foreground">No vendor login set</p>
+                          </div>
+                        )}
+
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setVendorLoginShop(shop);
+                              setVendorLoginForm({ name: shop.name, email: vendorAcc?.email || `${shop.name.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 20)}@vendor.com`, password: "" });
+                              setVendorLoginDialog(true);
+                            }}
+                            className="rounded-lg text-xs flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 border-0"
+                            data-testid={`button-set-login-${shop.id}`}
+                          >
+                            <UserCheck className="w-3 h-3 mr-1" /> {vendorAcc ? "Update Login" : "Set Login"}
+                          </Button>
+                          {vendorAcc && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => deleteVendorMutation.mutate(vendorAcc.id)}
+                              className="rounded-lg h-8 w-8 shrink-0"
+                              data-testid={`button-delete-vendor-${shop.id}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+
+              <Dialog open={vendorLoginDialog} onOpenChange={setVendorLoginDialog}>
+                <DialogContent className="rounded-2xl max-w-sm">
+                  <DialogHeader>
+                    <DialogTitle className="text-base font-bold">
+                      {vendorLoginShop ? `Vendor Login — ${vendorLoginShop.name}` : "Set Vendor Login"}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="flex flex-col gap-4 pb-2">
+                    <div>
+                      <Label className="text-sm">Name</Label>
+                      <Input value={vendorLoginForm.name} onChange={e => setVendorLoginForm(f => ({ ...f, name: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="Vendor name" data-testid="input-vendor-name" />
+                    </div>
+                    <div>
+                      <Label className="text-sm">Email *</Label>
+                      <Input type="email" value={vendorLoginForm.email} onChange={e => setVendorLoginForm(f => ({ ...f, email: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="shopname@vendor.com" data-testid="input-vendor-login-email" />
+                    </div>
+                    <div>
+                      <Label className="text-sm">Password *</Label>
+                      <div className="relative mt-1.5">
+                        <Input type={showVendorPass ? "text" : "password"} value={vendorLoginForm.password} onChange={e => setVendorLoginForm(f => ({ ...f, password: e.target.value }))} className="rounded-xl pr-10" placeholder="Min 6 characters" data-testid="input-vendor-login-password" />
+                        <button type="button" onClick={() => setShowVendorPass(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                          {showVendorPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-1">Leave blank to keep existing password</p>
+                    </div>
+                    <Button
+                      onClick={() => saveVendorLoginMutation.mutate({ shop_id: vendorLoginShop?.id, name: vendorLoginForm.name, email: vendorLoginForm.email, password: vendorLoginForm.password || "Vendor@123" })}
+                      disabled={saveVendorLoginMutation.isPending || !vendorLoginForm.email}
+                      className="rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 border-0"
+                      data-testid="button-save-vendor-login"
+                    >
+                      {saveVendorLoginMutation.isPending ? "Saving..." : "Save Vendor Login"}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           )}
 

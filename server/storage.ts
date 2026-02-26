@@ -11,8 +11,9 @@ import {
   type CouponProduct, type InsertCouponProduct,
   type Order, type InsertOrder,
   type OrderItem, type InsertOrderItem,
+  type Vendor, type InsertVendor,
   type Banner, type InsertBanner,
-  users, categories, shops, products, coupons, couponProducts, orders, orderItems, banners
+  users, categories, shops, products, coupons, couponProducts, orders, orderItems, vendors, banners
 } from "@shared/schema";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -69,6 +70,14 @@ export interface IStorage {
   createOrder(order: InsertOrder, items: InsertOrderItem[]): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
   updateOrderPayment(id: string, paymentStatus: string, razorpayOrderId?: string): Promise<Order | undefined>;
+
+  // Vendors
+  getAllVendors(): Promise<(Vendor & { shop?: Shop })[]>;
+  getVendorByEmail(email: string): Promise<Vendor | undefined>;
+  getVendorByShopId(shopId: string): Promise<Vendor | undefined>;
+  createVendor(vendor: InsertVendor): Promise<Vendor>;
+  updateVendor(id: string, vendor: Partial<InsertVendor>): Promise<Vendor | undefined>;
+  deleteVendor(id: string): Promise<void>;
 
   // Banners
   getAllBanners(): Promise<(Banner & { coupon?: Coupon })[]>;
@@ -337,6 +346,35 @@ export class PgStorage implements IStorage {
     }));
   }
 
+  async getAllVendors(): Promise<(Vendor & { shop?: Shop })[]> {
+    const result = await db.select().from(vendors).leftJoin(shops, eq(vendors.shop_id, shops.id)).orderBy(desc(vendors.created_at));
+    return result.map(r => ({ ...r.vendors, shop: r.shops || undefined }));
+  }
+
+  async getVendorByEmail(email: string): Promise<Vendor | undefined> {
+    const result = await db.select().from(vendors).where(eq(vendors.email, email)).limit(1);
+    return result[0];
+  }
+
+  async getVendorByShopId(shopId: string): Promise<Vendor | undefined> {
+    const result = await db.select().from(vendors).where(eq(vendors.shop_id, shopId)).limit(1);
+    return result[0];
+  }
+
+  async createVendor(vendor: InsertVendor): Promise<Vendor> {
+    const result = await db.insert(vendors).values(vendor).returning();
+    return result[0];
+  }
+
+  async updateVendor(id: string, vendor: Partial<InsertVendor>): Promise<Vendor | undefined> {
+    const result = await db.update(vendors).set(vendor).where(eq(vendors.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteVendor(id: string): Promise<void> {
+    await db.delete(vendors).where(eq(vendors.id, id));
+  }
+
   async createBanner(banner: InsertBanner): Promise<Banner> {
     const result = await db.insert(banners).values(banner).returning();
     return result[0];
@@ -359,7 +397,7 @@ export class PgStorage implements IStorage {
       db.select({ count: sql<number>`count(*)` }).from(products),
       db.select({ count: sql<number>`count(*)` }).from(orders),
       db.select({ count: sql<number>`count(*)` }).from(coupons),
-      db.select({ count: sql<number>`count(*)` }).from(shops).where(eq(shops.is_premium, true)),
+      db.select({ count: sql<number>`count(*)` }).from(vendors),
     ]);
     return {
       users: Number(u[0].count),

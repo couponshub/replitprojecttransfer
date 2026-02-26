@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Zap, Eye, EyeOff, ArrowRight, Sparkles, Phone, Mail, Shield } from "lucide-react";
+import { Zap, Eye, EyeOff, ArrowRight, Sparkles, Phone, Mail, Shield, Store } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 export default function Login() {
@@ -15,12 +15,13 @@ export default function Login() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [tab, setTab] = useState<"login" | "register" | "admin">("login");
+  const [tab, setTab] = useState<"login" | "register" | "admin" | "vendor">("login");
   const [loginMethod, setLoginMethod] = useState<"email" | "phone">("email");
 
   const [loginForm, setLoginForm] = useState({ email: "", phone: "", password: "" });
   const [registerForm, setRegisterForm] = useState({ name: "", email: "", phone: "", password: "" });
   const [adminForm, setAdminForm] = useState({ email: "", password: "" });
+  const [vendorForm, setVendorForm] = useState({ email: "", password: "" });
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,6 +57,27 @@ export default function Login() {
       });
       toast({ title: `Welcome to CouponsHub X, ${user.name}!` });
       navigate("/home");
+    } catch (err: any) {
+      toast({ title: err.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVendorLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = await fetch("/api/vendor/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: vendorForm.email, password: vendorForm.password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Login failed");
+      localStorage.setItem("vendor_token", data.token);
+      toast({ title: `Welcome, ${data.vendor.name}!` });
+      navigate("/vendor-dashboard");
     } catch (err: any) {
       toast({ title: err.message, variant: "destructive" });
     } finally {
@@ -143,11 +165,14 @@ export default function Login() {
           </div>
 
           <Tabs value={tab} onValueChange={v => setTab(v as any)}>
-            <TabsList className="w-full mb-8 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-1">
-              <TabsTrigger value="login" className="flex-1 rounded-xl text-xs sm:text-sm" data-testid="tab-login">Sign In</TabsTrigger>
-              <TabsTrigger value="register" className="flex-1 rounded-xl text-xs sm:text-sm" data-testid="tab-register">Create Account</TabsTrigger>
-              <TabsTrigger value="admin" className="flex-1 rounded-xl text-xs sm:text-sm" data-testid="tab-admin">
-                <Shield className="w-3.5 h-3.5 mr-1" /> Admin
+            <TabsList className="w-full mb-8 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-1 grid grid-cols-4">
+              <TabsTrigger value="login" className="rounded-xl text-xs sm:text-sm" data-testid="tab-login">Sign In</TabsTrigger>
+              <TabsTrigger value="register" className="rounded-xl text-xs sm:text-sm" data-testid="tab-register">Register</TabsTrigger>
+              <TabsTrigger value="vendor" className="rounded-xl text-xs sm:text-sm" data-testid="tab-vendor">
+                <Store className="w-3 h-3 mr-1" /> Vendor
+              </TabsTrigger>
+              <TabsTrigger value="admin" className="rounded-xl text-xs sm:text-sm" data-testid="tab-admin">
+                <Shield className="w-3 h-3 mr-1" /> Admin
               </TabsTrigger>
             </TabsList>
 
@@ -318,6 +343,65 @@ export default function Login() {
                     >
                       {loading ? "Creating account..." : (
                         <><span>Create Account</span><ArrowRight className="w-4 h-4 ml-2" /></>
+                      )}
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="vendor">
+              <Card className="border-0 shadow-xl rounded-3xl bg-white dark:bg-gray-900">
+                <CardContent className="p-8">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                      <Store className="w-5 h-5 text-white" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Vendor Login</h2>
+                  </div>
+                  <p className="text-muted-foreground mb-6">Access your shop dashboard</p>
+                  <form onSubmit={handleVendorLogin} className="flex flex-col gap-5">
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="vendor-email">Vendor Email</Label>
+                      <Input
+                        id="vendor-email"
+                        type="email"
+                        placeholder="shopname@vendor.com"
+                        value={vendorForm.email}
+                        onChange={e => setVendorForm(f => ({ ...f, email: e.target.value }))}
+                        className="h-12 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                        required
+                        data-testid="input-vendor-email"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="vendor-password">Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="vendor-password"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Enter vendor password"
+                          value={vendorForm.password}
+                          onChange={e => setVendorForm(f => ({ ...f, password: e.target.value }))}
+                          className="h-12 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 pr-12"
+                          required
+                          data-testid="input-vendor-password"
+                        />
+                        <PasswordToggle />
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900">
+                      <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">Default password: Vendor@123</p>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-500 mt-0.5">Email format: shopname@vendor.com</p>
+                    </div>
+                    <Button
+                      type="submit"
+                      disabled={loading}
+                      className="h-12 rounded-xl text-base font-semibold bg-gradient-to-r from-emerald-500 to-teal-600 border-0 mt-2"
+                      data-testid="button-submit-vendor"
+                    >
+                      {loading ? "Signing in..." : (
+                        <><span>Open Vendor Panel</span><ArrowRight className="w-4 h-4 ml-2" /></>
                       )}
                     </Button>
                   </form>

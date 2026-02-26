@@ -15,15 +15,17 @@ A full-stack marketplace web application for discovering and using coupons from 
 ### Database Tables
 - `users` - Admin and user accounts (role: admin | user, supports phone field)
 - `categories` - Shop categories (Food, Fashion, Electronics, etc.)
-- `shops` - Marketplace shops with premium/featured flags
+- `shops` - Marketplace shops with premium/featured flags, listing_type (products/services/both)
 - `products` - Products within shops
 - `coupons` - Discount coupons (percentage, flat, free_item, flash types)
 - `orders` - Customer orders (pending, confirmed, completed)
 - `order_items` - Line items within orders
+- `vendors` - Vendor login accounts (one per shop, separate JWT auth via VENDOR_SECRET)
+- `banners` - Home page banner slides linked to coupons
 
 ### Key Routes
 - `/` or `/home` - User marketplace homepage
-- `/login` - 3-tab login (Sign In, Create Account, Admin)
+- `/login` - 4-tab login (Sign In, Create Account, Vendor, Admin)
 - `/category/:id` - Shops filtered by category
 - `/shop/:id` - Shop detail with products and coupons
 - `/cart` - Shopping cart with coupon application
@@ -38,7 +40,7 @@ A full-stack marketplace web application for discovering and using coupons from 
 - **Coupons** - CRUD with active/inactive status
 - **Orders** - Table view with status management
 - **Users** - All users table with contact details
-- **Vendors** - Premium shops card view
+- **Vendors** - All shops with vendor login management (Set Login / Update Login per shop)
 - **Top Shops** - Ranked premium shops
 - **Top Coupons** - Active coupons showcase
 

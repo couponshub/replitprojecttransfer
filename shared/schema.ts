@@ -106,6 +106,15 @@ export const orderItems = pgTable("order_items", {
   is_free_item: boolean("is_free_item").notNull().default(false),
 });
 
+export const vendors = pgTable("vendors", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  shop_id: varchar("shop_id").references(() => shops.id),
+  name: text("name").notNull(),
+  email: text("email").notNull().unique(),
+  password: text("password").notNull(),
+  created_at: timestamp("created_at").notNull().default(sql`now()`),
+});
+
 export const banners = pgTable("banners", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   title: text("title").notNull(),
@@ -116,8 +125,11 @@ export const banners = pgTable("banners", {
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });
 
-export const insertBannerSchema = createInsertSchema(banners).omit({ id: true, created_at: true });
+export const insertVendorSchema = createInsertSchema(vendors).omit({ id: true, created_at: true });
+export type InsertVendor = z.infer<typeof insertVendorSchema>;
+export type Vendor = typeof vendors.$inferSelect;
 
+export const insertBannerSchema = createInsertSchema(banners).omit({ id: true, created_at: true });
 export type InsertBanner = z.infer<typeof insertBannerSchema>;
 export type Banner = typeof banners.$inferSelect;
 

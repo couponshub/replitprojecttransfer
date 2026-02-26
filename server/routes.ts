@@ -6,7 +6,7 @@ import jwt from "jsonwebtoken";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import { insertUserSchema, insertCategorySchema, insertShopSchema, insertProductSchema, insertCouponSchema, users, categories, shops, products, coupons, orders, orderItems } from "@shared/schema";
+import { insertUserSchema, insertCategorySchema, insertShopSchema, insertProductSchema, insertCouponSchema, users, categories, shops, products, coupons, orders, orderItems, vendors } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 
 const JWT_SECRET = process.env.SESSION_SECRET || "coupons-hub-secret-key";
@@ -50,6 +50,24 @@ function adminMiddleware(req: Request, res: Response, next: NextFunction) {
     }
     next();
   });
+}
+
+const VENDOR_SECRET = (process.env.SESSION_SECRET || "coupons-hub-secret-key") + "-vendor";
+
+function generateVendorToken(payload: { id: string; email: string; shop_id: string }) {
+  return jwt.sign(payload, VENDOR_SECRET, { expiresIn: "7d" });
+}
+
+function vendorMiddleware(req: Request, res: Response, next: NextFunction) {
+  const token = req.cookies?.vendor_token || req.headers["x-vendor-token"];
+  if (!token) return res.status(401).json({ error: "Vendor authentication required" });
+  try {
+    const decoded = jwt.verify(token as string, VENDOR_SECRET) as any;
+    (req as any).vendor = decoded;
+    next();
+  } catch {
+    res.status(401).json({ error: "Invalid vendor token" });
+  }
 }
 
 async function seedDatabase() {
@@ -186,6 +204,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.use("/uploads", express.static(uploadsDir));
 
   await seedDatabase();
+
+  // Seed vendor accounts for existing shops if none exist
+  const existingVendors = await db.select({ count: sql<number>`count(*)` }).from(vendors);
+  if (Number(existingVendors[0].count) === 0) {
+    const allShops = await storage.getAllShops();
+    const vendorPass = await bcrypt.hash("Vendor@123", 10);
+    for (const shop of allShops) {
+      const slug = shop.name.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 20);
+      const email = `${slug}@vendor.com`;
+      try {
+        await storage.createVendor({ shop_id: shop.id, name: shop.name, email, password: vendorPass });
+      } catch {}
+    }
+    console.log("Vendor accounts seeded!");
+  }
 
   // Auth routes
   app.post("/api/auth/login", async (req, res) => {
@@ -566,6 +599,133 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.delete("/api/admin/banners/:id", adminMiddleware, async (req, res) => {
     await storage.deleteBanner(req.params.id);
+    res.json({ ok: true });
+  });
+
+  // ── Vendor Auth ──────────────────────────────────────────────────────────────
+  app.post("/api/vendor/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      if (!email || !password) return res.status(400).json({ error: "Email and password required" });
+      const vendor = await storage.getVendorByEmail(email);
+      if (!vendor) return res.status(401).json({ error: "Invalid credentials" });
+      const valid = await bcrypt.compare(password, vendor.password);
+      if (!valid) return res.status(401).json({ error: "Invalid credentials" });
+      const token = generateVendorToken({ id: vendor.id, email: vendor.email, shop_id: vendor.shop_id! });
+      res.cookie("vendor_token", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
+      res.json({ token, vendor: { id: vendor.id, name: vendor.name, email: vendor.email, shop_id: vendor.shop_id } });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.post("/api/vendor/logout", (req, res) => {
+    res.clearCookie("vendor_token");
+    res.json({ ok: true });
+  });
+
+  app.get("/api/vendor/me", vendorMiddleware, async (req, res) => {
+    const v = req.body;
+    const vendor = await storage.getVendorByEmail((req as any).vendor.email);
+    if (!vendor) return res.status(404).json({ error: "Not found" });
+    res.json({ id: vendor.id, name: vendor.name, email: vendor.email, shop_id: vendor.shop_id });
+  });
+
+  // ── Vendor Shop Management ───────────────────────────────────────────────────
+  app.get("/api/vendor/shop", vendorMiddleware, async (req, res) => {
+    const shopId = (req as any).vendor.shop_id;
+    const shop = await storage.getShop(shopId);
+    if (!shop) return res.status(404).json({ error: "Shop not found" });
+    res.json(shop);
+  });
+
+  app.patch("/api/vendor/shop", vendorMiddleware, async (req, res) => {
+    try {
+      const shopId = (req as any).vendor.shop_id;
+      const updated = await storage.updateShop(shopId, req.body);
+      res.json(updated);
+    } catch (err: any) { res.status(400).json({ error: err.message }); }
+  });
+
+  // ── Vendor Products ──────────────────────────────────────────────────────────
+  app.get("/api/vendor/products", vendorMiddleware, async (req, res) => {
+    const shopId = (req as any).vendor.shop_id;
+    res.json(await storage.getProductsByShop(shopId));
+  });
+
+  app.post("/api/vendor/products", vendorMiddleware, async (req, res) => {
+    try {
+      const shopId = (req as any).vendor.shop_id;
+      const product = await storage.createProduct({ ...req.body, shop_id: shopId });
+      res.json(product);
+    } catch (err: any) { res.status(400).json({ error: err.message }); }
+  });
+
+  app.patch("/api/vendor/products/:id", vendorMiddleware, async (req, res) => {
+    try {
+      const shopId = (req as any).vendor.shop_id;
+      const product = await storage.getProduct(req.params.id);
+      if (!product || product.shop_id !== shopId) return res.status(403).json({ error: "Forbidden" });
+      const updated = await storage.updateProduct(req.params.id, req.body);
+      res.json(updated);
+    } catch (err: any) { res.status(400).json({ error: err.message }); }
+  });
+
+  app.delete("/api/vendor/products/:id", vendorMiddleware, async (req, res) => {
+    const shopId = (req as any).vendor.shop_id;
+    const product = await storage.getProduct(req.params.id);
+    if (!product || product.shop_id !== shopId) return res.status(403).json({ error: "Forbidden" });
+    await storage.deleteProduct(req.params.id);
+    res.json({ ok: true });
+  });
+
+  // ── Vendor Coupons ───────────────────────────────────────────────────────────
+  app.get("/api/vendor/coupons", vendorMiddleware, async (req, res) => {
+    const shopId = (req as any).vendor.shop_id;
+    res.json(await storage.getCouponsByShop(shopId));
+  });
+
+  app.post("/api/vendor/coupons", vendorMiddleware, async (req, res) => {
+    try {
+      const shopId = (req as any).vendor.shop_id;
+      const coupon = await storage.createCoupon({ ...req.body, shop_id: shopId });
+      res.json(coupon);
+    } catch (err: any) { res.status(400).json({ error: err.message }); }
+  });
+
+  app.patch("/api/vendor/coupons/:id", vendorMiddleware, async (req, res) => {
+    try {
+      const updated = await storage.updateCoupon(req.params.id, req.body);
+      res.json(updated);
+    } catch (err: any) { res.status(400).json({ error: err.message }); }
+  });
+
+  app.delete("/api/vendor/coupons/:id", vendorMiddleware, async (req, res) => {
+    await storage.deleteCoupon(req.params.id);
+    res.json({ ok: true });
+  });
+
+  // ── Admin Vendor Management ──────────────────────────────────────────────────
+  app.get("/api/admin/vendors", adminMiddleware, async (req, res) => {
+    res.json(await storage.getAllVendors());
+  });
+
+  app.post("/api/admin/vendors", adminMiddleware, async (req, res) => {
+    try {
+      const { shop_id, name, email, password } = req.body;
+      if (!shop_id || !email || !password) return res.status(400).json({ error: "shop_id, email, password required" });
+      const existing = await storage.getVendorByShopId(shop_id);
+      if (existing) {
+        const hashed = await bcrypt.hash(password, 10);
+        const updated = await storage.updateVendor(existing.id, { name: name || existing.name, email, password: hashed });
+        return res.json(updated);
+      }
+      const hashed = await bcrypt.hash(password, 10);
+      const vendor = await storage.createVendor({ shop_id, name: name || "Vendor", email, password: hashed });
+      res.json(vendor);
+    } catch (err: any) { res.status(400).json({ error: err.message }); }
+  });
+
+  app.delete("/api/admin/vendors/:id", adminMiddleware, async (req, res) => {
+    await storage.deleteVendor(req.params.id);
     res.json({ ok: true });
   });
 
