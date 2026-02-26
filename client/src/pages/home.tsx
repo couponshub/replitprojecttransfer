@@ -127,29 +127,22 @@ type SearchResults = {
   coupons: (Coupon & { shop?: Shop })[];
 };
 
-const FLOAT_POSITIONS = [
-  { top: "-36px", left: "4%" },
-  { top: "-44px", left: "18%" },
-  { top: "-38px", left: "36%" },
-  { top: "-42px", left: "54%" },
-  { top: "-36px", right: "22%" },
-  { top: "-40px", right: "6%" },
-  { bottom: "-34px", left: "12%" },
-  { bottom: "-38px", right: "18%" },
+const SHOP_ICON_COLORS = [
+  "#ef4444", "#f97316", "#eab308", "#22c55e",
+  "#06b6d4", "#6366f1", "#ec4899", "#14b8a6",
+  "#8b5cf6", "#f59e0b",
 ];
 
-const FLOAT_COLORS = [
-  "from-blue-500 to-cyan-500",
-  "from-violet-500 to-purple-600",
-  "from-emerald-500 to-teal-500",
-  "from-orange-500 to-red-500",
-  "from-pink-500 to-rose-500",
-  "from-amber-500 to-yellow-400",
-  "from-indigo-500 to-blue-600",
-  "from-teal-500 to-emerald-400",
-];
+function hashStr(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = (h * 0x01000193) >>> 0;
+  }
+  return h;
+}
 
-function SearchBar({ activeCoupons }: { activeCoupons: (Coupon & { shop?: Shop })[] }) {
+function SearchBar() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [isListening, setIsListening] = useState(false);
@@ -205,29 +198,8 @@ function SearchBar({ activeCoupons }: { activeCoupons: (Coupon & { shop?: Shop }
   const totalResults = results ? results.shops.length + results.products.length + results.coupons.length : 0;
 
   return (
-    <div className="relative max-w-3xl mx-auto px-4 sm:px-6 z-30 -mt-5 mb-4">
+    <div className="relative max-w-3xl mx-auto px-4 sm:px-6 z-30">
       <div ref={containerRef} className="relative">
-
-        {/* Floating coupon chips */}
-        <div className="absolute inset-0 pointer-events-none" style={{ overflow: "visible" }}>
-          {activeCoupons.slice(0, 8).map((c, i) => (
-            <div
-              key={c.id}
-              className="absolute coupon-float"
-              style={{
-                ...FLOAT_POSITIONS[i % FLOAT_POSITIONS.length],
-                animationDelay: `${i * 0.45}s`,
-                animationDuration: `${2.4 + i * 0.25}s`,
-              }}
-            >
-              <span
-                className={`inline-flex items-center gap-1 bg-gradient-to-r ${FLOAT_COLORS[i % FLOAT_COLORS.length]} text-white text-[10px] sm:text-xs font-bold px-2.5 py-1 rounded-full shadow-xl border border-white/30 whitespace-nowrap backdrop-blur-sm`}
-              >
-                🏷️ {c.code}
-              </span>
-            </div>
-          ))}
-        </div>
 
         {/* Frosted glass search bar */}
         <div className="relative flex items-center bg-white/88 dark:bg-gray-900/88 backdrop-blur-3xl rounded-2xl shadow-2xl border border-white/60 dark:border-white/10 ring-1 ring-blue-200/60 dark:ring-blue-700/30 transition-all focus-within:ring-2 focus-within:ring-blue-400/50 focus-within:shadow-blue-200/30">
@@ -520,6 +492,200 @@ function CouponCard({ coupon }: { coupon: Coupon & { shop?: Shop } }) {
   );
 }
 
+function NearbyMapPanel({
+  isOpen,
+  onClose,
+  shops,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  shops: (Shop & { category?: Category })[];
+}) {
+  const mapShops = shops.slice(0, 10).map((shop, idx) => {
+    const h1 = hashStr(shop.id);
+    const h2 = hashStr(shop.id + "_y");
+    const angle = ((h1 & 0xFFFF) / 65535) * Math.PI * 2;
+    const radius = 0.22 + ((h2 & 0xFF) / 255) * 0.28;
+    const dx = Math.cos(angle) * radius;
+    const dy = Math.sin(angle) * radius;
+    const distance = Math.round(Math.sqrt(dx * dx + dy * dy) * 1300) + 80;
+    return { ...shop, dx, dy, distance, color: SHOP_ICON_COLORS[idx % SHOP_ICON_COLORS.length] };
+  });
+
+  const openShopNav = (shop: typeof mapShops[0]) => {
+    const q = shop.map_link && shop.map_link !== "L" ? shop.map_link : encodeURIComponent(`${shop.name}, ${shop.address}`);
+    window.open(shop.map_link && shop.map_link !== "L" ? shop.map_link : `https://www.google.com/maps/search/?api=1&query=${q}`, "_blank");
+  };
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+        onClick={onClose}
+      />
+      {/* Panel — slides up from bottom */}
+      <div
+        className={`fixed bottom-0 left-0 right-0 z-50 transition-transform duration-500 ease-out ${isOpen ? "translate-y-0" : "translate-y-full"}`}
+        style={{ maxHeight: "90dvh" }}
+      >
+        <div className="mx-auto max-w-lg w-full rounded-t-3xl overflow-hidden"
+          style={{
+            background: "rgba(8,16,40,0.97)",
+            boxShadow: "0 -8px 60px rgba(0,100,255,0.25), 0 -2px 0 rgba(255,255,255,0.08)",
+            border: "1px solid rgba(255,255,255,0.1)",
+          }}
+        >
+          {/* Handle */}
+          <div className="flex justify-center pt-3 pb-1">
+            <div className="w-10 h-1 rounded-full bg-white/25" />
+          </div>
+
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 pb-2">
+            <div>
+              <h3 className="text-white font-bold text-base">Nearby Shops</h3>
+              <p className="text-white/50 text-xs">Coupon hotspots around you</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+              data-testid="button-map-close"
+            >
+              <X className="w-4 h-4 text-white" />
+            </button>
+          </div>
+
+          {/* Map area — square */}
+          <div className="relative w-full mx-auto" style={{ aspectRatio: "1 / 1" }}>
+            {/* Map image background */}
+            <img
+              src="/map-theme.png"
+              alt="Map"
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{ filter: "brightness(0.72) saturate(1.4) hue-rotate(10deg)" }}
+            />
+            {/* Futuristic overlay */}
+            <div
+              className="absolute inset-0"
+              style={{
+                background: "radial-gradient(ellipse at center, rgba(0,40,100,0.35) 0%, rgba(0,10,40,0.6) 100%)",
+              }}
+            />
+            {/* Grid lines overlay */}
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundImage: "linear-gradient(rgba(0,150,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(0,150,255,0.06) 1px, transparent 1px)",
+                backgroundSize: "32px 32px",
+              }}
+            />
+
+            {/* Shop coupon icons */}
+            {mapShops.map((shop) => (
+              <button
+                key={shop.id}
+                onClick={() => openShopNav(shop)}
+                data-testid={`button-map-shop-${shop.id}`}
+                className="absolute group"
+                style={{
+                  left: `${50 + shop.dx * 100}%`,
+                  top: `${50 + shop.dy * 100}%`,
+                  transform: "translate(-50%, -50%)",
+                  zIndex: 10,
+                }}
+              >
+                {/* Glow */}
+                <div
+                  className="absolute inset-0 rounded-lg blur-md opacity-60 group-hover:opacity-90 transition-opacity"
+                  style={{ background: shop.color, transform: "scale(1.3)" }}
+                />
+                {/* Coupon ticket icon */}
+                <div
+                  className="relative flex items-center justify-center w-9 h-6 rounded-md border border-white/30 shadow-lg"
+                  style={{
+                    background: shop.color,
+                    boxShadow: `0 0 12px ${shop.color}88`,
+                  }}
+                >
+                  {/* Ticket perforations */}
+                  <div className="absolute left-0 w-2 h-2 rounded-full bg-black/40 -translate-x-1" />
+                  <div className="absolute right-0 w-2 h-2 rounded-full bg-black/40 translate-x-1" />
+                  <span className="text-white text-[9px] font-black tracking-tight">
+                    {shop.category?.name?.slice(0, 3).toUpperCase() || "OFF"}
+                  </span>
+                </div>
+                {/* Distance badge */}
+                <div
+                  className="absolute top-full mt-1 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] font-bold rounded px-1.5 py-0.5 text-white"
+                  style={{ background: "rgba(0,0,0,0.75)" }}
+                >
+                  {shop.distance}m
+                </div>
+                {/* Shop name tooltip on hover */}
+                <div
+                  className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold rounded-lg px-2 py-1 text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+                  style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)" }}
+                >
+                  {shop.name}
+                </div>
+              </button>
+            ))}
+
+            {/* User location — center */}
+            <div
+              className="absolute"
+              style={{ left: "50%", top: "50%", transform: "translate(-50%, -50%)", zIndex: 20 }}
+            >
+              {/* Pulsing ring */}
+              <div
+                className="absolute rounded-full radar-ping"
+                style={{
+                  width: 32, height: 32,
+                  background: "rgba(239,68,68,0.3)",
+                  top: "50%", left: "50%",
+                  transform: "translate(-50%,-50%)",
+                }}
+              />
+              {/* Outer ring */}
+              <div
+                className="absolute rounded-full border-2 border-red-400/60"
+                style={{ width: 28, height: 28, top: "50%", left: "50%", transform: "translate(-50%,-50%)" }}
+              />
+              {/* Main pin */}
+              <div
+                className="w-5 h-5 rounded-full border-2 border-white flex items-center justify-center relative z-10"
+                style={{
+                  background: "radial-gradient(circle at 35% 30%, #ff6b6b, #dc2626)",
+                  boxShadow: "0 0 16px rgba(239,68,68,0.8), 0 2px 8px rgba(0,0,0,0.5)",
+                }}
+              >
+                <div className="w-2 h-2 rounded-full bg-white/80" />
+              </div>
+            </div>
+
+            {/* Compass rose */}
+            <div className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center border border-white/15">
+              <span className="text-[10px] font-bold text-white/70">N</span>
+            </div>
+
+            {/* Scale bar */}
+            <div className="absolute bottom-3 left-3 flex items-center gap-1">
+              <div className="w-10 h-0.5 bg-white/50" />
+              <span className="text-[9px] text-white/60 font-medium">500m</span>
+            </div>
+          </div>
+
+          {/* Bottom tap hint */}
+          <div className="px-4 py-3 flex items-center justify-center gap-2">
+            <span className="text-white/40 text-xs">Tap any icon to navigate · {mapShops.length} shops nearby</span>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 function RadarMap({ lat, lng, onClick }: { lat: number | null; lng: number | null; onClick: () => void }) {
   return (
     <button
@@ -585,6 +751,7 @@ function RadarMap({ lat, lng, onClick }: { lat: number | null; lng: number | nul
 export default function Home() {
   const [, navigate] = useLocation();
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; address: string } | null>(null);
+  const [mapOpen, setMapOpen] = useState(false);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -614,16 +781,7 @@ export default function Home() {
     );
   }, []);
 
-  const openMap = () => {
-    if (userLocation) {
-      window.open(`https://www.google.com/maps?q=${userLocation.lat},${userLocation.lng}`, "_blank");
-    } else {
-      navigator.geolocation?.getCurrentPosition(
-        (pos) => window.open(`https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`, "_blank"),
-        () => window.open("https://www.google.com/maps", "_blank")
-      );
-    }
-  };
+  const openMap = () => setMapOpen(true);
 
   const { data: categories = [], isLoading: catLoading } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
@@ -643,6 +801,11 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <NearbyMapPanel
+        isOpen={mapOpen}
+        onClose={() => setMapOpen(false)}
+        shops={featuredShops}
+      />
       <Navbar />
 
       {/* Search bar hero — compact gradient with floating coupons */}
@@ -652,7 +815,7 @@ export default function Home() {
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/3 -translate-x-1/4" />
         </div>
         <div className="relative pt-8 pb-8">
-          <SearchBar activeCoupons={activeCoupons} />
+          <SearchBar />
 
           {/* Location label */}
           <div className="flex items-center justify-center gap-1.5 mt-3 mb-5">
