@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useLocation, Link } from "wouter";
+import { useLocation } from "wouter";
 import { Navbar } from "@/components/Navbar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Crown, Tag, ChevronRight, Star, MapPin, Zap, Percent, Flame, ChevronLeft, Search, Mic, X } from "lucide-react";
+import { Crown, ChevronRight, Star, MapPin, Percent, ChevronLeft, Search, Mic, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Category, Shop, Coupon, Banner, Product } from "@shared/schema";
 
@@ -266,7 +266,7 @@ function SearchBar({ activeCoupons }: { activeCoupons: (Coupon & { shop?: Shop }
 
         {/* Search hint label */}
         {!open && !query && (
-          <p className="text-center text-xs text-gray-400 dark:text-gray-600 mt-2 font-medium">
+          <p className="text-center text-xs text-white/60 mt-2 font-medium">
             Search any store, product, service, or coupon code
           </p>
         )}
@@ -543,58 +543,19 @@ export default function Home() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Navbar />
 
-      {/* Hero */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 text-white">
-        <div className="absolute inset-0">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4" />
+      {/* Search bar hero — compact gradient with floating coupons */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-0 right-0 w-72 h-72 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/3 -translate-x-1/4" />
         </div>
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
-          <div className="flex items-center gap-2 mb-4">
-            <Flame className="w-5 h-5 text-orange-300" />
-            <span className="text-sm font-medium text-white/80">Hot deals today</span>
-          </div>
-          <h1 className="text-3xl sm:text-5xl font-bold leading-tight mb-4">
-            Unbeatable Coupons &<br />
-            <span className="text-yellow-300">Exclusive Deals</span>
-          </h1>
-          <p className="text-white/80 text-lg mb-8 max-w-lg">
-            Explore thousands of shops and save big with the best coupons in India.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <Button
-              onClick={() => navigate("/login")}
-              className="bg-white text-blue-600 border-0 rounded-xl font-semibold h-12 px-6"
-              data-testid="button-get-started"
-            >
-              Get Started Free
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => document.getElementById("shops-section")?.scrollIntoView({ behavior: "smooth" })}
-              className="text-white border border-white/30 rounded-xl h-12 px-6 bg-white/10"
-            >
-              Browse Shops
-            </Button>
-          </div>
-          <div className="grid grid-cols-3 gap-6 mt-12 max-w-sm">
-            {[["10K+", "Shops"], ["50K+", "Coupons"], ["98%", "Savings Rate"]].map(([n, l], i) => (
-              <div key={i}>
-                <div className="text-2xl font-bold">{n}</div>
-                <div className="text-white/60 text-xs mt-0.5">{l}</div>
-              </div>
-            ))}
-          </div>
+        <div className="relative pt-8 pb-10">
+          <SearchBar activeCoupons={activeCoupons} />
         </div>
       </div>
 
       {/* Banner slider */}
       {homeBanners.length > 0 && <BannerSlider banners={homeBanners} />}
-
-      {/* Search bar with floating coupon animation */}
-      <div className="bg-gray-50 dark:bg-gray-950 pt-8 pb-2">
-        <SearchBar activeCoupons={activeCoupons} />
-      </div>
 
       {/* Categories */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
