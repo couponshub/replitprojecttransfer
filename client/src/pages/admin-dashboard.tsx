@@ -1052,12 +1052,25 @@ export default function AdminDashboard() {
                       <div>
                         <Label className="text-sm flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> Google Maps Link</Label>
                         <div className="flex gap-2 mt-1.5">
-                          <Input value={formData.map_link || ""} onChange={e => setForm("map_link", e.target.value)} className="rounded-xl flex-1" placeholder="https://maps.google.com/..." data-testid="input-shop-map" />
+                          <Input value={formData.map_link || ""} onChange={e => setForm("map_link", e.target.value)} className="rounded-xl flex-1" placeholder="https://maps.google.com/maps/place/ShopName/@16.71,81.09,17z" data-testid="input-shop-map" />
                           {formData.map_link && (
                             <button type="button" onClick={() => window.open(formData.map_link, "_blank")} className="shrink-0 w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/30 text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-colors" title="Open map" data-testid="button-open-map">
                               <MapPin className="w-4 h-4" />
                             </button>
                           )}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">
+                          Map radar lo show avvadam ki URL lo <span className="font-semibold text-blue-600">@lat,lng</span> format use cheyyandi (e.g. <span className="font-mono">@16.7100,81.0966</span>). Save cheste coordinates auto-extract avutayi.
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-sm flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> Latitude (Manual)</Label>
+                          <Input value={formData.latitude || ""} onChange={e => setForm("latitude", e.target.value)} className="mt-1.5 rounded-xl" placeholder="e.g. 16.7100" data-testid="input-shop-latitude" />
+                        </div>
+                        <div>
+                          <Label className="text-sm flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> Longitude (Manual)</Label>
+                          <Input value={formData.longitude || ""} onChange={e => setForm("longitude", e.target.value)} className="mt-1.5 rounded-xl" placeholder="e.g. 81.0966" data-testid="input-shop-longitude" />
                         </div>
                       </div>
                     </div>

@@ -756,6 +756,27 @@ async function seedElurubusinesses() {
   console.log(`Seeded ${newShopIds.length} Eluru businesses!`);
 }
 
+function extractCoordsFromMapLink(url: string | null): { latitude: string; longitude: string } | null {
+  if (!url || url.length < 10) return null;
+  const patterns = [
+    /@(-?\d+\.?\d+),(-?\d+\.?\d+)/,
+    /[?&]q=(-?\d+\.?\d+),(-?\d+\.?\d+)/,
+    /[?&]ll=(-?\d+\.?\d+),(-?\d+\.?\d+)/,
+    /place\/(-?\d+\.?\d+),(-?\d+\.?\d+)/,
+    /center=(-?\d+\.?\d+),(-?\d+\.?\d+)/,
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) {
+      const lat = parseFloat(m[1]);
+      const lng = parseFloat(m[2]);
+      if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180)
+        return { latitude: String(lat), longitude: String(lng) };
+    }
+  }
+  return null;
+}
+
 async function migrateShopMapLinks() {
   const mapLinkData: Record<string, string> = {
     "Anand Bhavan Restaurant": "https://www.google.com/maps/place/Anand+Bhavan+Restaurant+Eluru/@16.7051,81.0971,17z",
@@ -813,12 +834,19 @@ async function migrateShopMapLinks() {
     let updated = 0;
     for (const shop of allShops) {
       const correctLink = mapLinkData[shop.name];
-      if (correctLink && (!shop.map_link || shop.map_link.includes("goo.gl"))) {
-        await db.update(shops).set({ map_link: correctLink }).where(sql`id = ${shop.id}`);
+      const needsLinkUpdate = correctLink && (!shop.map_link || shop.map_link.includes("goo.gl"));
+      const effectiveLink = needsLinkUpdate ? correctLink : shop.map_link;
+      const coords = extractCoordsFromMapLink(effectiveLink);
+      const needsCoordsUpdate = coords && (!shop.latitude || !shop.longitude);
+      if (needsLinkUpdate || needsCoordsUpdate) {
+        const updateData: Record<string, string> = {};
+        if (needsLinkUpdate && correctLink) updateData.map_link = correctLink;
+        if (coords) { updateData.latitude = coords.latitude; updateData.longitude = coords.longitude; }
+        await db.update(shops).set(updateData).where(sql`id = ${shop.id}`);
         updated++;
       }
     }
-    if (updated > 0) console.log(`Updated map_links for ${updated} shops in production.`);
+    if (updated > 0) console.log(`Migrated map data for ${updated} shops.`);
   } catch (e) {
     console.error("migrateShopMapLinks error:", e);
   }
@@ -954,6 +982,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.put("/api/shops/:id", adminMiddleware, async (req, res) => {
     try {
       const { id, created_at, category, ...body } = req.body;
+      if (body.map_link) {
+        const coords = extractCoordsFromMapLink(body.map_link);
+        if (coords) { body.latitude = coords.latitude; body.longitude = coords.longitude; }
+      }
       const updated = await storage.updateShop(req.params.id, body);
       if (!updated) return res.status(404).json({ error: "Not found" });
       res.json(updated);
@@ -1281,6 +1313,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const shopId = (req as any).vendor.shop_id;
       const { id, created_at, category, is_premium, commission_percentage, subscription_active, featured, ...shopData } = req.body;
+      if (shopData.map_link) {
+        const coords = extractCoordsFromMapLink(shopData.map_link);
+        if (coords) { shopData.latitude = coords.latitude; shopData.longitude = coords.longitude; }
+      }
       const updated = await storage.updateShop(shopId, shopData);
       res.json(updated);
     } catch (err: any) { res.status(400).json({ error: err.message }); }

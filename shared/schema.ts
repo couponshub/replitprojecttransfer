@@ -34,6 +34,8 @@ export const shops = pgTable("shops", {
   address: text("address"),
   whatsapp_number: text("whatsapp_number"),
   map_link: text("map_link"),
+  latitude: text("latitude"),
+  longitude: text("longitude"),
   website_link: text("website_link"),
   payment_id: text("payment_id"),
   payment_qr: text("payment_qr"),

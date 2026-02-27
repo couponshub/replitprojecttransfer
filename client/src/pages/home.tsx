@@ -1117,7 +1117,12 @@ function NearbyMapPanel({
 
   const mappableShops = useMemo(() =>
     shops.map((s, i) => {
-      const coords = parseGoogleMapsCoords(s.map_link || "");
+      let coords: { lat: number; lng: number } | null = null;
+      if (s.latitude && s.longitude) {
+        const lat = parseFloat(s.latitude), lng = parseFloat(s.longitude);
+        if (!isNaN(lat) && !isNaN(lng)) coords = { lat, lng };
+      }
+      if (!coords) coords = parseGoogleMapsCoords(s.map_link || "");
       if (!coords) return null;
       return { ...s, coords, color: SHOP_ICON_COLORS[i % SHOP_ICON_COLORS.length] };
     }).filter(Boolean) as (Shop & { category?: Category; coords: { lat: number; lng: number }; color: string })[],
@@ -1128,8 +1133,8 @@ function NearbyMapPanel({
     shops.map((s, i) => ({
       ...s,
       color: SHOP_ICON_COLORS[i % SHOP_ICON_COLORS.length],
-      hasCoords: !!parseGoogleMapsCoords(s.map_link || ""),
-    })).filter(s => s.map_link && s.map_link !== "L" && s.map_link.length > 5),
+      hasCoords: !!(s.latitude && s.longitude) || !!parseGoogleMapsCoords(s.map_link || ""),
+    })).filter(s => (s.latitude && s.longitude) || (s.map_link && s.map_link !== "L" && s.map_link.length > 5)),
     [shops]
   );
 
