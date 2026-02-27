@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Navbar } from "@/components/Navbar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,180 @@ import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
-import { ShoppingCart, Trash2, Plus, Minus, Tag, CheckCircle, ArrowLeft, Gift, Package } from "lucide-react";
+import {
+  ShoppingCart, Trash2, Plus, Minus, Tag, CheckCircle, ArrowLeft,
+  Gift, Package, Sparkles, ChevronDown, Percent, Zap, AlertCircle, X
+} from "lucide-react";
+import type { Coupon, Shop } from "@shared/schema";
+
+type ShopCoupon = Coupon & { shop?: Shop };
+
+function CouponBenefit({ coupon }: { coupon: ShopCoupon }) {
+  if (coupon.type === "percentage") return <span className="text-emerald-600 dark:text-emerald-400 font-bold">{coupon.value}% off your order</span>;
+  if (coupon.type === "flat") return <span className="text-emerald-600 dark:text-emerald-400 font-bold">₹{coupon.value} flat discount</span>;
+  if (coupon.type === "free_item") return <span className="text-violet-600 dark:text-violet-400 font-bold">Free item added to cart</span>;
+  if (coupon.type === "flash") return <span className="text-orange-600 dark:text-orange-400 font-bold">Flash deal!</span>;
+  return <span className="text-blue-600 dark:text-blue-400 font-bold">Special offer</span>;
+}
+
+const TYPE_COLORS: Record<string, { gradient: string; badge: string; icon: string }> = {
+  percentage: { gradient: "from-blue-500 to-cyan-500", badge: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400", icon: "🏷️" },
+  flat:       { gradient: "from-emerald-500 to-teal-500", badge: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400", icon: "💰" },
+  free_item:  { gradient: "from-violet-500 to-purple-500", badge: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400", icon: "🎁" },
+  flash:      { gradient: "from-orange-500 to-red-500", badge: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400", icon: "⚡" },
+};
+
+interface AvailableCouponsPanelProps {
+  shopId: string;
+  cartTotal: number;
+  appliedCode?: string;
+  onApply: (code: string) => void;
+}
+
+function AvailableCouponsPanel({ shopId, cartTotal, appliedCode, onApply }: AvailableCouponsPanelProps) {
+  const [open, setOpen] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  const { data: allCoupons = [], isLoading } = useQuery<ShopCoupon[]>({
+    queryKey: ["/api/coupons", shopId],
+    queryFn: async () => {
+      const res = await fetch(`/api/coupons?shopId=${shopId}`);
+      return res.json();
+    },
+    enabled: !!shopId,
+  });
+
+  const coupons = allCoupons.filter(c => c.is_active && c.id !== appliedCode);
+
+  if (coupons.length === 0 && !isLoading) return null;
+
+  return (
+    <div className="mt-3">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border transition-all duration-300 ${
+          open
+            ? "bg-gradient-to-r from-blue-500/10 to-violet-500/10 border-blue-300 dark:border-blue-700"
+            : "bg-gradient-to-r from-blue-50 to-violet-50 dark:from-blue-950/20 dark:to-violet-950/20 border-blue-100 dark:border-blue-900/30 hover:border-blue-200 dark:hover:border-blue-800"
+        }`}
+        data-testid="button-show-available-coupons"
+      >
+        <div className="flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-violet-500 sparkle-icon" />
+          <span className="text-sm font-semibold text-gray-800 dark:text-white">
+            Show available coupons
+          </span>
+          {!isLoading && coupons.length > 0 && (
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-violet-600 text-white text-[10px] font-bold shadow-sm">
+              {coupons.length}
+            </span>
+          )}
+          {isLoading && <div className="w-4 h-4 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" />}
+        </div>
+        <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div ref={panelRef} className="mt-2 flex flex-col gap-2.5 coupon-slide-in" style={{ perspective: "800px" }}>
+          {coupons.map((coupon, idx) => {
+            const colors = TYPE_COLORS[coupon.type] || TYPE_COLORS.percentage;
+            const isAlreadyApplied = appliedCode === coupon.code;
+            const expiringSoon = coupon.expiry_date && new Date(coupon.expiry_date) < new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+            const expired = coupon.expiry_date && new Date(coupon.expiry_date) < new Date();
+
+            return (
+              <div
+                key={coupon.id}
+                className="relative rounded-2xl overflow-hidden coupon-glow transition-all duration-200 hover:scale-[1.015] hover:-translate-y-0.5"
+                style={{
+                  animationDelay: `${idx * 60}ms`,
+                  transform: "perspective(600px) rotateX(0deg)",
+                }}
+                data-testid={`available-coupon-${coupon.id}`}
+              >
+                <div className={`absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r ${colors.gradient}`} />
+
+                <div className="bg-white/85 dark:bg-gray-900/85 backdrop-blur-xl border border-white/30 dark:border-gray-700/40 rounded-2xl px-4 py-3.5 shadow-lg">
+                  <div className="flex items-start gap-3">
+                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${colors.gradient} flex items-center justify-center text-white shadow-md shrink-0`}>
+                      <span className="text-lg leading-none">{colors.icon}</span>
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                        <span className="coupon-shimmer-text font-black text-base tracking-wide">{coupon.code}</span>
+                        {expiringSoon && !expired && (
+                          <Badge className="bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 border-0 text-[9px] px-1.5 py-0">Expiring soon</Badge>
+                        )}
+                        {expired && (
+                          <Badge className="bg-red-100 text-red-600 border-0 text-[9px] px-1.5 py-0">Expired</Badge>
+                        )}
+                      </div>
+                      <div className="text-xs">
+                        <CouponBenefit coupon={coupon} />
+                      </div>
+                      {coupon.expiry_date && !expired && (
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          Expires {new Date(coupon.expiry_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="shrink-0 flex flex-col items-end gap-1.5">
+                      {!expired && !isAlreadyApplied && (
+                        <button
+                          onClick={() => onApply(coupon.code)}
+                          className={`px-4 py-1.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r ${colors.gradient} shadow-md active:scale-95 transition-transform`}
+                          data-testid={`button-apply-available-coupon-${coupon.id}`}
+                        >
+                          Apply
+                        </button>
+                      )}
+                      {isAlreadyApplied && (
+                        <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[10px] gap-1"><CheckCircle className="w-2.5 h-2.5" /> Applied</Badge>
+                      )}
+                      {expired && (
+                        <Badge className="bg-gray-100 text-gray-500 border-0 text-[10px]">Expired</Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  {(coupon.type === "percentage" || coupon.type === "flat") && !expired && (
+                    <div className="mt-2.5 pt-2 border-t border-gray-100 dark:border-gray-800">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                          <AlertCircle className="w-3 h-3" />
+                          <span>Cart total: ₹{cartTotal.toLocaleString()}</span>
+                        </div>
+                        <div className={`text-[11px] font-semibold ${cartTotal > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-orange-500"}`}>
+                          {cartTotal > 0 ? (
+                            <>
+                              Saves ₹{coupon.type === "percentage"
+                                ? Math.floor(cartTotal * parseFloat(coupon.value as string) / 100).toLocaleString()
+                                : Math.min(parseFloat(coupon.value as string), cartTotal).toLocaleString()
+                              }
+                            </>
+                          ) : "Add items to apply"}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {coupon.type === "free_item" && !expired && (
+                    <div className="mt-2.5 pt-2 border-t border-gray-100 dark:border-gray-800 flex items-center gap-1.5 text-[11px] text-violet-600 dark:text-violet-400">
+                      <Gift className="w-3 h-3 shrink-0" />
+                      <span>A free product will be added to your cart when applied</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function CartPage() {
   const [, navigate] = useLocation();
@@ -37,7 +210,6 @@ export default function CartPage() {
     : 0;
 
   const finalAmount = Math.max(0, total - discount);
-
   const shopName = items.length > 0 ? items[0].shopName : "";
 
   const { mutate: placeOrder, isPending } = useMutation({
@@ -85,15 +257,17 @@ export default function CartPage() {
     },
   });
 
-  const validateCoupon = async () => {
-    if (!couponCode.trim()) return;
+  const validateCoupon = async (codeOverride?: string) => {
+    const code = (codeOverride || couponCode).trim().toUpperCase();
+    if (!code) return;
     setCouponLoading(true);
     try {
       const result = await apiRequest("POST", "/api/coupons/validate", {
-        code: couponCode.trim().toUpperCase(),
+        code,
         shopId,
       });
       setAppliedCoupon({ code: result.code, type: result.type, value: result.value, items_to_add: result.items_to_add });
+      setCouponCode(result.code);
 
       const hasItems = result.items_to_add && result.items_to_add.length > 0;
       const hasFreeItem = hasItems && result.items_to_add.some((i: any) => i.isFreeItem);
@@ -110,7 +284,6 @@ export default function CartPage() {
         })));
       }
 
-      // Build toast message based on what happened
       const parts: string[] = [];
       if (result.type === "percentage" && parseFloat(result.value) > 0) parts.push(`${result.value}% off applied`);
       if (result.type === "flat" && parseFloat(result.value) > 0) parts.push(`₹${result.value} off applied`);
@@ -121,7 +294,7 @@ export default function CartPage() {
       }
       if (parts.length === 0) parts.push("coupon applied");
 
-      toast({ title: `Coupon applied!`, description: parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" • ") });
+      toast({ title: `🎉 Coupon applied!`, description: parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" • ") });
     } catch (err: any) {
       toast({ title: err.message, variant: "destructive" });
     } finally {
@@ -230,19 +403,11 @@ export default function CartPage() {
                     <div className="flex items-center gap-2 shrink-0">
                       {!item.isFreeItem && (
                         <>
-                          <button
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                            className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center"
-                            data-testid={`button-decrease-${item.id}`}
-                          >
+                          <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center" data-testid={`button-decrease-${item.id}`}>
                             <Minus className="w-3 h-3" />
                           </button>
                           <span className="w-6 text-center font-medium text-sm" data-testid={`text-quantity-${item.id}`}>{item.quantity}</span>
-                          <button
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                            className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center"
-                            data-testid={`button-increase-${item.id}`}
-                          >
+                          <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center" data-testid={`button-increase-${item.id}`}>
                             <Plus className="w-3 h-3" />
                           </button>
                         </>
@@ -250,11 +415,7 @@ export default function CartPage() {
                       {item.isFreeItem && (
                         <span className="w-6 text-center font-medium text-sm text-muted-foreground" data-testid={`text-quantity-${item.id}`}>×{item.quantity}</span>
                       )}
-                      <button
-                        onClick={() => removeItem(item.id)}
-                        className="w-8 h-8 rounded-full text-destructive flex items-center justify-center ml-2"
-                        data-testid={`button-remove-${item.id}`}
-                      >
+                      <button onClick={() => removeItem(item.id)} className="w-8 h-8 rounded-full text-destructive flex items-center justify-center ml-2" data-testid={`button-remove-${item.id}`}>
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -271,52 +432,84 @@ export default function CartPage() {
           </div>
 
           <div className="flex flex-col gap-4">
-            <Card className="rounded-2xl border-0 shadow-md">
-              <CardContent className="p-5">
+            {/* ── Apply Coupon Card ── */}
+            <div className="relative rounded-2xl overflow-hidden shadow-md">
+              {/* 3D depth: gradient top bar */}
+              <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-blue-500 via-violet-500 to-fuchsia-500 z-10" />
+              <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-white/30 dark:border-gray-700/40 rounded-2xl px-5 pt-5 pb-4">
                 <div className="flex items-center gap-2 mb-4">
-                  <Tag className="w-4 h-4 text-primary" />
-                  <h3 className="font-semibold text-gray-900 dark:text-white">Apply Coupon</h3>
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-md">
+                    <Tag className="w-4 h-4 text-white" />
+                  </div>
+                  <h3 className="font-bold text-gray-900 dark:text-white">Apply Coupon</h3>
                 </div>
+
                 {appliedCoupon ? (
-                  <div className="flex items-center justify-between p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-xl">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <div>
-                        <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">{appliedCoupon.code}</p>
-                        <p className="text-xs text-emerald-600 dark:text-emerald-500">{couponTypeLabel}</p>
+                  <div className="relative rounded-xl overflow-hidden">
+                    <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-emerald-400 to-teal-400" />
+                    <div className="flex items-center justify-between p-3.5 bg-emerald-50/80 dark:bg-emerald-950/30 backdrop-blur border border-emerald-200/50 dark:border-emerald-800/30 rounded-xl">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+                          <CheckCircle className="w-4 h-4 text-emerald-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-emerald-700 dark:text-emerald-400 tracking-wide">{appliedCoupon.code}</p>
+                          <p className="text-xs text-emerald-600 dark:text-emerald-500">{couponTypeLabel}</p>
+                        </div>
                       </div>
+                      <button onClick={handleRemoveCoupon} className="w-6 h-6 rounded-lg bg-white dark:bg-gray-800 flex items-center justify-center shadow-sm text-muted-foreground hover:text-destructive transition-colors" data-testid="button-remove-coupon">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                    <button
-                      onClick={handleRemoveCoupon}
-                      className="text-xs text-muted-foreground hover:text-destructive transition-colors"
-                    >
-                      Remove
-                    </button>
                   </div>
                 ) : (
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Enter coupon code"
-                      value={couponCode}
-                      onChange={e => setCouponCode(e.target.value.toUpperCase())}
-                      className="rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                      onKeyDown={e => e.key === "Enter" && validateCoupon()}
-                      data-testid="input-coupon-code"
-                    />
-                    <Button
-                      onClick={validateCoupon}
-                      disabled={couponLoading || !couponCode}
-                      variant="outline"
-                      className="rounded-xl shrink-0"
-                      data-testid="button-apply-coupon"
-                    >
-                      {couponLoading ? "..." : "Apply"}
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  <>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                        <Input
+                          placeholder="Enter coupon code"
+                          value={couponCode}
+                          onChange={e => setCouponCode(e.target.value.toUpperCase())}
+                          className="pl-8 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 font-mono uppercase tracking-wider"
+                          onKeyDown={e => e.key === "Enter" && validateCoupon()}
+                          data-testid="input-coupon-code"
+                        />
+                      </div>
+                      <Button
+                        onClick={() => validateCoupon()}
+                        disabled={couponLoading || !couponCode}
+                        className="rounded-xl shrink-0 bg-gradient-to-r from-blue-500 to-violet-600 border-0 shadow-md shadow-blue-500/20"
+                        data-testid="button-apply-coupon"
+                      >
+                        {couponLoading ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <>
+                            <Zap className="w-3.5 h-3.5 mr-1" /> Apply
+                          </>
+                        )}
+                      </Button>
+                    </div>
 
+                    {/* Available coupons panel */}
+                    {shopId && (
+                      <AvailableCouponsPanel
+                        shopId={shopId}
+                        cartTotal={total}
+                        appliedCode={appliedCoupon?.code}
+                        onApply={(code) => {
+                          setCouponCode(code);
+                          validateCoupon(code);
+                        }}
+                      />
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* ── Order Summary ── */}
             <Card className="rounded-2xl border-0 shadow-md">
               <CardContent className="p-5">
                 <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Order Summary</h3>
@@ -347,18 +540,31 @@ export default function CartPage() {
                   <Separator />
                   <div className="flex justify-between">
                     <span className="font-bold text-gray-900 dark:text-white">Total</span>
-                    <span className="font-bold text-xl text-gray-900 dark:text-white">₹{finalAmount.toLocaleString()}</span>
+                    <div className="text-right">
+                      {discount > 0 && (
+                        <div className="text-xs text-muted-foreground line-through">₹{total.toLocaleString()}</div>
+                      )}
+                      <span className="font-black text-xl text-gray-900 dark:text-white">₹{finalAmount.toLocaleString()}</span>
+                      {discount > 0 && (
+                        <div className="text-xs text-emerald-600 font-semibold">You save ₹{discount.toFixed(0)}!</div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <Button
                   onClick={handlePlaceOrder}
                   disabled={isPending}
-                  className="w-full mt-4 h-12 rounded-xl font-semibold bg-gradient-to-r from-blue-500 to-violet-600 border-0"
+                  className="w-full mt-5 h-12 rounded-xl font-semibold bg-gradient-to-r from-blue-500 to-violet-600 border-0 shadow-lg shadow-blue-500/25 text-base"
                   data-testid="button-place-order"
                 >
-                  {isPending ? "Placing Order..." : "Place Order"}
+                  {isPending ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Placing Order...
+                    </div>
+                  ) : "Place Order →"}
                 </Button>
-                <p className="text-xs text-muted-foreground text-center mt-3">Secure checkout • Free returns</p>
+                <p className="text-xs text-muted-foreground text-center mt-3">🔒 Secure checkout • Free returns</p>
               </CardContent>
             </Card>
           </div>

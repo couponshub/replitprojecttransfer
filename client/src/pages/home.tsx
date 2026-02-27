@@ -487,10 +487,6 @@ function ShopCard({ shop }: { shop: Shop & { category?: Category } }) {
 
 function CouponCard({ coupon }: { coupon: Coupon & { shop?: Shop } }) {
   const [, navigate] = useLocation();
-  const { toast } = useToast();
-  const { addItems } = useCart();
-  const { isAuthenticated } = useAuth();
-  const [claiming, setClaiming] = useState(false);
 
   const typeColors: Record<string, string> = {
     percentage: "from-blue-500 to-cyan-500",
@@ -500,29 +496,11 @@ function CouponCard({ coupon }: { coupon: Coupon & { shop?: Shop } }) {
   };
   const typeIcons: Record<string, string> = { percentage: "🏷️", flat: "💰", free_item: "🎁", flash: "⚡" };
 
-  const handleClaim = async () => {
-    if (!isAuthenticated) {
-      toast({ title: "Please sign in to claim coupons", variant: "destructive" });
-      navigate("/login");
-      return;
-    }
-    setClaiming(true);
-    try {
-      const result = await apiRequest("POST", "/api/coupons/validate", { code: coupon.code, shopId: coupon.shop_id });
-      if (result.items_to_add?.length > 0) {
-        addItems(result.items_to_add.map((item: any) => ({
-          id: item.id, name: item.name, price: item.price,
-          shop_id: item.shop_id, shopName: item.shopName, isFreeItem: item.isFreeItem ?? false,
-        })));
-      }
-      sessionStorage.setItem("pendingCoupon", JSON.stringify({ code: result.code, type: result.type, value: result.value, items_to_add: result.items_to_add }));
-      const desc = result.type === "percentage" ? `${result.value}% off` : result.type === "flat" ? `₹${result.value} off` : "free item added";
-      toast({ title: `✓ Coupon "${coupon.code}" claimed!`, description: desc });
-      setTimeout(() => navigate("/cart"), 700);
-    } catch (err: any) {
-      toast({ title: err.message || "Could not claim coupon", variant: "destructive" });
-    } finally {
-      setClaiming(false);
+  const handleClaim = () => {
+    if (coupon.shop_id) {
+      navigate(`/shop/${coupon.shop_id}`);
+    } else {
+      navigate("/home");
     }
   };
 
@@ -562,12 +540,11 @@ function CouponCard({ coupon }: { coupon: Coupon & { shop?: Shop } }) {
         <Button
           size="sm"
           onClick={handleClaim}
-          disabled={claiming}
           className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 border-0 gap-1.5 text-white"
           data-testid={`button-claim-coupon-${coupon.id}`}
         >
           <Zap className="w-3.5 h-3.5" />
-          {claiming ? "Claiming..." : "Claim Offer →"}
+          View Store →
         </Button>
       </div>
     </div>
