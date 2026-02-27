@@ -1147,17 +1147,17 @@ function NearbyMapPanel({
     } else {
       const icon = L.divIcon({
         html: `
-          <div style="position:relative;width:36px;height:36px;">
-            <div style="position:absolute;inset:0;background:rgba(239,68,68,0.25);border-radius:50%;animation:nearbyPing 1.5s ease-out infinite;"></div>
-            <div style="position:absolute;inset:6px;background:rgba(239,68,68,0.4);border-radius:50%;animation:nearbyPing 1.5s ease-out 0.5s infinite;"></div>
-            <div style="position:absolute;inset:10px;background:radial-gradient(circle at 35% 30%,#ff6b6b,#dc2626);border:2.5px solid white;border-radius:50%;box-shadow:0 0 14px rgba(239,68,68,0.9);"></div>
+          <div style="position:relative;width:44px;height:44px;display:flex;align-items:center;justify-content:center;">
+            <div style="position:absolute;inset:0;background:rgba(59,130,246,0.18);border-radius:50%;animation:nearbyPing 1.8s ease-out infinite;"></div>
+            <div style="position:absolute;inset:7px;background:rgba(59,130,246,0.25);border-radius:50%;animation:nearbyPing 1.8s ease-out 0.6s infinite;"></div>
+            <div style="width:18px;height:18px;background:radial-gradient(circle at 35% 30%,#60a5fa,#2563eb);border:3px solid white;border-radius:50%;box-shadow:0 0 16px rgba(59,130,246,0.9),0 2px 6px rgba(0,0,0,0.4);position:absolute;inset:13px;"></div>
           </div>`,
         className: "",
-        iconSize: [36, 36],
-        iconAnchor: [18, 18],
+        iconSize: [44, 44],
+        iconAnchor: [22, 22],
       });
-      userMarkerRef.current = L.marker([lat, lng], { icon, zIndexOffset: 1000 }).addTo(mapRef.current);
-      userMarkerRef.current.bindPopup("<b>📍 You are here</b>");
+      userMarkerRef.current = L.marker([lat, lng], { icon, zIndexOffset: 2000 }).addTo(mapRef.current);
+      userMarkerRef.current.bindPopup("<b style='color:#3b82f6'>📍 You are here</b>");
     }
     if (!firstFixRef.current) {
       firstFixRef.current = true;
@@ -1241,7 +1241,7 @@ function NearbyMapPanel({
       if (!mapContainerRef.current) return;
       if (!mapReadyRef.current) {
         const L = (window as any).L;
-        const map = L.map(mapContainerRef.current, { zoom: 14, center: [17.0025, 81.0028], zoomControl: true });
+        const map = L.map(mapContainerRef.current, { zoom: 14, center: [16.7100, 81.0966], zoomControl: true });
         L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
           attribution: "© OpenStreetMap © CARTO",
           maxZoom: 19,
@@ -1276,6 +1276,7 @@ function NearbyMapPanel({
   }, [coupons, addShopMarkersToMap]);
 
   const sortedShops = [...mappableShops].sort((a, b) => (distances[a.id] ?? Infinity) - (distances[b.id] ?? Infinity));
+  const nearbyShops = userPos ? sortedShops.slice(0, 10) : sortedShops.slice(0, 10);
 
   return (
     <>
@@ -1308,9 +1309,11 @@ function NearbyMapPanel({
             <div>
               <h3 className="text-white font-bold text-base">Nearby Shops</h3>
               <p className="text-white/50 text-xs">
-                {linkedShops.length === 0
-                  ? "Add Google Maps links to shops in admin panel"
-                  : `${linkedShops.length} shop${linkedShops.length !== 1 ? "s" : ""} nearby · tap to navigate`}
+                {mappableShops.length === 0
+                  ? "Loading shop locations..."
+                  : userPos
+                    ? `${nearbyShops.length} nearest shops · sorted by distance`
+                    : `${mappableShops.length} shops on map · allow GPS for distance`}
               </p>
             </div>
             <button
@@ -1353,24 +1356,10 @@ function NearbyMapPanel({
             </button>
           </div>
 
-          {/* Empty state — no map links at all */}
-          {linkedShops.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-6 px-4 shrink-0">
-              <span className="text-3xl mb-2">🗺️</span>
-              <p className="text-white/50 text-sm text-center">
-                No shops with Google Maps links yet.<br />
-                Go to <strong className="text-white/70">Admin → Shops → Edit</strong> and paste a Google Maps URL to show shops here.
-              </p>
-            </div>
-          )}
-
-          {/* Shops list — linked shops (sorted: parseable-coord ones by real distance first, then others) */}
-          {linkedShops.length > 0 && (
+          {/* Shops list — 10 nearest (sorted by GPS distance) */}
+          {nearbyShops.length > 0 && (
             <div className="overflow-y-auto flex-1 px-3 pb-4 space-y-2 pt-2">
-              {[
-                ...sortedShops.map(s => ({ ...s, hasCoords: true })),
-                ...linkedShops.filter(s => !s.hasCoords),
-              ].map((shop) => {
+              {nearbyShops.map((shop) => {
                 const dist = distances[shop.id];
                 const shopCoupons = coupons.filter(c => c.shop_id === shop.id);
                 const hasActiveCoupon = shopCoupons.length > 0;
@@ -1430,7 +1419,7 @@ function NearbyMapPanel({
 
                     {/* Right side: distance + separate Navigate button */}
                     <div className="shrink-0 flex flex-col items-end gap-1">
-                      {shop.hasCoords && dist != null && (
+                      {dist != null && (
                         <span
                           className="text-xs font-bold"
                           style={{ color: hasActiveCoupon ? "#fbbf24" : shop.color }}
