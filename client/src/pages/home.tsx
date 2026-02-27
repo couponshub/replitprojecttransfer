@@ -25,7 +25,7 @@ function BannerSlider({ banners }: { banners: BannerWithCoupon[] }) {
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = setInterval(() => {
       setCurrent(c => (c + 1) % banners.length);
-    }, 4000);
+    }, 3000);
   }, [banners.length]);
 
   useEffect(() => {

@@ -126,6 +126,7 @@ export default function AdminDashboard() {
   const { data: topShops = [] } = useQuery<Shop[]>({ queryKey: ["/api/admin/top-shops"] });
   const { data: topCoupons = [] } = useQuery<(Coupon & { shop?: Shop })[]>({ queryKey: ["/api/admin/top-coupons"] });
   const { data: vendorAccounts = [], refetch: refetchVendors } = useQuery<any[]>({ queryKey: ["/api/admin/vendors"] });
+  const { data: adminBanners = [] } = useQuery<any[]>({ queryKey: ["/api/admin/banners"] });
 
   const premiumShops = shops.filter(s => s.is_premium);
 
@@ -285,7 +286,12 @@ export default function AdminDashboard() {
                   >
                     <Icon className={`w-4 h-4 shrink-0 ${active ? "text-blue-500" : ""}`} />
                     {item.label}
-                    {active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />}
+                    {item.id === "banners" && adminBanners.length > 0 && (
+                      <span className={`ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full ${active ? "bg-blue-500 text-white" : "bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400"}`}>
+                        {adminBanners.length}
+                      </span>
+                    )}
+                    {item.id !== "banners" && active && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />}
                   </button>
                 );
               })}
@@ -1873,8 +1879,15 @@ function BannersTab({ toast, allCoupons }: { toast: any; allCoupons: any[] }) {
     <div className="p-6 sm:p-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Banners</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Manage homepage coupon banners</p>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Banners</h2>
+            {banners.length > 0 && (
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">
+                {banners.length} added
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground mt-0.5">Manage homepage coupon banners · slides every 3 sec</p>
         </div>
         <Button onClick={openAdd} className="rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 border-0 text-white gap-2" data-testid="button-add-banner">
           <Plus className="w-4 h-4" /> Add Banner
