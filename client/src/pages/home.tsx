@@ -487,6 +487,119 @@ function ShopCard({ shop }: { shop: Shop & { category?: Category } }) {
   );
 }
 
+const CATEGORY_FALLBACK_EMOJI: Record<string, string> = {
+  "food & dining": "🍽️", "biryani": "🍛", "restaurants": "🍴", "bakery": "🥐",
+  "beauty & wellness": "💆", "electronics": "📱", "fashion": "👗", "jewelry": "💍",
+  "groceries": "🛒", "pharmacy & health": "💊", "education": "📚", "sports & fitness": "🏋️",
+  "entertainment": "🎬", "travel": "🏨", "home & living": "🛋️",
+};
+
+function ShopLogoCircle({ shop }: { shop: Shop & { category?: Category } }) {
+  const [, navigate] = useLocation();
+  const [logoErr, setLogoErr] = useState(false);
+  const catKey = (shop.category?.name || "").toLowerCase();
+  const emoji = CATEGORY_FALLBACK_EMOJI[catKey] || "🏪";
+  const gradients = [
+    "from-blue-500 to-violet-600", "from-pink-500 to-rose-600", "from-emerald-500 to-teal-600",
+    "from-amber-500 to-orange-600", "from-indigo-500 to-blue-600", "from-purple-500 to-pink-600",
+  ];
+  const gradIdx = shop.name.charCodeAt(0) % gradients.length;
+  const showLogo = shop.logo && !logoErr;
+  return (
+    <button
+      type="button"
+      onClick={() => navigate(`/shop/${shop.id}`)}
+      className="flex flex-col items-center gap-2 shrink-0 w-16 group"
+      data-testid={`logo-shop-${shop.id}`}
+    >
+      <div className={`w-16 h-16 rounded-full border-2 border-white dark:border-gray-800 shadow-md overflow-hidden bg-gradient-to-br ${gradients[gradIdx]} flex items-center justify-center group-hover:scale-105 transition-transform`}>
+        {showLogo ? (
+          <img
+            src={shop.logo!}
+            alt={shop.name}
+            className="w-full h-full object-cover"
+            onError={() => setLogoErr(true)}
+          />
+        ) : (
+          <span className="text-2xl">{emoji}</span>
+        )}
+      </div>
+      <span className="text-[11px] font-medium text-gray-700 dark:text-gray-300 text-center leading-tight line-clamp-2 w-full">
+        {shop.name.replace(/ Eluru$/i, "").replace(/ Restaurant$/i, "").replace(/ Studio$/i, "")}
+      </span>
+    </button>
+  );
+}
+
+function FeaturedShopBannerSlider({
+  banners,
+  onShopClick,
+}: {
+  banners: { shopId: string; name: string; img: string; category: string }[];
+  onShopClick: (shopId: string) => void;
+}) {
+  const [current, setCurrent] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startTimer = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => setCurrent(c => (c + 1) % banners.length), 3500);
+  }, [banners.length]);
+
+  useEffect(() => {
+    if (banners.length > 1) startTimer();
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [banners.length, startTimer]);
+
+  const go = (dir: number) => {
+    setCurrent(c => (c + dir + banners.length) % banners.length);
+    startTimer();
+  };
+
+  if (banners.length === 0) return null;
+
+  return (
+    <div className="relative rounded-2xl overflow-hidden shadow-lg" style={{ aspectRatio: "16/6" }} data-testid="section-shop-banner-slider">
+      <div
+        className="flex h-full transition-transform duration-500 ease-in-out"
+        style={{ transform: `translateX(-${current * 100}%)`, width: `${banners.length * 100}%` }}
+      >
+        {banners.map((banner, i) => (
+          <div
+            key={banner.shopId + i}
+            className="relative h-full cursor-pointer"
+            style={{ width: `${100 / banners.length}%` }}
+            onClick={() => onShopClick(banner.shopId)}
+          >
+            <img src={banner.img} alt={banner.name} className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 px-4 py-3">
+              <p className="text-white font-bold text-sm drop-shadow-md">{banner.name}</p>
+              {banner.category && <p className="text-white/70 text-xs">{banner.category}</p>}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {banners.length > 1 && (
+        <>
+          <button onClick={e => { e.stopPropagation(); go(-1); }} className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white" data-testid="button-shop-banner-prev">
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button onClick={e => { e.stopPropagation(); go(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white" data-testid="button-shop-banner-next">
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          <div className="absolute bottom-2 right-3 flex gap-1">
+            {banners.map((_, i) => (
+              <button key={i} onClick={() => { setCurrent(i); startTimer(); }} className={`w-1.5 h-1.5 rounded-full transition-all ${i === current ? "bg-white w-3" : "bg-white/50"}`} />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 async function downloadBanner(bannerUrl: string, code: string, title: string, shopName: string) {
   return new Promise<void>((resolve, reject) => {
     const img = new Image();
@@ -1487,27 +1600,19 @@ export default function Home() {
   });
 
   const allBanners = useMemo<BannerWithCoupon[]>(() => {
-    const shopBanners: BannerWithCoupon[] = featuredShops.flatMap(shop => {
+    return [...homeBanners];
+  }, [homeBanners]);
+
+  const featuredShopBanners = useMemo(() => {
+    return featuredShops.flatMap(shop => {
       const imgs: string[] = [];
       if (shop.banner_image) imgs.push(shop.banner_image);
       if (Array.isArray((shop as any).banners)) {
         ((shop as any).banners as string[]).forEach((b: string) => { if (b && !imgs.includes(b)) imgs.push(b); });
       }
-      return imgs.slice(0, 2).map((img, i) => ({
-        id: `shop-${shop.id}-${i}`,
-        title: shop.name,
-        image_url: img,
-        link_url: `/shop/${shop.id}`,
-        banner_image: img,
-        is_active: true,
-        sort_order: 100 + i,
-        created_at: new Date() as any,
-        coupon_id: null,
-        coupon: undefined,
-      } as BannerWithCoupon));
+      return imgs.slice(0, 1).map(img => ({ shopId: shop.id, name: shop.name, img, category: shop.category?.name || "" }));
     });
-    return [...homeBanners, ...shopBanners];
-  }, [homeBanners, featuredShops]);
+  }, [featuredShops]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -1577,32 +1682,40 @@ export default function Home() {
 
       {/* Featured Shops */}
       <div id="shops-section" className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">Featured Shops</h2>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => navigate("/home")} className="text-primary">
+          <Button variant="ghost" size="sm" onClick={() => navigate("/shops")} className="text-primary" data-testid="button-view-all-featured">
             View all <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         </div>
-        {shopLoading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {Array(6).fill(0).map((_, i) => (
-              <div key={i} className="rounded-2xl overflow-hidden">
-                <Skeleton className="h-28 w-full" />
-                <div className="p-4 bg-white dark:bg-gray-900">
-                  <Skeleton className="h-4 w-3/4 mb-2" />
-                  <Skeleton className="h-3 w-1/2" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {featuredShops.map(shop => <ShopCard key={shop.id} shop={shop} />)}
-          </div>
+
+        {/* Mini Shop Banner Slider */}
+        {featuredShopBanners.length > 0 && (
+          <FeaturedShopBannerSlider banners={featuredShopBanners} onShopClick={(shopId) => navigate(`/shop/${shopId}`)} />
         )}
+
+        {/* Round logos row */}
+        <div className="mt-4">
+          {shopLoading ? (
+            <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide">
+              {Array(8).fill(0).map((_, i) => (
+                <div key={i} className="flex flex-col items-center gap-2 shrink-0">
+                  <Skeleton className="w-16 h-16 rounded-full" />
+                  <Skeleton className="w-14 h-3 rounded" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide" data-testid="section-featured-shop-logos">
+              {featuredShops.map(shop => (
+                <ShopLogoCircle key={shop.id} shop={shop} />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Top Coupons / Offline Coupons Section */}
