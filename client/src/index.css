@@ -363,3 +363,30 @@
   background-clip: text;
   animation: couponShimmer 3s linear infinite;
 }
+
+@keyframes magicOrbit {
+  from { transform: rotate(0deg) translateX(38px) rotate(0deg); }
+  to   { transform: rotate(360deg) translateX(38px) rotate(-360deg); }
+}
+@keyframes magicPulse {
+  0%, 100% { box-shadow: 0 0 28px rgba(139,92,246,0.5), 0 0 60px rgba(109,40,217,0.25); }
+  50%       { box-shadow: 0 0 48px rgba(167,139,250,0.8), 0 0 90px rgba(109,40,217,0.45); }
+}
+@keyframes magicOrbitB {
+  from { transform: rotate(60deg) translateX(34px) rotate(-60deg); }
+  to   { transform: rotate(420deg) translateX(34px) rotate(-420deg); }
+}
+@keyframes magicOrbitC {
+  from { transform: rotate(180deg) translateX(30px) rotate(-180deg); }
+  to   { transform: rotate(540deg) translateX(30px) rotate(-540deg); }
+}
+@keyframes magicRing {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50%       { opacity: 0.9; transform: scale(1.06); }
+}
+@keyframes magicActiveGlow {
+  0%, 100% { box-shadow: 0 0 36px rgba(251,191,36,0.7), 0 0 70px rgba(245,158,11,0.35); }
+  50%       { box-shadow: 0 0 60px rgba(251,191,36,1.0), 0 0 110px rgba(245,158,11,0.6); }
+}
+.magic-ai-active { animation: magicActiveGlow 1.4s ease-in-out infinite; }
+.magic-ai-idle   { animation: magicPulse 2.4s ease-in-out infinite; }

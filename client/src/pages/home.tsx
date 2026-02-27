@@ -1520,10 +1520,82 @@ function RadarMap({ lat, lng, onClick }: { lat: number | null; lng: number | nul
   );
 }
 
+function MagicAIButton({ active, loading, onClick }: { active: boolean; loading: boolean; onClick: () => void }) {
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <button
+        onClick={onClick}
+        data-testid="button-magic-ai"
+        className={`relative w-24 h-24 rounded-full cursor-pointer transition-transform hover:scale-105 active:scale-95 ${active ? "magic-ai-active" : "magic-ai-idle"}`}
+        style={{
+          background: active
+            ? "radial-gradient(circle at 40% 35%, #92400e 0%, #78350f 100%)"
+            : "radial-gradient(circle at 40% 35%, rgba(60,10,120,0.97) 0%, rgba(30,5,80,0.99) 100%)",
+          border: active ? "1.5px solid rgba(251,191,36,0.7)" : "1.5px solid rgba(139,92,246,0.5)",
+        }}
+      >
+        {/* Concentric rings */}
+        {[0.88, 0.64, 0.4].map((scale, i) => (
+          <div
+            key={i}
+            className="absolute inset-0 rounded-full"
+            style={{
+              border: `1px solid rgba(${active ? "251,191,36" : "139,92,246"},${0.12 + i * 0.08})`,
+              transform: `scale(${scale})`,
+              animation: `magicRing ${1.8 + i * 0.4}s ease-in-out ${i * 0.3}s infinite`,
+            }}
+          />
+        ))}
+        {/* Orbiting sparkle particles */}
+        {!loading && (
+          <>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div style={{ position: "absolute", width: 8, height: 8, borderRadius: "50%", background: active ? "#fbbf24" : "#a78bfa", animation: "magicOrbit 3s linear infinite" }} />
+            </div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div style={{ position: "absolute", width: 5, height: 5, borderRadius: "50%", background: active ? "#f59e0b" : "#c4b5fd", animation: "magicOrbitB 2.2s linear infinite" }} />
+            </div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div style={{ position: "absolute", width: 6, height: 6, borderRadius: "50%", background: active ? "#fde68a" : "#7c3aed", animation: "magicOrbitC 4s linear infinite" }} />
+            </div>
+          </>
+        )}
+        {/* Center icon */}
+        <div className="absolute inset-0 flex items-center justify-center z-10">
+          {loading ? (
+            <div className="w-7 h-7 border-2 border-violet-300 border-t-transparent rounded-full animate-spin" />
+          ) : active ? (
+            <div className="flex flex-col items-center">
+              <span style={{ fontSize: 22 }}>🎯</span>
+              <span style={{ fontSize: 8, color: "#fde68a", fontWeight: 800, letterSpacing: 1, marginTop: -2 }}>NEARBY</span>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center">
+              <span style={{ fontSize: 22 }}>✨</span>
+              <span style={{ fontSize: 8, color: "#c4b5fd", fontWeight: 800, letterSpacing: 1, marginTop: -2 }}>MAGIC AI</span>
+            </div>
+          )}
+        </div>
+        {/* Gloss highlight */}
+        <div
+          className="absolute inset-0 rounded-full pointer-events-none"
+          style={{ background: "radial-gradient(ellipse at 35% 28%, rgba(255,255,255,0.14) 0%, transparent 60%)" }}
+        />
+      </button>
+      <span className={`text-[10px] font-bold tracking-wide ${active ? "text-amber-300" : "text-violet-200/70"}`}>
+        {active ? "ON • Tap to off" : "Nearby AI"}
+      </span>
+    </div>
+  );
+}
+
 export default function Home() {
   const [, navigate] = useLocation();
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; address: string } | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
+  const [nearbyMode, setNearbyMode] = useState(false);
+  const [nearbyPos, setNearbyPos] = useState<{ lat: number; lng: number } | null>(null);
+  const [nearbyLoading, setNearbyLoading] = useState(false);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -1572,6 +1644,56 @@ export default function Home() {
     refetchOnMount: "always",
   });
 
+  const { data: allNearbyShops = [] } = useQuery<(Shop & { category?: Category })[]>({
+    queryKey: ["/api/shops", "nearby"],
+    queryFn: () => fetch("/api/shops").then(r => r.json()),
+    staleTime: 0,
+    enabled: nearbyMode,
+    refetchOnMount: "always",
+  });
+
+  const handleMagicAI = () => {
+    if (nearbyMode) {
+      setNearbyMode(false);
+      setNearbyPos(null);
+      return;
+    }
+    setNearbyLoading(true);
+    const activate = (lat: number, lng: number) => {
+      setNearbyPos({ lat, lng });
+      setNearbyMode(true);
+      setNearbyLoading(false);
+    };
+    if (userLocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => activate(pos.coords.latitude, pos.coords.longitude),
+        () => activate(userLocation.lat, userLocation.lng),
+        { enableHighAccuracy: true, timeout: 6000 }
+      );
+    } else {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => activate(pos.coords.latitude, pos.coords.longitude),
+        () => setNearbyLoading(false),
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    }
+  };
+
+  const getShopCoords = (shop: any): { lat: number; lng: number } | null => {
+    if (shop?.latitude && shop?.longitude) {
+      const lat = parseFloat(shop.latitude), lng = parseFloat(shop.longitude);
+      if (!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+    }
+    return parseGoogleMapsCoords(shop?.map_link || "");
+  };
+
+  const shopDist = (shop: any): number => {
+    if (!nearbyPos || !shop) return Infinity;
+    const coords = getShopCoords(shop);
+    if (!coords) return Infinity;
+    return haversineDistance(nearbyPos.lat, nearbyPos.lng, coords.lat, coords.lng);
+  };
+
   const [couponTab, setCouponTab] = useState<"top" | "offline" | "downloads">("top");
   const { isAuthenticated, token } = useAuth();
 
@@ -1611,6 +1733,26 @@ export default function Home() {
     return [...homeBanners];
   }, [homeBanners]);
 
+  const sourceShops = nearbyMode && allNearbyShops.length > 0 ? allNearbyShops : featuredShops;
+  const displayShops = nearbyMode && nearbyPos
+    ? [...sourceShops].sort((a, b) => shopDist(a) - shopDist(b))
+    : featuredShops;
+
+  const displayCategories = nearbyMode && nearbyPos && allNearbyShops.length > 0
+    ? [...categories].sort((a, b) => {
+        const aNearby = allNearbyShops.filter(s => s.category_id === a.id && shopDist(s) < 10000).length;
+        const bNearby = allNearbyShops.filter(s => s.category_id === b.id && shopDist(s) < 10000).length;
+        return bNearby - aNearby;
+      })
+    : categories;
+
+  const displayActiveCoupons = nearbyMode && nearbyPos
+    ? [...activeCoupons].sort((a, b) => shopDist((a as any).shop) - shopDist((b as any).shop))
+    : activeCoupons;
+
+  const displayOfflineCoupons = nearbyMode && nearbyPos
+    ? [...offlineCouponsList].sort((a, b) => shopDist((a as any).shop) - shopDist((b as any).shop))
+    : offlineCouponsList;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -1643,13 +1785,17 @@ export default function Home() {
             )}
           </div>
 
-          {/* 3D Radar — click to open map */}
-          <div className="flex justify-center pb-2">
-            <RadarMap
-              lat={userLocation?.lat ?? null}
-              lng={userLocation?.lng ?? null}
-              onClick={openMap}
-            />
+          {/* 3D Radar + Magic AI — side by side */}
+          <div className="flex items-end justify-center gap-6 pb-2">
+            <div className="flex flex-col items-center gap-1.5">
+              <RadarMap
+                lat={userLocation?.lat ?? null}
+                lng={userLocation?.lng ?? null}
+                onClick={openMap}
+              />
+              <span className="text-[10px] font-bold tracking-wide text-teal-200/70">Map Radar</span>
+            </div>
+            <MagicAIButton active={nearbyMode} loading={nearbyLoading} onClick={handleMagicAI} />
           </div>
         </div>
       </div>
@@ -1657,10 +1803,34 @@ export default function Home() {
       {/* Banner slider — shows admin banners + featured shop banners */}
       {allBanners.length > 0 && <BannerSlider banners={allBanners} />}
 
+      {/* Nearby Mode Active Banner */}
+      {nearbyMode && nearbyPos && (
+        <div className="sticky top-0 z-40 w-full" style={{ background: "linear-gradient(90deg, #78350f 0%, #92400e 50%, #78350f 100%)" }}>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🎯</span>
+              <div>
+                <span className="text-amber-100 font-bold text-sm">Nearby AI Mode Active</span>
+                <span className="text-amber-300/80 text-xs ml-2">— Shops, categories &amp; coupons sorted by your location</span>
+              </div>
+            </div>
+            <button
+              onClick={() => { setNearbyMode(false); setNearbyPos(null); }}
+              className="text-amber-200 hover:text-white text-xs font-bold px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-all"
+              data-testid="button-disable-nearby-mode"
+            >
+              ✕ Turn Off
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Categories */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Shop by Category</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            {nearbyMode ? "🎯 Nearby Categories" : "Shop by Category"}
+          </h2>
           <button onClick={() => navigate("/categories")} className="flex items-center gap-1 text-sm font-semibold text-primary hover:underline" data-testid="button-view-all-categories">
             View All <ChevronRight className="w-4 h-4" />
           </button>
@@ -1673,7 +1843,7 @@ export default function Home() {
                   <Skeleton className="w-14 h-3 rounded" />
                 </div>
               ))
-            : categories.map((cat, i) => <CategoryCard key={cat.id} category={cat} index={i} />)
+            : displayCategories.map((cat, i) => <CategoryCard key={cat.id} category={cat} index={i} />)
           }
         </div>
       </div>
@@ -1682,8 +1852,11 @@ export default function Home() {
       <div id="shops-section" className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Top Shops</h2>
+            {nearbyMode ? <span className="text-xl">🎯</span> : <Star className="w-5 h-5 text-amber-500 fill-amber-500" />}
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+              {nearbyMode ? "Nearby Shops" : "Top Shops"}
+            </h2>
+            {nearbyMode && <span className="text-[10px] font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">sorted by distance</span>}
           </div>
           <Button variant="ghost" size="sm" onClick={() => navigate("/shops")} className="text-primary" data-testid="button-view-all-top-shops">
             View all <ChevronRight className="w-4 h-4 ml-1" />
@@ -1702,7 +1875,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide" data-testid="section-top-shop-logos">
-            {featuredShops.map(shop => (
+            {displayShops.map(shop => (
               <ShopLogoCircle key={shop.id} shop={shop} />
             ))}
           </div>
@@ -1712,8 +1885,9 @@ export default function Home() {
       {/* Top Coupons / Offline Coupons Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 pb-16">
         {(() => {
-          const featured = activeCoupons.filter(c => (c as any).featured);
-          const topCoupons = featured.length > 0 ? featured : activeCoupons;
+          const featured = displayActiveCoupons.filter(c => (c as any).featured);
+          const topCoupons = featured.length > 0 ? featured : displayActiveCoupons;
+          const shownOfflineCoupons = displayOfflineCoupons;
           return (
             <>
               {/* Section Header with Tab Toggle */}
@@ -1747,9 +1921,9 @@ export default function Home() {
                 >
                   <WifiOff className="w-4 h-4" />
                   Offline Coupons
-                  {couponTab === "offline" && offlineCouponsList.length > 0 && (
+                  {couponTab === "offline" && shownOfflineCoupons.length > 0 && (
                     <span className="ml-1 bg-white/25 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
-                      {offlineCouponsList.length}
+                      {shownOfflineCoupons.length}
                     </span>
                   )}
                 </button>
@@ -1796,7 +1970,7 @@ export default function Home() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
                     {Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-80 rounded-3xl" />)}
                   </div>
-                ) : offlineCouponsList.length === 0 ? (
+                ) : shownOfflineCoupons.length === 0 ? (
                   <div className="flex flex-col items-center py-20 gap-4 text-center">
                     <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-blue-100 to-violet-100 dark:from-blue-950/40 dark:to-violet-950/40 flex items-center justify-center">
                       <WifiOff className="w-10 h-10 text-blue-400" />
@@ -1808,7 +1982,7 @@ export default function Home() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 coupon-slide-in">
-                    {offlineCouponsList.map(oc => <OfflineCouponCard key={oc.id} oc={oc} />)}
+                    {shownOfflineCoupons.map(oc => <OfflineCouponCard key={oc.id} oc={oc} />)}
                   </div>
                 )
               )}
