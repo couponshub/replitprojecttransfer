@@ -1603,16 +1603,6 @@ export default function Home() {
     return [...homeBanners];
   }, [homeBanners]);
 
-  const featuredShopBanners = useMemo(() => {
-    return featuredShops.flatMap(shop => {
-      const imgs: string[] = [];
-      if (shop.banner_image) imgs.push(shop.banner_image);
-      if (Array.isArray((shop as any).banners)) {
-        ((shop as any).banners as string[]).forEach((b: string) => { if (b && !imgs.includes(b)) imgs.push(b); });
-      }
-      return imgs.slice(0, 1).map(img => ({ shopId: shop.id, name: shop.name, img, category: shop.category?.name || "" }));
-    });
-  }, [featuredShops]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -1680,42 +1670,35 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Featured Shops */}
+      {/* Top Shops */}
       <div id="shops-section" className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Featured Shops</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Top Shops</h2>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => navigate("/shops")} className="text-primary" data-testid="button-view-all-featured">
+          <Button variant="ghost" size="sm" onClick={() => navigate("/shops")} className="text-primary" data-testid="button-view-all-top-shops">
             View all <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         </div>
 
-        {/* Mini Shop Banner Slider */}
-        {featuredShopBanners.length > 0 && (
-          <FeaturedShopBannerSlider banners={featuredShopBanners} onShopClick={(shopId) => navigate(`/shop/${shopId}`)} />
-        )}
-
         {/* Round logos row */}
-        <div className="mt-4">
-          {shopLoading ? (
-            <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide">
-              {Array(8).fill(0).map((_, i) => (
-                <div key={i} className="flex flex-col items-center gap-2 shrink-0">
-                  <Skeleton className="w-16 h-16 rounded-full" />
-                  <Skeleton className="w-14 h-3 rounded" />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide" data-testid="section-featured-shop-logos">
-              {featuredShops.map(shop => (
-                <ShopLogoCircle key={shop.id} shop={shop} />
-              ))}
-            </div>
-          )}
-        </div>
+        {shopLoading ? (
+          <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide">
+            {Array(8).fill(0).map((_, i) => (
+              <div key={i} className="flex flex-col items-center gap-2 shrink-0">
+                <Skeleton className="w-16 h-16 rounded-full" />
+                <Skeleton className="w-14 h-3 rounded" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide" data-testid="section-top-shop-logos">
+            {featuredShops.map(shop => (
+              <ShopLogoCircle key={shop.id} shop={shop} />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Top Coupons / Offline Coupons Section */}
