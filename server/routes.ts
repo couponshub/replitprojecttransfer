@@ -11,6 +11,17 @@ import { eq, sql } from "drizzle-orm";
 
 const JWT_SECRET = process.env.SESSION_SECRET || "coupons-hub-secret-key";
 
+function sanitizeBody(body: any, extraOmit: string[] = []): any {
+  const omit = new Set(["id", "created_at", "category", "shop", "coupon_products", ...extraOmit]);
+  const out: any = {};
+  for (const [k, v] of Object.entries(body)) {
+    if (omit.has(k)) continue;
+    if (k === "expiry_date" && v) { out[k] = new Date(v as string); continue; }
+    out[k] = v;
+  }
+  return out;
+}
+
 interface JwtPayload { id: string; email: string; role: string; }
 
 function generateToken(payload: JwtPayload) {
@@ -981,7 +992,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.put("/api/shops/:id", adminMiddleware, async (req, res) => {
     try {
-      const { id, created_at, category, ...body } = req.body;
+      const body = sanitizeBody(req.body);
       if (body.map_link) {
         const coords = extractCoordsFromMapLink(body.map_link);
         if (coords) { body.latitude = coords.latitude; body.longitude = coords.longitude; }
@@ -1017,9 +1028,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.put("/api/products/:id", adminMiddleware, async (req, res) => {
-    const updated = await storage.updateProduct(req.params.id, req.body);
-    if (!updated) return res.status(404).json({ error: "Not found" });
-    res.json(updated);
+    try {
+      const updated = await storage.updateProduct(req.params.id, sanitizeBody(req.body));
+      if (!updated) return res.status(404).json({ error: "Not found" });
+      res.json(updated);
+    } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
   app.delete("/api/products/:id", adminMiddleware, async (req, res) => {
@@ -1119,8 +1132,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.put("/api/coupons/:id", adminMiddleware, async (req, res) => {
     try {
-      const { coupon_products: cpItems, ...rest } = req.body;
-      if (rest.expiry_date) rest.expiry_date = new Date(rest.expiry_date);
+      const { coupon_products: cpItems } = req.body;
+      const rest = sanitizeBody(req.body);
       const updated = await storage.updateCoupon(req.params.id, rest);
       if (!updated) return res.status(404).json({ error: "Not found" });
       if (cpItems !== undefined) {
@@ -1312,7 +1325,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.patch("/api/vendor/shop", vendorMiddleware, async (req, res) => {
     try {
       const shopId = (req as any).vendor.shop_id;
-      const { id, created_at, category, is_premium, commission_percentage, subscription_active, featured, ...shopData } = req.body;
+      const shopData = sanitizeBody(req.body, ["is_premium", "commission_percentage", "subscription_active", "featured"]);
       if (shopData.map_link) {
         const coords = extractCoordsFromMapLink(shopData.map_link);
         if (coords) { shopData.latitude = coords.latitude; shopData.longitude = coords.longitude; }
@@ -1341,7 +1354,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const shopId = (req as any).vendor.shop_id;
       const product = await storage.getProduct(req.params.id);
       if (!product || product.shop_id !== shopId) return res.status(403).json({ error: "Forbidden" });
-      const updated = await storage.updateProduct(req.params.id, req.body);
+      const updated = await storage.updateProduct(req.params.id, sanitizeBody(req.body, ["shop_id"]));
       res.json(updated);
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
@@ -1372,9 +1385,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.patch("/api/vendor/coupons/:id", vendorMiddleware, async (req, res) => {
     try {
-      const body = { ...req.body };
-      if (body.expiry_date) body.expiry_date = new Date(body.expiry_date);
-      const updated = await storage.updateCoupon(req.params.id, body);
+      const updated = await storage.updateCoupon(req.params.id, sanitizeBody(req.body, ["shop_id"]));
       res.json(updated);
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
@@ -1458,7 +1469,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.patch("/api/offline-coupons/:id", adminMiddleware, async (req, res) => {
     try {
-      const updated = await storage.updateOfflineCoupon(req.params.id, req.body);
+      const updated = await storage.updateOfflineCoupon(req.params.id, sanitizeBody(req.body));
       res.json(updated);
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
@@ -1553,7 +1564,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const shopId = (req as any).vendor.shop_id;
       const oc = await storage.getOfflineCoupon(req.params.id);
       if (!oc || oc.shop_id !== shopId) return res.status(403).json({ error: "Forbidden" });
-      const updated = await storage.updateOfflineCoupon(req.params.id, req.body);
+      const updated = await storage.updateOfflineCoupon(req.params.id, sanitizeBody(req.body, ["shop_id"]));
       res.json(updated);
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
