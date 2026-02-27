@@ -1180,42 +1180,38 @@ function NearbyMapPanel({
       const shopCoupons = coupons.filter(c => c.shop_id === shop.id);
       const couponCount = shopCoupons.length;
       const hasActiveCoupon = couponCount > 0;
-      const couponLabel = hasActiveCoupon
-        ? (shopCoupons[0].type === "percentage"
-            ? `${shopCoupons[0].value}% OFF`
-            : shopCoupons[0].type === "flat"
-            ? `₹${shopCoupons[0].value} OFF`
-            : "FREE")
-        : shop.name.slice(0, 7);
+      const displayName = shop.name.length > 11 ? shop.name.slice(0, 10) + "…" : shop.name;
 
-      const glowColor = hasActiveCoupon ? "#fbbf24" : shop.color;
-      const bgColor = hasActiveCoupon
-        ? "linear-gradient(135deg,#f59e0b,#d97706)"
-        : shop.color;
+      const bgColor = shop.color;
+      const glowColor = shop.color;
+      const borderColor = hasActiveCoupon ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.35)";
+      const borderWidth = hasActiveCoupon ? "2px" : "1.5px";
 
       const icon = L.divIcon({
         html: `<div style="
           background:${bgColor};
-          box-shadow:0 0 ${hasActiveCoupon ? "16px" : "10px"} ${glowColor}${hasActiveCoupon ? "cc" : "88"};
-          border:${hasActiveCoupon ? "2px solid #fef08a" : "1.5px solid rgba(255,255,255,0.4)"};
-          border-radius:8px;
-          padding:3px 7px;
+          box-shadow:0 0 ${hasActiveCoupon ? "12px" : "8px"} ${glowColor}${hasActiveCoupon ? "cc" : "66"};
+          border:${borderWidth} solid ${borderColor};
+          border-radius:7px;
+          padding:2px 5px;
           color:white;
-          font-size:${hasActiveCoupon ? "10px" : "9px"};
-          font-weight:900;
+          font-size:8px;
+          font-weight:800;
           white-space:nowrap;
           cursor:pointer;
           position:relative;
-          letter-spacing:0.02em;
+          letter-spacing:0.01em;
+          max-width:90px;
+          overflow:hidden;
+          text-overflow:ellipsis;
         ">
-          <div style="position:absolute;left:-4px;top:50%;transform:translateY(-50%);width:8px;height:8px;background:rgba(0,0,0,0.4);border-radius:50%;"></div>
-          <div style="position:absolute;right:-4px;top:50%;transform:translateY(-50%);width:8px;height:8px;background:rgba(0,0,0,0.4);border-radius:50%;"></div>
-          ${hasActiveCoupon ? "🏷️ " : ""}${couponLabel}
-          ${couponCount > 1 ? `<span style="background:rgba(0,0,0,0.3);border-radius:4px;padding:0 3px;font-size:8px;">+${couponCount - 1}</span>` : ""}
+          ${hasActiveCoupon ? `<div style="position:absolute;left:-3px;top:50%;transform:translateY(-50%);width:6px;height:6px;background:rgba(0,0,0,0.35);border-radius:50%;"></div><div style="position:absolute;right:-3px;top:50%;transform:translateY(-50%);width:6px;height:6px;background:rgba(0,0,0,0.35);border-radius:50%;"></div>` : ""}
+          ${hasActiveCoupon ? "🏷️ " : ""}${displayName}
+          ${couponCount > 0 ? `<span style="background:rgba(0,0,0,0.35);border-radius:3px;padding:0 2px;font-size:7px;margin-left:1px;">${couponCount}</span>` : ""}
         </div>`,
         className: "",
-        iconSize: [hasActiveCoupon ? 100 : 80, 26],
-        iconAnchor: [hasActiveCoupon ? 50 : 40, 13],
+        iconSize: [88, 22],
+        iconAnchor: [44, 11],
       });
 
       const popupHtml = `
@@ -1559,7 +1555,8 @@ export default function Home() {
   const openMap = () => setMapOpen(true);
 
   const { data: categories = [], isLoading: catLoading } = useQuery<Category[]>({
-    queryKey: ["/api/categories"],
+    queryKey: ["/api/categories", "withShops"],
+    queryFn: () => fetch("/api/categories?withShops=true").then(r => r.json()),
   });
 
   const { data: featuredShops = [], isLoading: shopLoading } = useQuery<(Shop & { category?: Category })[]>({

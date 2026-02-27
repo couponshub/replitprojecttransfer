@@ -939,7 +939,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // Categories
   app.get("/api/categories", async (req, res) => {
-    res.json(await storage.getAllCategories());
+    const allCats = await storage.getAllCategories();
+    if (req.query.withShops === "true") {
+      const allShops = await storage.getAllShops();
+      const shopCatIds = new Set(allShops.map(s => s.category_id).filter(Boolean));
+      return res.json(allCats.filter(c => shopCatIds.has(c.id)));
+    }
+    res.json(allCats);
   });
 
   app.post("/api/categories", adminMiddleware, async (req, res) => {

@@ -519,13 +519,22 @@ export default function VendorDashboard() {
                         "Home & Living": ["Furniture", "Decor", "Kitchen", "Bedding", "Lighting", "Storage", "Bath"],
                       };
                       const suggestions = subCatMap[catName] || ["General", "Special", "Featured", "New Arrivals", "Best Sellers", "Seasonal"];
+                      const existingSubCats = Array.from(new Set(products.map((p: any) => p.sub_category).filter(Boolean))) as string[];
+                      const allChips = Array.from(new Set([...existingSubCats, ...suggestions.slice(0, 6)]));
                       return (
                         <div>
                           <Label className="text-sm">Category <span className="text-muted-foreground text-xs font-normal">(groups products by type)</span></Label>
-                          <Input value={prodForm.sub_category || ""} onChange={e => setProdForm((f: any) => ({ ...f, sub_category: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="e.g. Starters, Hair, Mobiles..." data-testid="input-prod-subcategory" list="vendor-subcategory-suggestions" />
-                          <datalist id="vendor-subcategory-suggestions">{suggestions.map(s => <option key={s} value={s} />)}</datalist>
+                          <Input value={prodForm.sub_category || ""} onChange={e => setProdForm((f: any) => ({ ...f, sub_category: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="Type new category name or pick below..." data-testid="input-prod-subcategory" list="vendor-subcategory-suggestions" />
+                          <datalist id="vendor-subcategory-suggestions">{allChips.map(s => <option key={s} value={s} />)}</datalist>
                           <div className="flex flex-wrap gap-1.5 mt-2">
-                            {suggestions.slice(0, 8).map(s => (
+                            {existingSubCats.length > 0 && existingSubCats.map(s => (
+                              <button key={`existing-${s}`} type="button" onClick={() => setProdForm((f: any) => ({ ...f, sub_category: s }))}
+                                className={`text-[11px] px-2 py-1 rounded-lg border transition-all font-semibold ${prodForm.sub_category === s ? "bg-blue-500 text-white border-blue-500" : "bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-100"}`}
+                                data-testid={`chip-existing-${s.replace(/\s+/g, "-").toLowerCase()}`}>
+                                ✓ {s}
+                              </button>
+                            ))}
+                            {suggestions.slice(0, 6).filter(s => !existingSubCats.includes(s)).map(s => (
                               <button key={s} type="button" onClick={() => setProdForm((f: any) => ({ ...f, sub_category: s }))}
                                 className={`text-[11px] px-2 py-1 rounded-lg border transition-all ${prodForm.sub_category === s ? "bg-blue-500 text-white border-blue-500" : "border-gray-200 dark:border-gray-700 text-muted-foreground hover:border-blue-300 hover:text-blue-600"}`}
                                 data-testid={`chip-subcategory-${s.replace(/\s+/g, "-").toLowerCase()}`}>
@@ -533,6 +542,7 @@ export default function VendorDashboard() {
                               </button>
                             ))}
                           </div>
+                          <p className="text-[11px] text-muted-foreground mt-1.5">Input lo type cheyyi to create a new category. Blue chips = already used in this shop.</p>
                         </div>
                       );
                     })()}
