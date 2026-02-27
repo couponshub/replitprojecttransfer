@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,18 +14,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Store, Package, Ticket, LogOut, Plus, Edit, Trash2, Save,
-  Zap, Tag, Phone, MapPin, Globe, X, Check, ChevronRight
+  Zap, Tag, Phone, MapPin, Globe, Check, ChevronRight,
+  WifiOff, Download, Eye, EyeOff, Upload, Loader2, Image, Link
 } from "lucide-react";
 
-type VTab = "shop" | "products" | "coupons";
+type VTab = "shop" | "products" | "coupons" | "offline-coupons";
 
 function getVendorToken() {
   return localStorage.getItem("vendor_token");
-}
-
-function vendorHeaders() {
-  const token = getVendorToken();
-  return token ? { "x-vendor-token": token } : {};
 }
 
 async function vendorFetch(url: string, options?: RequestInit) {
@@ -45,6 +41,20 @@ async function vendorFetch(url: string, options?: RequestInit) {
   return res.json();
 }
 
+async function vendorFormFetch(url: string, body: FormData) {
+  const token = getVendorToken();
+  const res = await fetch(url, {
+    method: "POST",
+    headers: token ? { "x-vendor-token": token } : {},
+    body,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Request failed" }));
+    throw new Error(err.error || "Request failed");
+  }
+  return res.json();
+}
+
 export default function VendorDashboard() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -52,7 +62,6 @@ export default function VendorDashboard() {
   const [vendorInfo, setVendorInfo] = useState<any>(null);
   const [authChecked, setAuthChecked] = useState(false);
 
-  // Auth check
   useEffect(() => {
     const token = getVendorToken();
     if (!token) { navigate("/login"); return; }
@@ -61,7 +70,6 @@ export default function VendorDashboard() {
       .catch(() => { localStorage.removeItem("vendor_token"); navigate("/login"); });
   }, []);
 
-  // Shop
   const { data: shop, isLoading: shopLoading, refetch: refetchShop } = useQuery<any>({
     queryKey: ["/api/vendor/shop"],
     queryFn: () => vendorFetch("/api/vendor/shop"),
@@ -81,7 +89,6 @@ export default function VendorDashboard() {
     onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
   });
 
-  // Products
   const { data: products = [], isLoading: prodsLoading, refetch: refetchProds } = useQuery<any[]>({
     queryKey: ["/api/vendor/products"],
     queryFn: () => vendorFetch("/api/vendor/products"),
@@ -106,7 +113,6 @@ export default function VendorDashboard() {
     onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
   });
 
-  // Coupons
   const { data: coupons = [], isLoading: couponsLoading, refetch: refetchCoupons } = useQuery<any[]>({
     queryKey: ["/api/vendor/coupons"],
     queryFn: () => vendorFetch("/api/vendor/coupons"),
@@ -131,6 +137,78 @@ export default function VendorDashboard() {
     onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
   });
 
+  const toggleCouponMutation = useMutation({
+    mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) =>
+      vendorFetch(`/api/vendor/coupons/${id}`, { method: "PATCH", body: JSON.stringify({ is_active }) }),
+    onSuccess: () => { refetchCoupons(); },
+    onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const { data: offlineCoupons = [], isLoading: ocLoading, refetch: refetchOC } = useQuery<any[]>({
+    queryKey: ["/api/vendor/offline-coupons"],
+    queryFn: () => vendorFetch("/api/vendor/offline-coupons"),
+    enabled: authChecked,
+  });
+
+  const [ocDialog, setOCDialog] = useState(false);
+  const [ocCodesDialog, setOCCodesDialog] = useState(false);
+  const [selectedOCId, setSelectedOCId] = useState<string | null>(null);
+  const [ocUploading, setOCUploading] = useState(false);
+  const [ocForm, setOCForm] = useState({ title: "", description: "", total_codes: "10", banner_image: "" });
+  const [ocBannerFile, setOCBannerFile] = useState<File | null>(null);
+  const [ocBannerPreview, setOCBannerPreview] = useState<string | null>(null);
+
+  const { data: selectedCodes = [], isLoading: codesLoading } = useQuery<any[]>({
+    queryKey: ["/api/vendor/offline-coupons", selectedOCId, "codes"],
+    queryFn: () => vendorFetch(`/api/vendor/offline-coupons/${selectedOCId}/codes`),
+    enabled: !!selectedOCId && ocCodesDialog,
+  });
+
+  const toggleOCMutation = useMutation({
+    mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) =>
+      vendorFetch(`/api/vendor/offline-coupons/${id}`, { method: "PATCH", body: JSON.stringify({ is_active }) }),
+    onSuccess: () => refetchOC(),
+    onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const deleteOCMutation = useMutation({
+    mutationFn: (id: string) => vendorFetch(`/api/vendor/offline-coupons/${id}`, { method: "DELETE" }),
+    onSuccess: () => { toast({ title: "Deleted" }); refetchOC(); },
+    onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const handleOCBannerSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setOCBannerFile(file);
+    setOCBannerPreview(URL.createObjectURL(file));
+  };
+
+  const handleCreateOC = async () => {
+    if (!ocForm.title.trim()) { toast({ title: "Title is required", variant: "destructive" }); return; }
+    if (!ocBannerFile && !ocForm.banner_image.trim()) { toast({ title: "Banner image is required", variant: "destructive" }); return; }
+    setOCUploading(true);
+    try {
+      const fd = new FormData();
+      if (ocBannerFile) fd.append("banner", ocBannerFile);
+      fd.append("title", ocForm.title.trim());
+      if (ocForm.description.trim()) fd.append("description", ocForm.description.trim());
+      fd.append("total_codes", ocForm.total_codes || "10");
+      if (!ocBannerFile && ocForm.banner_image) fd.append("banner_image", ocForm.banner_image);
+      await vendorFormFetch("/api/vendor/offline-coupons", fd);
+      queryClient.invalidateQueries({ queryKey: ["/api/vendor/offline-coupons"] });
+      toast({ title: `Created! ${ocForm.total_codes || 10} codes generated.` });
+      setOCDialog(false);
+      setOCForm({ title: "", description: "", total_codes: "10", banner_image: "" });
+      setOCBannerFile(null);
+      setOCBannerPreview(null);
+    } catch (err: any) {
+      toast({ title: err.message, variant: "destructive" });
+    } finally {
+      setOCUploading(false);
+    }
+  };
+
   const handleLogout = async () => {
     await fetch("/api/vendor/logout", { method: "POST" });
     localStorage.removeItem("vendor_token");
@@ -145,15 +223,15 @@ export default function VendorDashboard() {
     );
   }
 
-  const NAV = [
-    { id: "shop" as VTab, label: "My Shop", icon: Store },
-    { id: "products" as VTab, label: "Products", icon: Package },
-    { id: "coupons" as VTab, label: "Coupons", icon: Ticket },
+  const NAV: { id: VTab; label: string; icon: any }[] = [
+    { id: "shop", label: "My Shop", icon: Store },
+    { id: "products", label: "Products", icon: Package },
+    { id: "coupons", label: "Coupons", icon: Ticket },
+    { id: "offline-coupons", label: "Offline Coupons", icon: WifiOff },
   ];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex">
-      {/* Sidebar */}
       <aside className="hidden md:flex flex-col w-60 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 py-6 px-4 gap-2">
         <div className="flex items-center gap-2.5 mb-8 px-2">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
@@ -182,9 +260,7 @@ export default function VendorDashboard() {
         </div>
       </aside>
 
-      {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Mobile header */}
         <header className="md:hidden flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
             <Store className="w-4 h-4 text-white" />
@@ -192,7 +268,7 @@ export default function VendorDashboard() {
           <span className="font-bold text-sm flex-1">Vendor Panel</span>
           <div className="flex gap-1">
             {NAV.map(item => (
-              <button key={item.id} onClick={() => setTab(item.id)} className={`p-2 rounded-lg transition-colors ${tab === item.id ? "bg-emerald-500 text-white" : "text-gray-500"}`}>
+              <button key={item.id} onClick={() => setTab(item.id)} className={`p-2 rounded-lg transition-colors ${tab === item.id ? "bg-emerald-500 text-white" : "text-gray-500"}`} data-testid={`vendor-nav-mobile-${item.id}`}>
                 <item.icon className="w-4 h-4" />
               </button>
             ))}
@@ -203,6 +279,7 @@ export default function VendorDashboard() {
         </header>
 
         <div className="flex-1 p-4 sm:p-6 overflow-auto">
+
           {/* ── Shop Tab ── */}
           {tab === "shop" && (
             <div className="max-w-2xl">
@@ -219,7 +296,7 @@ export default function VendorDashboard() {
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" onClick={() => { setShopEditing(false); setShopForm({ ...shop }); }} className="rounded-xl">Cancel</Button>
                     <Button size="sm" onClick={() => saveShopMutation.mutate(shopForm)} disabled={saveShopMutation.isPending} className="rounded-xl gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 border-0" data-testid="button-save-shop">
-                      <Save className="w-3.5 h-3.5" /> Save
+                      <Save className="w-3.5 h-3.5" /> {saveShopMutation.isPending ? "Saving..." : "Save"}
                     </Button>
                   </div>
                 )}
@@ -232,18 +309,25 @@ export default function VendorDashboard() {
               ) : shop && (
                 <Card className="border-0 shadow-lg rounded-2xl">
                   <CardContent className="p-6 flex flex-col gap-4">
-                    <div className="flex items-center gap-4 mb-2">
-                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-2xl shadow-lg">
-                        {shop.name?.[0]}
+                    {!shopEditing && (
+                      <div className="flex items-center gap-4 mb-2">
+                        {shop.logo ? (
+                          <img src={shop.logo} alt={shop.name} className="w-16 h-16 rounded-2xl object-cover shadow" />
+                        ) : (
+                          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-2xl shadow-lg">
+                            {shop.name?.[0]}
+                          </div>
+                        )}
+                        <div>
+                          <h2 className="font-bold text-lg text-gray-900 dark:text-white">{shop.name}</h2>
+                          <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-0 text-xs">Active Shop</Badge>
+                        </div>
                       </div>
-                      <div>
-                        <h2 className="font-bold text-lg text-gray-900 dark:text-white">{shop.name}</h2>
-                        <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-0 text-xs">Active Shop</Badge>
-                      </div>
-                    </div>
+                    )}
 
                     {shopEditing ? (
                       <>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Basic Info</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <Label className="text-sm">Shop Name</Label>
@@ -260,7 +344,7 @@ export default function VendorDashboard() {
                         </div>
                         <div>
                           <Label className="text-sm">Address</Label>
-                          <Input value={shopForm.address || ""} onChange={e => setShopForm((f: any) => ({ ...f, address: e.target.value }))} className="mt-1.5 rounded-xl" />
+                          <Input value={shopForm.address || ""} onChange={e => setShopForm((f: any) => ({ ...f, address: e.target.value }))} className="mt-1.5 rounded-xl" data-testid="input-vendor-address" />
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
@@ -272,35 +356,55 @@ export default function VendorDashboard() {
                             <Input value={shopForm.payment_id || ""} onChange={e => setShopForm((f: any) => ({ ...f, payment_id: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="name@upi" />
                           </div>
                         </div>
+                        <div>
+                          <Label className="text-sm">Google Maps Link</Label>
+                          <Input value={shopForm.map_link || ""} onChange={e => setShopForm((f: any) => ({ ...f, map_link: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="https://maps.google.com/..." />
+                        </div>
+
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2 border-t border-gray-100 dark:border-gray-800">Images</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-sm">Logo URL</Label>
+                            <Input value={shopForm.logo || ""} onChange={e => setShopForm((f: any) => ({ ...f, logo: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="https://..." />
+                            {shopForm.logo && <img src={shopForm.logo} alt="Logo preview" className="mt-2 w-12 h-12 rounded-xl object-cover" />}
+                          </div>
+                          <div>
+                            <Label className="text-sm">Banner Image URL</Label>
+                            <Input value={shopForm.banner_image || ""} onChange={e => setShopForm((f: any) => ({ ...f, banner_image: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="https://..." />
+                            {shopForm.banner_image && <img src={shopForm.banner_image} alt="Banner preview" className="mt-2 w-full h-16 rounded-xl object-cover" />}
+                          </div>
+                        </div>
+
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-2 border-t border-gray-100 dark:border-gray-800">Listing Settings</p>
+                        <div>
+                          <Label className="text-sm">Listing Type</Label>
+                          <Select value={shopForm.listing_type || "both"} onValueChange={v => setShopForm((f: any) => ({ ...f, listing_type: v }))}>
+                            <SelectTrigger className="mt-1.5 rounded-xl">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="products">Products only</SelectItem>
+                              <SelectItem value="services">Services only</SelectItem>
+                              <SelectItem value="both">Products & Services</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-sm">Business Hours</Label>
+                          <Input value={shopForm.business_hours || ""} onChange={e => setShopForm((f: any) => ({ ...f, business_hours: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="e.g. Mon–Sat 9am–9pm" data-testid="input-vendor-hours" />
+                        </div>
                       </>
                     ) : (
                       <>
                         <p className="text-sm text-muted-foreground">{shop.description || "No description set"}</p>
+                        {shop.banner_image && <img src={shop.banner_image} alt="Banner" className="w-full h-32 object-cover rounded-xl" />}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                          {shop.address && (
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <MapPin className="w-4 h-4 shrink-0" />
-                              <span>{shop.address}</span>
-                            </div>
-                          )}
-                          {shop.whatsapp_number && (
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Phone className="w-4 h-4 shrink-0" />
-                              <span>{shop.whatsapp_number}</span>
-                            </div>
-                          )}
-                          {shop.website_link && (
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Globe className="w-4 h-4 shrink-0" />
-                              <span>{shop.website_link}</span>
-                            </div>
-                          )}
-                          {shop.payment_id && (
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Tag className="w-4 h-4 shrink-0" />
-                              <span>{shop.payment_id}</span>
-                            </div>
-                          )}
+                          {shop.address && <div className="flex items-start gap-2 text-muted-foreground"><MapPin className="w-4 h-4 shrink-0 mt-0.5" /><span>{shop.address}</span></div>}
+                          {shop.whatsapp_number && <div className="flex items-center gap-2 text-muted-foreground"><Phone className="w-4 h-4 shrink-0" /><span>{shop.whatsapp_number}</span></div>}
+                          {shop.website_link && <div className="flex items-center gap-2 text-muted-foreground"><Globe className="w-4 h-4 shrink-0" /><span className="truncate">{shop.website_link}</span></div>}
+                          {shop.payment_id && <div className="flex items-center gap-2 text-muted-foreground"><Tag className="w-4 h-4 shrink-0" /><span>{shop.payment_id}</span></div>}
+                          {shop.map_link && <div className="flex items-center gap-2 text-muted-foreground"><MapPin className="w-4 h-4 shrink-0 text-blue-500" /><a href={shop.map_link} target="_blank" rel="noopener noreferrer" className="text-blue-500 truncate">Maps Link</a></div>}
+                          {shop.business_hours && <div className="flex items-center gap-2 text-muted-foreground"><Zap className="w-4 h-4 shrink-0" /><span>{shop.business_hours}</span></div>}
                         </div>
                         <div className="flex gap-2 flex-wrap pt-2 border-t border-gray-100 dark:border-gray-800">
                           {shop.is_premium && <Badge className="bg-amber-100 text-amber-700 border-0 text-xs">Premium</Badge>}
@@ -377,28 +481,15 @@ export default function VendorDashboard() {
 
               <Dialog open={prodDialog} onOpenChange={v => { setProdDialog(v); if (!v) { setEditProd(null); setProdForm({ name: "", price: "", description: "", type: "product" }); } }}>
                 <DialogContent className="rounded-2xl max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>{editProd ? "Edit Product" : "Add Product"}</DialogTitle>
-                  </DialogHeader>
+                  <DialogHeader><DialogTitle>{editProd ? "Edit Product" : "Add Product"}</DialogTitle></DialogHeader>
                   <div className="flex flex-col gap-4 pb-2">
-                    <div>
-                      <Label className="text-sm">Name *</Label>
-                      <Input value={prodForm.name} onChange={e => setProdForm((f: any) => ({ ...f, name: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="Product name" data-testid="input-prod-name" />
-                    </div>
-                    <div>
-                      <Label className="text-sm">Price (₹) *</Label>
-                      <Input type="number" value={prodForm.price} onChange={e => setProdForm((f: any) => ({ ...f, price: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="e.g. 299" data-testid="input-prod-price" />
-                    </div>
-                    <div>
-                      <Label className="text-sm">Description</Label>
-                      <Textarea value={prodForm.description} onChange={e => setProdForm((f: any) => ({ ...f, description: e.target.value }))} className="mt-1.5 rounded-xl resize-none" rows={3} />
-                    </div>
+                    <div><Label className="text-sm">Name *</Label><Input value={prodForm.name} onChange={e => setProdForm((f: any) => ({ ...f, name: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="Product name" data-testid="input-prod-name" /></div>
+                    <div><Label className="text-sm">Price (₹) *</Label><Input type="number" value={prodForm.price} onChange={e => setProdForm((f: any) => ({ ...f, price: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="e.g. 299" data-testid="input-prod-price" /></div>
+                    <div><Label className="text-sm">Description</Label><Textarea value={prodForm.description} onChange={e => setProdForm((f: any) => ({ ...f, description: e.target.value }))} className="mt-1.5 rounded-xl resize-none" rows={3} /></div>
                     <div>
                       <Label className="text-sm">Type</Label>
                       <Select value={prodForm.type} onValueChange={v => setProdForm((f: any) => ({ ...f, type: v }))}>
-                        <SelectTrigger className="mt-1.5 rounded-xl" data-testid="select-prod-type">
-                          <SelectValue />
-                        </SelectTrigger>
+                        <SelectTrigger className="mt-1.5 rounded-xl" data-testid="select-prod-type"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="product">Product</SelectItem>
                           <SelectItem value="service">Service</SelectItem>
@@ -428,9 +519,7 @@ export default function VendorDashboard() {
               </div>
 
               {couponsLoading ? (
-                <div className="flex flex-col gap-3">
-                  {Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}
-                </div>
+                <div className="flex flex-col gap-3">{Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}</div>
               ) : coupons.length === 0 ? (
                 <div className="text-center py-16 text-muted-foreground">
                   <Ticket className="w-10 h-10 mx-auto mb-3 opacity-20" />
@@ -445,11 +534,20 @@ export default function VendorDashboard() {
                           {coupon.type === "percentage" ? "%" : "₹"}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-bold text-sm text-gray-900 dark:text-white font-mono">{coupon.code}</p>
-                            <Badge className={`border-0 text-[10px] ${coupon.is_active ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
-                              {coupon.is_active ? "Active" : "Inactive"}
-                            </Badge>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => toggleCouponMutation.mutate({ id: coupon.id, is_active: true })}
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-all ${coupon.is_active ? "bg-emerald-500 text-white" : "bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-emerald-100 hover:text-emerald-700"}`}
+                                data-testid={`button-active-coupon-${coupon.id}`}
+                              >Active</button>
+                              <button
+                                onClick={() => toggleCouponMutation.mutate({ id: coupon.id, is_active: false })}
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-all ${!coupon.is_active ? "bg-orange-500 text-white" : "bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-orange-100 hover:text-orange-700"}`}
+                                data-testid={`button-used-coupon-${coupon.id}`}
+                              >Used</button>
+                            </div>
                           </div>
                           <p className="text-xs text-muted-foreground">
                             {coupon.type === "percentage" ? `${coupon.value}% off` : coupon.type === "flat" ? `₹${coupon.value} off` : coupon.type}
@@ -472,21 +570,14 @@ export default function VendorDashboard() {
 
               <Dialog open={couponDialog} onOpenChange={v => { setCouponDialog(v); if (!v) { setEditCoupon(null); setCouponForm({ code: "", type: "percentage", value: "", is_active: true }); } }}>
                 <DialogContent className="rounded-2xl max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>{editCoupon ? "Edit Coupon" : "Add Coupon"}</DialogTitle>
-                  </DialogHeader>
+                  <DialogHeader><DialogTitle>{editCoupon ? "Edit Coupon" : "Add Coupon"}</DialogTitle></DialogHeader>
                   <div className="flex flex-col gap-4 pb-2">
-                    <div>
-                      <Label className="text-sm">Coupon Code *</Label>
-                      <Input value={couponForm.code} onChange={e => setCouponForm((f: any) => ({ ...f, code: e.target.value.toUpperCase() }))} className="mt-1.5 rounded-xl font-mono" placeholder="e.g. SAVE20" data-testid="input-coupon-code" />
-                    </div>
+                    <div><Label className="text-sm">Coupon Code *</Label><Input value={couponForm.code} onChange={e => setCouponForm((f: any) => ({ ...f, code: e.target.value.toUpperCase() }))} className="mt-1.5 rounded-xl font-mono" placeholder="e.g. SAVE20" data-testid="input-coupon-code" /></div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <Label className="text-sm">Type *</Label>
                         <Select value={couponForm.type} onValueChange={v => setCouponForm((f: any) => ({ ...f, type: v }))}>
-                          <SelectTrigger className="mt-1.5 rounded-xl" data-testid="select-coupon-type">
-                            <SelectValue />
-                          </SelectTrigger>
+                          <SelectTrigger className="mt-1.5 rounded-xl" data-testid="select-coupon-type"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="percentage">Percentage %</SelectItem>
                             <SelectItem value="flat">Flat ₹</SelectItem>
@@ -494,22 +585,11 @@ export default function VendorDashboard() {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div>
-                        <Label className="text-sm">Value</Label>
-                        <Input type="number" value={couponForm.value} onChange={e => setCouponForm((f: any) => ({ ...f, value: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="0" data-testid="input-coupon-value" />
-                      </div>
+                      <div><Label className="text-sm">Value</Label><Input type="number" value={couponForm.value} onChange={e => setCouponForm((f: any) => ({ ...f, value: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="0" data-testid="input-coupon-value" /></div>
                     </div>
-                    <div>
-                      <Label className="text-sm">Expiry Date</Label>
-                      <Input type="date" value={couponForm.expiry_date || ""} onChange={e => setCouponForm((f: any) => ({ ...f, expiry_date: e.target.value }))} className="mt-1.5 rounded-xl" />
-                    </div>
+                    <div><Label className="text-sm">Expiry Date</Label><Input type="date" value={couponForm.expiry_date || ""} onChange={e => setCouponForm((f: any) => ({ ...f, expiry_date: e.target.value }))} className="mt-1.5 rounded-xl" /></div>
                     <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setCouponForm((f: any) => ({ ...f, is_active: !f.is_active }))}
-                        className={`w-10 h-6 rounded-full transition-colors flex items-center ${couponForm.is_active ? "bg-emerald-500 justify-end" : "bg-gray-300 dark:bg-gray-700 justify-start"}`}
-                        data-testid="toggle-coupon-active"
-                      >
+                      <button type="button" onClick={() => setCouponForm((f: any) => ({ ...f, is_active: !f.is_active }))} className={`w-10 h-6 rounded-full transition-colors flex items-center ${couponForm.is_active ? "bg-emerald-500 justify-end" : "bg-gray-300 dark:bg-gray-700 justify-start"}`} data-testid="toggle-coupon-active">
                         <div className="w-5 h-5 rounded-full bg-white shadow-sm mx-0.5" />
                       </button>
                       <Label className="text-sm">Active</Label>
@@ -522,6 +602,179 @@ export default function VendorDashboard() {
               </Dialog>
             </div>
           )}
+
+          {/* ── Offline Coupons Tab ── */}
+          {tab === "offline-coupons" && (
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">Offline Coupons</h1>
+                  <p className="text-sm text-muted-foreground">Create printable banner coupons with unique codes</p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => { setOCForm({ title: "", description: "", total_codes: "10", banner_image: "" }); setOCBannerFile(null); setOCBannerPreview(null); setOCDialog(true); }}
+                  className="rounded-xl gap-2 bg-gradient-to-r from-violet-500 to-purple-600 border-0"
+                  data-testid="button-add-offline-coupon-vendor"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add
+                </Button>
+              </div>
+
+              {ocLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[1,2].map(i => <Skeleton key={i} className="h-52 rounded-2xl" />)}
+                </div>
+              ) : offlineCoupons.length === 0 ? (
+                <div className="text-center py-20">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-950/40 dark:to-purple-950/40 flex items-center justify-center mx-auto mb-4">
+                    <WifiOff className="w-7 h-7 text-violet-400" />
+                  </div>
+                  <p className="font-semibold text-gray-900 dark:text-white">No offline coupons yet</p>
+                  <p className="text-sm text-muted-foreground mt-1">Create a banner coupon to give physical codes to customers</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {offlineCoupons.map((oc: any) => (
+                    <div key={oc.id} className="rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 shadow-sm bg-white dark:bg-gray-900" data-testid={`card-vendor-offline-${oc.id}`}>
+                      <div className="relative aspect-video bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                        <img src={oc.banner_image} alt={oc.title} className="w-full h-full object-cover" />
+                        <div className="absolute top-2 right-2">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${oc.is_active ? "bg-emerald-500 text-white" : "bg-gray-400 text-white"}`}>
+                            {oc.is_active ? "Active" : "Hidden"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="p-4">
+                        <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">{oc.title}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                          <div className="flex-1 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                            <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-500" style={{ width: `${Math.max(5, ((oc.claimed_count || 0) / oc.total_codes) * 100)}%` }} />
+                          </div>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">{oc.claimed_count || 0}/{oc.total_codes} claimed</span>
+                        </div>
+                        <div className="flex gap-2 mt-3 flex-wrap">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => { setSelectedOCId(oc.id); setOCCodesDialog(true); }}
+                            className="rounded-xl h-8 gap-1.5 text-violet-600 border-violet-200 hover:bg-violet-50 dark:hover:bg-violet-950/20"
+                            data-testid={`button-vendor-view-codes-${oc.id}`}
+                          >
+                            <Download className="w-3 h-3" /> Codes
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => toggleOCMutation.mutate({ id: oc.id, is_active: !oc.is_active })}
+                            className={`rounded-xl h-8 gap-1.5 ${oc.is_active ? "text-amber-600 border-amber-200" : "text-emerald-600 border-emerald-200"}`}
+                            data-testid={`button-vendor-toggle-oc-${oc.id}`}
+                          >
+                            {oc.is_active ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                            {oc.is_active ? "Hide" : "Show"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => { if (confirm("Delete this offline coupon?")) deleteOCMutation.mutate(oc.id); }}
+                            className="rounded-xl h-8 text-red-500 hover:text-red-600 border-red-200"
+                            data-testid={`button-vendor-delete-oc-${oc.id}`}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <Dialog open={ocDialog} onOpenChange={setOCDialog}>
+                <DialogContent className="max-w-md rounded-2xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2"><WifiOff className="w-5 h-5 text-violet-500" /> New Offline Coupon</DialogTitle>
+                  </DialogHeader>
+                  <div className="flex flex-col gap-4 mt-2">
+                    <div>
+                      <Label>Title *</Label>
+                      <Input className="mt-1 rounded-xl" placeholder="e.g. Summer Sale — 20% Off" value={ocForm.title} onChange={e => setOCForm(f => ({ ...f, title: e.target.value }))} data-testid="input-vendor-oc-title" />
+                    </div>
+                    <div>
+                      <Label>Description</Label>
+                      <Textarea className="mt-1 rounded-xl resize-none" rows={2} placeholder="Show this coupon at store." value={ocForm.description} onChange={e => setOCForm(f => ({ ...f, description: e.target.value }))} />
+                    </div>
+                    <div>
+                      <Label>Number of Codes</Label>
+                      <Input type="number" min="1" max="100" className="mt-1 rounded-xl" value={ocForm.total_codes} onChange={e => setOCForm(f => ({ ...f, total_codes: e.target.value }))} />
+                    </div>
+                    <div>
+                      <Label>Banner Image *</Label>
+                      <div className="mt-1 flex flex-col gap-2">
+                        {(ocBannerPreview || ocForm.banner_image) && (
+                          <div className="relative rounded-xl overflow-hidden aspect-video bg-gray-100">
+                            <img src={ocBannerPreview || ocForm.banner_image} alt="Preview" className="w-full h-full object-cover" />
+                            <button onClick={() => { setOCBannerFile(null); setOCBannerPreview(null); setOCForm(f => ({ ...f, banner_image: "" })); }} className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center text-xs">✕</button>
+                          </div>
+                        )}
+                        <label className="flex items-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 cursor-pointer hover:border-violet-400 transition-colors">
+                          <Upload className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground">Upload banner image</span>
+                          <input type="file" accept="image/*" className="hidden" onChange={handleOCBannerSelect} />
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+                          <span className="text-xs text-muted-foreground">or paste URL</span>
+                          <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+                        </div>
+                        <Input className="rounded-xl" placeholder="https://example.com/banner.jpg" value={ocForm.banner_image} onChange={e => { setOCForm(f => ({ ...f, banner_image: e.target.value })); setOCBannerFile(null); setOCBannerPreview(null); }} />
+                      </div>
+                    </div>
+                    <Button onClick={handleCreateOC} disabled={ocUploading} className="w-full rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 border-0 text-white h-11" data-testid="button-vendor-create-oc">
+                      {ocUploading ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Creating...</> : `Create & Generate ${ocForm.total_codes || 10} Codes`}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={ocCodesDialog} onOpenChange={open => { setOCCodesDialog(open); if (!open) setSelectedOCId(null); }}>
+                <DialogContent className="max-w-md rounded-2xl max-h-[80vh] overflow-y-auto">
+                  <DialogHeader><DialogTitle className="flex items-center gap-2"><Download className="w-5 h-5 text-violet-500" /> Coupon Codes</DialogTitle></DialogHeader>
+                  {codesLoading ? (
+                    <div className="py-8 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-violet-500" /></div>
+                  ) : (
+                    <div className="flex flex-col gap-2 mt-2">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                        <span>{selectedCodes.filter((c: any) => c.claimed_by_user_id).length} claimed / {selectedCodes.length} total</span>
+                        <span className="text-emerald-600 font-semibold">{selectedCodes.filter((c: any) => !c.claimed_by_user_id).length} remaining</span>
+                      </div>
+                      {selectedCodes.map((code: any) => (
+                        <div
+                          key={code.id}
+                          className={`flex items-center justify-between px-3 py-2.5 rounded-xl border ${
+                            code.used_at ? "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                              : code.claimed_by_user_id ? "bg-orange-50 dark:bg-orange-950/20 border-orange-200"
+                              : "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200"
+                          }`}
+                        >
+                          <span className={`font-mono font-bold text-sm tracking-wider ${code.used_at ? "text-gray-400" : code.claimed_by_user_id ? "text-orange-700 dark:text-orange-400" : "text-emerald-700 dark:text-emerald-400"}`}>
+                            {code.code}
+                          </span>
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                            code.used_at ? "bg-gray-100 text-gray-500"
+                              : code.claimed_by_user_id ? "bg-orange-100 text-orange-600"
+                              : "bg-emerald-100 text-emerald-600"
+                          }`}>
+                            {code.used_at ? "Used" : code.claimed_by_user_id ? "Claimed" : "Available"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
+
         </div>
       </div>
     </div>

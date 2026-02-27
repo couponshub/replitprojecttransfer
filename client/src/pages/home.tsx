@@ -1,16 +1,16 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Navbar } from "@/components/Navbar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Crown, ChevronRight, Star, MapPin, Percent, ChevronLeft, Search, Mic, X, LocateFixed, Navigation, Zap, Download, WifiOff, Ticket, ChevronDown } from "lucide-react";
+import { Crown, ChevronRight, Star, MapPin, Percent, ChevronLeft, Search, Mic, X, LocateFixed, Navigation, Zap, Download, WifiOff, Ticket, ChevronDown, BookMarked, CheckCircle2, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/lib/cart";
 import { useAuth } from "@/lib/auth";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Category, Shop, Coupon, Banner, Product, OfflineCoupon } from "@shared/schema";
 
 type BannerWithCoupon = Banner & { coupon?: Coupon & { shop?: Shop } };
@@ -576,6 +576,7 @@ function OfflineCouponCard({ oc }: { oc: OfflineCouponFull }) {
         setRemaining(res.remaining);
         setIsClaiming(false);
       }
+      queryClient.invalidateQueries({ queryKey: ["/api/user/my-downloads"] });
       await downloadBanner(oc.banner_image, code!, oc.title, oc.shop?.name || "CouponsHub X");
       toast({ title: "Downloaded!", description: `Your coupon code: ${code}` });
     } catch (err: any) {
@@ -616,20 +617,33 @@ function OfflineCouponCard({ oc }: { oc: OfflineCouponFull }) {
         </div>
 
         {actualCode ? (
-          <div className="relative rounded-2xl overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 to-violet-500" />
-            <div className="bg-gradient-to-br from-blue-50 to-violet-50 dark:from-blue-950/30 dark:to-violet-950/30 p-3 flex items-center justify-between gap-2">
-              <div>
-                <p className="text-[10px] text-muted-foreground mb-0.5">Your unique code</p>
-                <span className="coupon-shimmer-text font-black text-lg tracking-widest">{actualCode}</span>
+          <div className="flex flex-col gap-2">
+            <div className="relative rounded-2xl overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 to-violet-500" />
+              <div className="bg-gradient-to-br from-blue-50 to-violet-50 dark:from-blue-950/30 dark:to-violet-950/30 p-3 flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-[10px] text-muted-foreground mb-0.5">Your unique code</p>
+                  <span className="coupon-shimmer-text font-black text-lg tracking-widest">{actualCode}</span>
+                </div>
+                <button
+                  onClick={() => { navigator.clipboard.writeText(actualCode); toast({ title: "Code copied!" }); }}
+                  className="text-xs px-2 py-1 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-muted-foreground hover:text-primary transition-colors"
+                >
+                  Copy
+                </button>
               </div>
-              <button
-                onClick={() => { navigator.clipboard.writeText(actualCode); toast({ title: "Code copied!" }); }}
-                className="text-xs px-2 py-1 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-muted-foreground hover:text-primary transition-colors"
-              >
-                Copy
-              </button>
             </div>
+            {(() => {
+              const exp = myCodeData?.code?.expires_at;
+              if (!exp) return null;
+              const daysLeft = Math.max(0, Math.ceil((new Date(exp).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+              return (
+                <div className={`flex items-center gap-1.5 text-[10px] px-2 ${daysLeft === 0 ? "text-red-500" : daysLeft <= 2 ? "text-orange-500" : "text-muted-foreground"}`}>
+                  <Clock className="w-3 h-3" />
+                  {daysLeft === 0 ? "Expired" : `Expires in ${daysLeft} day${daysLeft !== 1 ? "s" : ""} · ${new Date(exp).toLocaleDateString("en-IN")}`}
+                </div>
+              );
+            })()}
           </div>
         ) : (
           <div className="rounded-2xl bg-gray-50 dark:bg-gray-800/50 p-3 flex items-center gap-2">
@@ -677,6 +691,170 @@ function OfflineCouponCard({ oc }: { oc: OfflineCouponFull }) {
         </Button>
         <p className="text-center text-[10px] text-muted-foreground">One coupon per user • Show at store</p>
       </div>
+    </div>
+  );
+}
+
+function MyDownloadsPanel({ myDownloads, isLoading, refetch, token }: { myDownloads: any[]; isLoading: boolean; refetch: () => void; token: string }) {
+  const { toast } = useToast();
+  const [usedIds, setUsedIds] = useState<Set<string>>(new Set());
+
+  const markUsedMutation = useMutation({
+    mutationFn: async (codeId: string) => {
+      const authToken = token || localStorage.getItem("coupons_hub_token");
+      const res = await fetch(`/api/offline-coupon-codes/${codeId}/use`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${authToken}`, "Content-Type": "application/json" },
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Failed"); }
+      return res.json();
+    },
+    onSuccess: (_data, codeId) => {
+      setUsedIds(prev => new Set([...prev, codeId]));
+      queryClient.invalidateQueries({ queryKey: ["/api/user/my-downloads"] });
+      toast({ title: "Marked as Used!", description: "Coupon moved to used list." });
+    },
+    onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const getDaysLeft = (expiresAt: string | null) => {
+    if (!expiresAt) return 7;
+    const diff = new Date(expiresAt).getTime() - Date.now();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  };
+
+  const active = myDownloads.filter(d => !d.used_at && !usedIds.has(d.id));
+  const used = myDownloads.filter(d => d.used_at || usedIds.has(d.id));
+
+  const [dlTab, setDlTab] = useState<"active" | "used">("active");
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+        {[1,2,3].map(i => <Skeleton key={i} className="h-72 rounded-3xl" />)}
+      </div>
+    );
+  }
+
+  if (myDownloads.length === 0) {
+    return (
+      <div className="flex flex-col items-center py-20 gap-4 text-center">
+        <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-950/40 dark:to-orange-950/40 flex items-center justify-center">
+          <BookMarked className="w-10 h-10 text-amber-400" />
+        </div>
+        <div>
+          <h3 className="font-bold text-gray-900 dark:text-white text-lg">No downloads yet</h3>
+          <p className="text-muted-foreground text-sm mt-1">Claim offline coupons to see them here</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="coupon-slide-in">
+      <div className="flex gap-2 mb-5">
+        <button onClick={() => setDlTab("active")} className={`px-4 py-1.5 rounded-xl text-sm font-semibold transition-all ${dlTab === "active" ? "bg-amber-500 text-white" : "bg-gray-100 dark:bg-gray-800 text-muted-foreground"}`} data-testid="tab-downloads-active">
+          Active ({active.length})
+        </button>
+        <button onClick={() => setDlTab("used")} className={`px-4 py-1.5 rounded-xl text-sm font-semibold transition-all ${dlTab === "used" ? "bg-gray-500 text-white" : "bg-gray-100 dark:bg-gray-800 text-muted-foreground"}`} data-testid="tab-downloads-used">
+          Used ({used.length})
+        </button>
+      </div>
+
+      {dlTab === "active" && (
+        active.length === 0 ? (
+          <p className="text-center py-10 text-muted-foreground text-sm">All your coupons are in the Used list.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+            {active.map(dl => {
+              const daysLeft = getDaysLeft(dl.expires_at);
+              const isExpired = daysLeft === 0;
+              return (
+                <div key={dl.id} className={`rounded-3xl overflow-hidden shadow-lg border flex flex-col ${isExpired ? "border-red-200 dark:border-red-900/40" : "border-gray-100 dark:border-gray-800"} bg-white dark:bg-gray-900`} data-testid={`download-card-${dl.id}`}>
+                  {dl.campaign?.banner_image && (
+                    <div className="relative">
+                      <img src={dl.campaign.banner_image} alt={dl.campaign.title} className="w-full h-40 object-cover" crossOrigin="anonymous" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                      {dl.campaign.shop?.logo && (
+                        <img src={dl.campaign.shop.logo} alt="" className="absolute top-3 left-3 w-8 h-8 rounded-xl object-cover border-2 border-white/60" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                      )}
+                      <span className={`absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-full ${isExpired ? "bg-red-500 text-white" : daysLeft <= 2 ? "bg-orange-500 text-white" : "bg-emerald-500 text-white"}`}>
+                        {isExpired ? "Expired" : `${daysLeft}d left`}
+                      </span>
+                    </div>
+                  )}
+                  <div className="p-4 flex flex-col gap-3 flex-1">
+                    <div>
+                      <p className="font-bold text-sm text-gray-900 dark:text-white">{dl.campaign?.title || "Offline Coupon"}</p>
+                      {dl.campaign?.shop?.name && <p className="text-xs text-muted-foreground">{dl.campaign.shop.name}</p>}
+                    </div>
+                    <div className="rounded-2xl bg-gradient-to-br from-blue-50 to-violet-50 dark:from-blue-950/30 dark:to-violet-950/30 p-3 border border-blue-100 dark:border-blue-900/30">
+                      <p className="text-[10px] text-muted-foreground mb-0.5">Your unique code</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="coupon-shimmer-text font-black text-lg tracking-widest">{dl.code}</span>
+                        <button onClick={() => { navigator.clipboard.writeText(dl.code); toast({ title: "Code copied!" }); }} className="text-xs px-2 py-1 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-muted-foreground hover:text-primary">Copy</button>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className={isExpired ? "text-red-500" : daysLeft <= 2 ? "text-orange-500" : "text-muted-foreground"}>
+                        {isExpired ? "Expired" : `Expires in ${daysLeft} day${daysLeft !== 1 ? "s" : ""}`}
+                        {dl.expires_at && ` · ${new Date(dl.expires_at).toLocaleDateString("en-IN")}`}
+                      </span>
+                    </div>
+                    <div className="flex gap-2 mt-auto">
+                      <Button
+                        size="sm"
+                        className="flex-1 h-9 rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 border-0 text-white text-xs gap-1.5"
+                        onClick={() => downloadBanner(dl.campaign?.banner_image || "", dl.code, dl.campaign?.title || "Coupon", dl.campaign?.shop?.name || "CouponsHub X").catch(() => toast({ title: "Download failed", variant: "destructive" }))}
+                        data-testid={`button-redownload-${dl.id}`}
+                      >
+                        <Download className="w-3.5 h-3.5" /> Download
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={markUsedMutation.isPending || isExpired}
+                        className="flex-1 h-9 rounded-xl border-emerald-200 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-xs gap-1.5"
+                        onClick={() => markUsedMutation.mutate(dl.id)}
+                        data-testid={`button-use-coupon-${dl.id}`}
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Mark Used
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )
+      )}
+
+      {dlTab === "used" && (
+        used.length === 0 ? (
+          <p className="text-center py-10 text-muted-foreground text-sm">No used coupons yet.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+            {used.map(dl => (
+              <div key={dl.id} className="rounded-3xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 opacity-70 flex flex-col" data-testid={`download-used-${dl.id}`}>
+                {dl.campaign?.banner_image && (
+                  <div className="relative">
+                    <img src={dl.campaign.banner_image} alt={dl.campaign.title} className="w-full h-36 object-cover grayscale" />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <span className="bg-gray-800/80 text-white text-xs font-bold px-3 py-1.5 rounded-full">Used</span>
+                    </div>
+                  </div>
+                )}
+                <div className="p-4">
+                  <p className="font-semibold text-sm text-gray-700 dark:text-gray-300">{dl.campaign?.title || "Offline Coupon"}</p>
+                  <p className="font-mono text-xs text-gray-400 mt-1 tracking-wider line-through">{dl.code}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{dl.used_at ? `Used on ${new Date(dl.used_at).toLocaleDateString("en-IN")}` : "Marked as used"}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      )}
     </div>
   );
 }
@@ -1279,7 +1457,8 @@ export default function Home() {
     queryKey: ["/api/shops/featured"],
   });
 
-  const [couponTab, setCouponTab] = useState<"top" | "offline">("top");
+  const [couponTab, setCouponTab] = useState<"top" | "offline" | "downloads">("top");
+  const { isAuthenticated, token } = useAuth();
 
   const { data: activeCoupons = [], isLoading: couponLoading } = useQuery<(Coupon & { shop?: Shop })[]>({
     queryKey: ["/api/coupons/active"],
@@ -1287,6 +1466,18 @@ export default function Home() {
 
   const { data: offlineCouponsList = [], isLoading: offlineLoading } = useQuery<OfflineCouponFull[]>({
     queryKey: ["/api/offline-coupons"],
+  });
+
+  const { data: myDownloads = [], isLoading: downloadsLoading, refetch: refetchDownloads } = useQuery<any[]>({
+    queryKey: ["/api/user/my-downloads"],
+    queryFn: async () => {
+      const authToken = token || localStorage.getItem("coupons_hub_token");
+      if (!authToken) return [];
+      const res = await fetch("/api/user/my-downloads", { headers: { Authorization: `Bearer ${authToken}` } });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: isAuthenticated,
   });
 
   const { data: homeBanners = [] } = useQuery<BannerWithCoupon[]>({
@@ -1433,6 +1624,26 @@ export default function Home() {
                     </span>
                   )}
                 </button>
+
+                {isAuthenticated && (
+                  <button
+                    onClick={() => setCouponTab("downloads")}
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-2xl font-semibold text-sm transition-all duration-200 ${
+                      couponTab === "downloads"
+                        ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25"
+                        : "bg-gray-100 dark:bg-gray-800 text-muted-foreground hover:text-gray-900 dark:hover:text-white"
+                    }`}
+                    data-testid="tab-my-downloads"
+                  >
+                    <BookMarked className="w-4 h-4" />
+                    My Downloads
+                    {couponTab === "downloads" && myDownloads.length > 0 && (
+                      <span className="ml-1 bg-white/25 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                        {myDownloads.length}
+                      </span>
+                    )}
+                  </button>
+                )}
               </div>
 
               {/* Top Coupons Tab */}
@@ -1471,6 +1682,16 @@ export default function Home() {
                     {offlineCouponsList.map(oc => <OfflineCouponCard key={oc.id} oc={oc} />)}
                   </div>
                 )
+              )}
+
+              {/* My Downloads Tab */}
+              {couponTab === "downloads" && (
+                <MyDownloadsPanel
+                  myDownloads={myDownloads}
+                  isLoading={downloadsLoading}
+                  refetch={refetchDownloads}
+                  token={token as string}
+                />
               )}
             </>
           );

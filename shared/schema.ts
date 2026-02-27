@@ -144,6 +144,8 @@ export const offlineCouponCodes = pgTable("offline_coupon_codes", {
   code: text("code").notNull(),
   claimed_by_user_id: varchar("claimed_by_user_id"),
   claimed_at: timestamp("claimed_at"),
+  expires_at: timestamp("expires_at"),
+  used_at: timestamp("used_at"),
 });
 
 export const insertOfflineCouponSchema = createInsertSchema(offlineCoupons).omit({ id: true, created_at: true });

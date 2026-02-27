@@ -107,6 +107,9 @@ export interface IStorage {
   createOfflineCouponCodes(offlineCouponId: string, codes: string[]): Promise<OfflineCouponCode[]>;
   claimOfflineCouponCode(offlineCouponId: string, userId: string): Promise<{ code: OfflineCouponCode; remaining: number } | null>;
   getUserClaimedCode(offlineCouponId: string, userId: string): Promise<OfflineCouponCode | undefined>;
+  getUserOfflineCoupons(userId: string): Promise<any[]>;
+  markOfflineCouponCodeUsed(codeId: string, userId: string): Promise<OfflineCouponCode | undefined>;
+  getOfflineCouponsByShop(shopId: string): Promise<(OfflineCoupon & { claimed_count: number; remaining: number })[]>;
 }
 
 export class PgStorage implements IStorage {
@@ -522,8 +525,10 @@ export class PgStorage implements IStorage {
       ))
       .limit(1);
     if (!available[0]) return null;
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
     const claimed = await db.update(offlineCouponCodes)
-      .set({ claimed_by_user_id: userId, claimed_at: sql`now()` })
+      .set({ claimed_by_user_id: userId, claimed_at: sql`now()`, expires_at: expiresAt })
       .where(eq(offlineCouponCodes.id, available[0].id))
       .returning();
     const all = await this.getOfflineCouponCodes(offlineCouponId);
@@ -539,6 +544,42 @@ export class PgStorage implements IStorage {
       ))
       .limit(1);
     return result[0];
+  }
+
+  async getUserOfflineCoupons(userId: string): Promise<any[]> {
+    const rows = await db.select().from(offlineCouponCodes)
+      .where(eq(offlineCouponCodes.claimed_by_user_id, userId))
+      .orderBy(desc(offlineCouponCodes.claimed_at));
+    const result: any[] = [];
+    for (const row of rows) {
+      const oc = row.offline_coupon_id ? await this.getOfflineCoupon(row.offline_coupon_id) : null;
+      let shop = null;
+      if (oc?.shop_id) shop = await this.getShop(oc.shop_id);
+      result.push({ ...row, campaign: oc ? { ...oc, shop } : null });
+    }
+    return result;
+  }
+
+  async markOfflineCouponCodeUsed(codeId: string, userId: string): Promise<OfflineCouponCode | undefined> {
+    const rows = await db.select().from(offlineCouponCodes).where(eq(offlineCouponCodes.id, codeId)).limit(1);
+    if (!rows[0] || rows[0].claimed_by_user_id !== userId) throw new Error("Not authorized");
+    const updated = await db.update(offlineCouponCodes)
+      .set({ used_at: sql`now()` })
+      .where(eq(offlineCouponCodes.id, codeId))
+      .returning();
+    return updated[0];
+  }
+
+  async getOfflineCouponsByShop(shopId: string): Promise<(OfflineCoupon & { claimed_count: number; remaining: number })[]> {
+    const all = await db.select().from(offlineCoupons).where(eq(offlineCoupons.shop_id, shopId));
+    const result: any[] = [];
+    for (const oc of all) {
+      const codes = await this.getOfflineCouponCodes(oc.id);
+      const claimed_count = codes.filter(c => c.claimed_by_user_id).length;
+      const remaining = codes.filter(c => !c.claimed_by_user_id).length;
+      result.push({ ...oc, claimed_count, remaining });
+    }
+    return result;
   }
 }
 

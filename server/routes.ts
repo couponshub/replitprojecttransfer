@@ -824,5 +824,88 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
 
+  app.get("/api/user/my-downloads", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      res.json(await storage.getUserOfflineCoupons(userId));
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.post("/api/offline-coupon-codes/:codeId/use", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const updated = await storage.markOfflineCouponCodeUsed(req.params.codeId, userId);
+      res.json(updated);
+    } catch (err: any) { res.status(400).json({ error: err.message }); }
+  });
+
+  // ── Vendor Offline Coupons ───────────────────────────────────────────────────
+  app.get("/api/vendor/offline-coupons", vendorMiddleware, async (req, res) => {
+    try {
+      const shopId = (req as any).vendor.shop_id;
+      res.json(await storage.getOfflineCouponsByShop(shopId));
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.post("/api/vendor/offline-coupons", vendorMiddleware, upload.single("banner"), async (req, res) => {
+    try {
+      const shopId = (req as any).vendor.shop_id;
+      const { title, description, total_codes } = req.body;
+      if (!title) return res.status(400).json({ error: "title is required" });
+      let banner_image = req.body.banner_image || "";
+      if (req.file) banner_image = `/uploads/${req.file.filename}`;
+      if (!banner_image) return res.status(400).json({ error: "banner image is required" });
+      const oc = await storage.createOfflineCoupon({
+        shop_id: shopId,
+        title,
+        description: description || null,
+        banner_image,
+        total_codes: parseInt(total_codes || "10"),
+        is_active: true,
+      });
+      const shop = await storage.getShop(shopId);
+      const prefix = (shop?.name || "OFF").replace(/[^A-Za-z]/g, "").toUpperCase().slice(0, 4);
+      const count = parseInt(total_codes || "10");
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      const generatedCodes: string[] = [];
+      while (generatedCodes.length < count) {
+        let code = prefix;
+        for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+        if (!generatedCodes.includes(code)) generatedCodes.push(code);
+      }
+      await storage.createOfflineCouponCodes(oc.id, generatedCodes);
+      res.json(oc);
+    } catch (err: any) { res.status(400).json({ error: err.message }); }
+  });
+
+  app.patch("/api/vendor/offline-coupons/:id", vendorMiddleware, async (req, res) => {
+    try {
+      const shopId = (req as any).vendor.shop_id;
+      const oc = await storage.getOfflineCoupon(req.params.id);
+      if (!oc || oc.shop_id !== shopId) return res.status(403).json({ error: "Forbidden" });
+      const updated = await storage.updateOfflineCoupon(req.params.id, req.body);
+      res.json(updated);
+    } catch (err: any) { res.status(400).json({ error: err.message }); }
+  });
+
+  app.delete("/api/vendor/offline-coupons/:id", vendorMiddleware, async (req, res) => {
+    try {
+      const shopId = (req as any).vendor.shop_id;
+      const oc = await storage.getOfflineCoupon(req.params.id);
+      if (!oc || oc.shop_id !== shopId) return res.status(403).json({ error: "Forbidden" });
+      await storage.deleteOfflineCoupon(req.params.id);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(400).json({ error: err.message }); }
+  });
+
+  app.get("/api/vendor/offline-coupons/:id/codes", vendorMiddleware, async (req, res) => {
+    try {
+      const shopId = (req as any).vendor.shop_id;
+      const oc = await storage.getOfflineCoupon(req.params.id);
+      if (!oc || oc.shop_id !== shopId) return res.status(403).json({ error: "Forbidden" });
+      res.json(await storage.getOfflineCouponCodes(req.params.id));
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
   return httpServer;
 }
