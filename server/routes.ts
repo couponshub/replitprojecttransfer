@@ -211,7 +211,7 @@ async function seedElurubusinesses() {
   const elurushops: any[] = [
     {
       name: "Anand Bhavan Restaurant", description: "Famous pure vegetarian restaurant in Eluru since 1968. Known for idli, dosa, meals & tiffins.", category_id: cat("Restaurants"),
-      address: "Opp. Bus Stand, Masjid Road, Eluru - 534001, AP", whatsapp_number: "+918812234501", map_link: "https://goo.gl/maps/eluru-anand",
+      address: "Opp. Bus Stand, Masjid Road, Eluru - 534001, AP", whatsapp_number: "+918812234501", map_link: "https://www.google.com/maps/place/Anand+Bhavan+Restaurant+Eluru/@16.7051,81.0971,17z",
       banner_image: "https://images.unsplash.com/photo-1555396273-59e20c6a80aa?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1547592180-85f173990554?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1555396273-59e20c6a80aa?w=200&h=200&fit=crop", is_premium: true, featured: true, subscription_active: true, commission_percentage: "10", listing_type: "both",
@@ -229,7 +229,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Sri Santhi Sagar Restaurant", description: "Family restaurant serving Andhra-style meals, tiffins and snacks. Popular for Pesarattu & Upma.", category_id: cat("Restaurants"),
-      address: "Near Railway Station, Eluru - 534002, AP", whatsapp_number: "+918812234502", map_link: "https://goo.gl/maps/eluru-santhi",
+      address: "Near Railway Station, Eluru - 534002, AP", whatsapp_number: "+918812234502", map_link: "https://www.google.com/maps/place/Sri+Santhi+Sagar+Restaurant+Eluru/@16.7089,81.1021,17z",
       banner_image: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1555396273-59e20c6a80aa?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=200&h=200&fit=crop", is_premium: false, featured: true, subscription_active: true, commission_percentage: "8", listing_type: "both",
@@ -245,7 +245,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Al-Raheem Biryani", description: "Authentic Hyderabadi-style dum biryani prepared fresh every day. Famous among biryani lovers of Eluru.", category_id: cat("Biryani"),
-      address: "Muslim Bazar, Eluru - 534001, AP", whatsapp_number: "+918812234503",
+      address: "Muslim Bazar, Eluru - 534001, AP", whatsapp_number: "+918812234503", map_link: "https://www.google.com/maps/place/Al-Raheem+Biryani+Eluru/@16.7044,81.0921,17z",
       banner_image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1630383249896-424e482df921?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1512058564366-18510be2db19?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=200&h=200&fit=crop", is_premium: true, featured: true, subscription_active: true, commission_percentage: "12", listing_type: "both",
@@ -263,7 +263,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Sri Krishna Bakery & Sweets", description: "Traditional Eluru sweets shop. Famous for authentic Pootharekulu (paper sweets), Boondi Laddu & seasonal sweets.", category_id: cat("Bakery"),
-      address: "Gandhi Nagar, Main Road, Eluru - 534001, AP", whatsapp_number: "+918812234504",
+      address: "Gandhi Nagar, Main Road, Eluru - 534001, AP", whatsapp_number: "+918812234504", map_link: "https://www.google.com/maps/place/Sri+Krishna+Bakery+Sweets+Eluru/@16.7038,81.0961,17z",
       banner_image: "https://images.unsplash.com/photo-1509440159596-0280db8693f5?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1509440159596-0280db8693f5?w=200&h=200&fit=crop", is_premium: true, featured: true, subscription_active: true, commission_percentage: "10", listing_type: "both",
@@ -280,7 +280,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Sri Sai Sweets Eluru", description: "Fresh sweets, namkeens and bakery items. Speciality: Kakinada Kaja, Ariselu, Bobbatlu for festivals.", category_id: cat("Bakery"),
-      address: "Ramachandra Rao Street, Eluru - 534001, AP", whatsapp_number: "+918812234505",
+      address: "Ramachandra Rao Street, Eluru - 534001, AP", whatsapp_number: "+918812234505", map_link: "https://www.google.com/maps/place/Sri+Sai+Sweets+Eluru/@16.7045,81.0955,17z",
       banner_image: "https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1509440159596-0280db8693f5?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?w=200&h=200&fit=crop", is_premium: false, featured: false, subscription_active: true, commission_percentage: "8", listing_type: "both",
@@ -296,7 +296,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "KFC Eluru", description: "KFC Eluru - Finger Lickin' Good! Crispy fried chicken, burgers, Zinger meals & more. Drive-thru available.", category_id: cat("Food & Dining"),
-      address: "Powerpet, NH-16, Eluru - 534002, AP", whatsapp_number: "+919000234506",
+      address: "Powerpet, NH-16, Eluru - 534002, AP", whatsapp_number: "+919000234506", map_link: "https://www.google.com/maps/place/KFC+Eluru/@16.7071,81.1028,17z",
       banner_image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1562967914-608f82629710?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=200&h=200&fit=crop", is_premium: true, featured: true, subscription_active: true, commission_percentage: "12", listing_type: "both",
@@ -313,7 +313,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Dominos Pizza Eluru", description: "Domino's Pizza Eluru - Hot pizzas delivered in 30 minutes. Thick crust, thin crust & stuffed crust options.", category_id: cat("Food & Dining"),
-      address: "Bus Stand Road, Eluru - 534001, AP", whatsapp_number: "+919000234507",
+      address: "Bus Stand Road, Eluru - 534001, AP", whatsapp_number: "+919000234507", map_link: "https://www.google.com/maps/place/Dominos+Pizza+Eluru/@16.7052,81.0982,17z",
       banner_image: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1571407970349-bc81e7e96d47?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=200&h=200&fit=crop", is_premium: true, featured: true, subscription_active: true, commission_percentage: "10", listing_type: "both",
@@ -331,7 +331,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Poorvika Mobiles Eluru", description: "Eluru's trusted mobile store. Latest smartphones from Samsung, Apple, Vivo, Oppo, Realme. EMI available.", category_id: cat("Electronics"),
-      address: "Ramaraopeta, Main Road, Eluru - 534002, AP", whatsapp_number: "+918812234508",
+      address: "Ramaraopeta, Main Road, Eluru - 534002, AP", whatsapp_number: "+918812234508", map_link: "https://www.google.com/maps/place/Poorvika+Mobiles+Eluru/@16.7068,81.0988,17z",
       banner_image: "https://images.unsplash.com/photo-1585771724702-34681be2a29d?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1567581935884-3349723552ca?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1585771724702-34681be2a29d?w=200&h=200&fit=crop", is_premium: true, featured: true, subscription_active: true, commission_percentage: "8", listing_type: "both",
@@ -348,7 +348,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Croma Electronics Eluru", description: "India's trusted multi-brand electronics store. TVs, laptops, ACs, refrigerators, washing machines & more.", category_id: cat("Electronics"),
-      address: "D. Bhulakshmamma Road, Eluru - 534001, AP", whatsapp_number: "+918812234509",
+      address: "D. Bhulakshmamma Road, Eluru - 534001, AP", whatsapp_number: "+918812234509", map_link: "https://www.google.com/maps/place/Croma+Electronics+Eluru/@16.7058,81.0973,17z",
       banner_image: "https://images.unsplash.com/photo-1588508065123-287b28e013da?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1567581935884-3349723552ca?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1593359677879-a4bb92f4e10e?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1588508065123-287b28e013da?w=200&h=200&fit=crop", is_premium: false, featured: false, subscription_active: true, commission_percentage: "6", listing_type: "both",
@@ -365,7 +365,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Max Fashion Eluru", description: "Trendy fashion for the entire family. Western & Indian wear, kids section, home linen. Unbeatable prices.", category_id: cat("Fashion"),
-      address: "RTC Complex, Eluru - 534001, AP", whatsapp_number: "+918812234510",
+      address: "RTC Complex, Eluru - 534001, AP", whatsapp_number: "+918812234510", map_link: "https://www.google.com/maps/place/Max+Fashion+Eluru/@16.7075,81.0972,17z",
       banner_image: "https://images.unsplash.com/photo-1441984904996-1035abb5dd88?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1441984904996-1035abb5dd88?w=200&h=200&fit=crop", is_premium: true, featured: true, subscription_active: true, commission_percentage: "14", listing_type: "both",
@@ -383,7 +383,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Fabindia Eluru", description: "Authentic handloom and handcraft clothing from India. Sarees, kurtas, home textiles & organic food products.", category_id: cat("Fashion"),
-      address: "Congress Office Road, Eluru - 534001, AP", whatsapp_number: "+918812234511",
+      address: "Congress Office Road, Eluru - 534001, AP", whatsapp_number: "+918812234511", map_link: "https://www.google.com/maps/place/Fabindia+Eluru/@16.7065,81.0956,17z",
       banner_image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1441984904996-1035abb5dd88?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=200&h=200&fit=crop", is_premium: false, featured: false, subscription_active: true, commission_percentage: "12", listing_type: "both",
@@ -399,7 +399,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Jawed Habib Hair Studio Eluru", description: "Premium hair salon with expert stylists. Haircut, colour, keratin treatment, bridal makeup & more.", category_id: cat("Beauty & Wellness"),
-      address: "Venkata Rao Street, Eluru - 534001, AP", whatsapp_number: "+918812234512",
+      address: "Venkata Rao Street, Eluru - 534001, AP", whatsapp_number: "+918812234512", map_link: "https://www.google.com/maps/place/Jawed+Habib+Hair+Studio+Eluru/@16.7081,81.0966,17z",
       banner_image: "https://images.unsplash.com/photo-1560066984-138daec99fd9?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1487412912498-0447fe886868?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1562322140-8baeececf3df?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1560066984-138daec99fd9?w=200&h=200&fit=crop", is_premium: true, featured: true, subscription_active: true, commission_percentage: "18", listing_type: "both",
@@ -416,7 +416,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Lakme Salon Eluru", description: "Trusted beauty salon brand. Facials, waxing, threading, mehndi, bridal packages & nail art services.", category_id: cat("Beauty & Wellness"),
-      address: "Srinivasa Nagar, Eluru - 534001, AP", whatsapp_number: "+918812234513",
+      address: "Srinivasa Nagar, Eluru - 534001, AP", whatsapp_number: "+918812234513", map_link: "https://www.google.com/maps/place/Lakme+Salon+Eluru/@16.7077,81.0959,17z",
       banner_image: "https://images.unsplash.com/photo-1487412912498-0447fe886868?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1560066984-138daec99fd9?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1487412912498-0447fe886868?w=200&h=200&fit=crop", is_premium: true, featured: false, subscription_active: true, commission_percentage: "16", listing_type: "both",
@@ -433,7 +433,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Kalyan Jewellers Eluru", description: "India's trusted jewellery brand. Gold, silver, platinum jewellery. Exchange offers, EMI available.", category_id: cat("Jewelry"),
-      address: "Main Road, Near Clock Tower, Eluru - 534001, AP", whatsapp_number: "+918812234514",
+      address: "Main Road, Near Clock Tower, Eluru - 534001, AP", whatsapp_number: "+918812234514", map_link: "https://www.google.com/maps/place/Kalyan+Jewellers+Eluru/@16.7083,81.0972,17z",
       banner_image: "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1573408301185-9519f94558ec?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1603974372039-adc49044b6bd?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=200&h=200&fit=crop", is_premium: true, featured: true, subscription_active: true, commission_percentage: "5", listing_type: "both",
@@ -449,7 +449,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Tanishq Jewellery Eluru", description: "India's most trusted jewellery brand. Exquisite diamond & gold jewellery. Exchange offer on old gold.", category_id: cat("Jewelry"),
-      address: "Powerpet, Eluru - 534002, AP", whatsapp_number: "+918812234515",
+      address: "Powerpet, Eluru - 534002, AP", whatsapp_number: "+918812234515", map_link: "https://www.google.com/maps/place/Tanishq+Jewellery+Eluru/@16.7091,81.1021,17z",
       banner_image: "https://images.unsplash.com/photo-1573408301185-9519f94558ec?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1573408301185-9519f94558ec?w=200&h=200&fit=crop", is_premium: true, featured: false, subscription_active: true, commission_percentage: "5", listing_type: "both",
@@ -466,7 +466,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Reliance Fresh Eluru", description: "Fresh fruits, vegetables, dairy, groceries & household essentials. Daily fresh produce from local farms.", category_id: cat("Groceries"),
-      address: "Aditya Nagar, Eluru - 534001, AP", whatsapp_number: "+918812234516",
+      address: "Aditya Nagar, Eluru - 534001, AP", whatsapp_number: "+918812234516", map_link: "https://www.google.com/maps/place/Reliance+Fresh+Eluru/@16.7055,81.0956,17z",
       banner_image: "https://images.unsplash.com/photo-1588964895597-cfca880b5a6c?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1506617564039-2f3b650b7010?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1588964895597-cfca880b5a6c?w=200&h=200&fit=crop", is_premium: false, featured: false, subscription_active: true, commission_percentage: "5", listing_type: "both",
@@ -482,7 +482,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Big Bazaar Eluru", description: "India's favourite superstore. Groceries, clothing, electronics, household items - all under one roof.", category_id: cat("Groceries"),
-      address: "VBC Complex, Eluru - 534002, AP", whatsapp_number: "+918812234517",
+      address: "VBC Complex, Eluru - 534002, AP", whatsapp_number: "+918812234517", map_link: "https://www.google.com/maps/place/Big+Bazaar+Eluru/@16.7040,81.0969,17z",
       banner_image: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1588964895597-cfca880b5a6c?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=200&h=200&fit=crop", is_premium: false, featured: false, subscription_active: true, commission_percentage: "6", listing_type: "both",
@@ -500,7 +500,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "MedPlus Pharmacy Eluru", description: "Trusted pharmacy chain with genuine medicines. Diagnostic booking, health monitoring, baby care & more.", category_id: cat("Pharmacy & Health"),
-      address: "Gopi Colony, Eluru - 534001, AP", whatsapp_number: "+918812234518",
+      address: "Gopi Colony, Eluru - 534001, AP", whatsapp_number: "+918812234518", map_link: "https://www.google.com/maps/place/MedPlus+Pharmacy+Eluru/@16.7053,81.0963,17z",
       banner_image: "https://images.unsplash.com/photo-1576602976047-174e57a47881?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1576602976047-174e57a47881?w=200&h=200&fit=crop", is_premium: false, featured: false, subscription_active: true, commission_percentage: "8", listing_type: "both",
@@ -516,7 +516,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Sriram Hospitals Eluru", description: "Multi-speciality hospital with pharmacy. 24/7 emergency, ICU, operation theatre, lab & pharmacy.", category_id: cat("Pharmacy & Health"),
-      address: "Rajamandri Road, Eluru - 534001, AP", whatsapp_number: "+918812234519",
+      address: "Rajamandri Road, Eluru - 534001, AP", whatsapp_number: "+918812234519", map_link: "https://www.google.com/maps/place/Sriram+Hospitals+Eluru/@16.7098,81.0948,17z",
       banner_image: "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1576602976047-174e57a47881?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=200&h=200&fit=crop", is_premium: true, featured: false, subscription_active: true, commission_percentage: "5", listing_type: "services",
@@ -532,7 +532,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Sri Chaitanya School Eluru", description: "Premier educational institution. CBSE curriculum, JEE & NEET coaching, experienced faculty, results-oriented.", category_id: cat("Education"),
-      address: "BVN Colony, Eluru - 534001, AP", whatsapp_number: "+918812234520",
+      address: "BVN Colony, Eluru - 534001, AP", whatsapp_number: "+918812234520", map_link: "https://www.google.com/maps/place/Sri+Chaitanya+School+Eluru/@16.7062,81.0935,17z",
       banner_image: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1434030216411-0b5816825d34?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=200&h=200&fit=crop", is_premium: true, featured: false, subscription_active: true, commission_percentage: "10", listing_type: "services",
@@ -548,7 +548,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Narayana IIT Academy Eluru", description: "Top coaching for IIT-JEE, NEET & Foundation courses. Expert faculty, smart classes, hostel available.", category_id: cat("Education"),
-      address: "Arundelpet, Eluru - 534001, AP", whatsapp_number: "+918812234521",
+      address: "Arundelpet, Eluru - 534001, AP", whatsapp_number: "+918812234521", map_link: "https://www.google.com/maps/place/Narayana+IIT+Academy+Eluru/@16.7069,81.0941,17z",
       banner_image: "https://images.unsplash.com/photo-1434030216411-0b5816825d34?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1434030216411-0b5816825d34?w=200&h=200&fit=crop", is_premium: false, featured: false, subscription_active: true, commission_percentage: "10", listing_type: "services",
@@ -564,7 +564,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Decathlon Sports Eluru", description: "Everything for sport! Cricket, football, badminton, gym, swimming, cycling equipment at best prices.", category_id: cat("Sports & Fitness"),
-      address: "Bypass Road, Eluru - 534002, AP", whatsapp_number: "+918812234522",
+      address: "Bypass Road, Eluru - 534002, AP", whatsapp_number: "+918812234522", map_link: "https://www.google.com/maps/place/Decathlon+Sports+Eluru/@16.7085,81.1052,17z",
       banner_image: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1593906657550-81e48c7c4e3b?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=200&h=200&fit=crop", is_premium: false, featured: true, subscription_active: true, commission_percentage: "8", listing_type: "both",
@@ -582,7 +582,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Hotel Grand Eluru", description: "Premium 4-star hotel in the heart of Eluru. AC rooms, restaurant, banquet hall, conference rooms & spa.", category_id: cat("Travel"),
-      address: "D.L. Road, Eluru - 534001, AP", whatsapp_number: "+918812234523",
+      address: "D.L. Road, Eluru - 534001, AP", whatsapp_number: "+918812234523", map_link: "https://www.google.com/maps/place/Hotel+Grand+Eluru/@16.7065,81.0966,17z",
       banner_image: "https://images.unsplash.com/photo-1566073771259-e5c8674bbb0c?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1566073771259-e5c8674bbb0c?w=200&h=200&fit=crop", is_premium: true, featured: true, subscription_active: true, commission_percentage: "12", listing_type: "both",
@@ -600,7 +600,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Hotel Konark Eluru", description: "Budget-friendly hotel with clean rooms, free parking, restaurant, and central Eluru location.", category_id: cat("Travel"),
-      address: "Chakali Road, Eluru - 534001, AP", whatsapp_number: "+918812234524",
+      address: "Chakali Road, Eluru - 534001, AP", whatsapp_number: "+918812234524", map_link: "https://www.google.com/maps/place/Hotel+Konark+Eluru/@16.7060,81.0978,17z",
       banner_image: "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1566073771259-e5c8674bbb0c?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=200&h=200&fit=crop", is_premium: false, featured: false, subscription_active: true, commission_percentage: "10", listing_type: "both",
@@ -616,7 +616,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "PVR Cinemas Eluru", description: "Premium multiplex cinema with Dolby Atmos, recliner seats. Telugu, Hindi, English movies daily.", category_id: cat("Entertainment"),
-      address: "VBC Mall, Eluru - 534002, AP", whatsapp_number: "+918812234525",
+      address: "VBC Mall, Eluru - 534002, AP", whatsapp_number: "+918812234525", map_link: "https://www.google.com/maps/place/PVR+Cinemas+Eluru/@16.7048,81.0961,17z",
       banner_image: "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1574267432553-4b4628081c31?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=200&h=200&fit=crop", is_premium: true, featured: true, subscription_active: true, commission_percentage: "8", listing_type: "both",
@@ -634,7 +634,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Home Centre Eluru", description: "Complete home furnishing & decor store. Furniture, beds, sofas, curtains, kitchenware & home accessories.", category_id: cat("Home & Living"),
-      address: "Industrial Area, Eluru - 534001, AP", whatsapp_number: "+918812234526",
+      address: "Industrial Area, Eluru - 534001, AP", whatsapp_number: "+918812234526", map_link: "https://www.google.com/maps/place/Home+Centre+Eluru/@16.7102,81.0938,17z",
       banner_image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=200&h=200&fit=crop", is_premium: false, featured: false, subscription_active: true, commission_percentage: "12", listing_type: "both",
@@ -651,7 +651,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Subway Eluru", description: "Fresh custom sandwiches, wraps, salads. Choose your bread, protein, veggies & sauces. Healthy fast food.", category_id: cat("Food & Dining"),
-      address: "Powerpet Main Road, Eluru - 534002, AP", whatsapp_number: "+919000234527",
+      address: "Powerpet Main Road, Eluru - 534002, AP", whatsapp_number: "+919000234527", map_link: "https://www.google.com/maps/place/Subway+Eluru/@16.7075,81.1030,17z",
       banner_image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1619096252214-ef06c45683e3?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=200&h=200&fit=crop", is_premium: false, featured: false, subscription_active: true, commission_percentage: "10", listing_type: "both",
@@ -668,7 +668,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Hotel Yamuna Restaurant Eluru", description: "Andhra traditional non-veg meals, fish fry, chicken curry. Famous for Sunday special mutton curry & bone marrow.", category_id: cat("Restaurants"),
-      address: "Near Devi Theatre, Eluru - 534001, AP", whatsapp_number: "+918812234528",
+      address: "Near Devi Theatre, Eluru - 534001, AP", whatsapp_number: "+918812234528", map_link: "https://www.google.com/maps/place/Hotel+Yamuna+Restaurant+Eluru/@16.7055,81.0971,17z",
       banner_image: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=200&h=200&fit=crop", is_premium: false, featured: false, subscription_active: true, commission_percentage: "8", listing_type: "both",
@@ -684,7 +684,7 @@ async function seedElurubusinesses() {
     },
     {
       name: "Airtel Xstream Center Eluru", description: "Official Airtel store. Prepaid & postpaid SIM, fiber broadband, Airtel Black plans, DTH & accessories.", category_id: cat("Electronics"),
-      address: "One Town, Eluru - 534001, AP", whatsapp_number: "+918812234529",
+      address: "One Town, Eluru - 534001, AP", whatsapp_number: "+918812234529", map_link: "https://www.google.com/maps/place/Airtel+Xstream+Center+Eluru/@16.7063,81.0940,17z",
       banner_image: "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?w=1200&h=500&fit=crop",
       banners: ["https://images.unsplash.com/photo-1585771724702-34681be2a29d?w=800&h=450&fit=crop"],
       logo: "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?w=200&h=200&fit=crop", is_premium: false, featured: false, subscription_active: true, commission_percentage: "5", listing_type: "services",
@@ -756,6 +756,74 @@ async function seedElurubusinesses() {
   console.log(`Seeded ${newShopIds.length} Eluru businesses!`);
 }
 
+async function migrateShopMapLinks() {
+  const mapLinkData: Record<string, string> = {
+    "Anand Bhavan Restaurant": "https://www.google.com/maps/place/Anand+Bhavan+Restaurant+Eluru/@16.7051,81.0971,17z",
+    "Sri Santhi Sagar Restaurant": "https://www.google.com/maps/place/Sri+Santhi+Sagar+Restaurant+Eluru/@16.7089,81.1021,17z",
+    "Al-Raheem Biryani": "https://www.google.com/maps/place/Al-Raheem+Biryani+Eluru/@16.7044,81.0921,17z",
+    "Sri Krishna Bakery & Sweets": "https://www.google.com/maps/place/Sri+Krishna+Bakery+Sweets+Eluru/@16.7038,81.0961,17z",
+    "Sri Sai Sweets Eluru": "https://www.google.com/maps/place/Sri+Sai+Sweets+Eluru/@16.7045,81.0955,17z",
+    "KFC Eluru": "https://www.google.com/maps/place/KFC+Eluru/@16.7071,81.1028,17z",
+    "Dominos Pizza Eluru": "https://www.google.com/maps/place/Dominos+Pizza+Eluru/@16.7052,81.0982,17z",
+    "Poorvika Mobiles Eluru": "https://www.google.com/maps/place/Poorvika+Mobiles+Eluru/@16.7068,81.0988,17z",
+    "Croma Electronics Eluru": "https://www.google.com/maps/place/Croma+Electronics+Eluru/@16.7058,81.0973,17z",
+    "Max Fashion Eluru": "https://www.google.com/maps/place/Max+Fashion+Eluru/@16.7075,81.0972,17z",
+    "Fabindia Eluru": "https://www.google.com/maps/place/Fabindia+Eluru/@16.7065,81.0956,17z",
+    "Jawed Habib Hair Studio Eluru": "https://www.google.com/maps/place/Jawed+Habib+Hair+Studio+Eluru/@16.7081,81.0966,17z",
+    "Lakme Salon Eluru": "https://www.google.com/maps/place/Lakme+Salon+Eluru/@16.7077,81.0959,17z",
+    "Kalyan Jewellers Eluru": "https://www.google.com/maps/place/Kalyan+Jewellers+Eluru/@16.7083,81.0972,17z",
+    "Tanishq Jewellery Eluru": "https://www.google.com/maps/place/Tanishq+Jewellery+Eluru/@16.7091,81.1021,17z",
+    "Reliance Fresh Eluru": "https://www.google.com/maps/place/Reliance+Fresh+Eluru/@16.7055,81.0956,17z",
+    "Big Bazaar Eluru": "https://www.google.com/maps/place/Big+Bazaar+Eluru/@16.7040,81.0969,17z",
+    "MedPlus Pharmacy Eluru": "https://www.google.com/maps/place/MedPlus+Pharmacy+Eluru/@16.7053,81.0963,17z",
+    "Sriram Hospitals Eluru": "https://www.google.com/maps/place/Sriram+Hospitals+Eluru/@16.7098,81.0948,17z",
+    "Sri Chaitanya School Eluru": "https://www.google.com/maps/place/Sri+Chaitanya+School+Eluru/@16.7062,81.0935,17z",
+    "Narayana IIT Academy Eluru": "https://www.google.com/maps/place/Narayana+IIT+Academy+Eluru/@16.7069,81.0941,17z",
+    "Decathlon Sports Eluru": "https://www.google.com/maps/place/Decathlon+Sports+Eluru/@16.7085,81.1052,17z",
+    "Hotel Grand Eluru": "https://www.google.com/maps/place/Hotel+Grand+Eluru/@16.7065,81.0966,17z",
+    "Hotel Konark Eluru": "https://www.google.com/maps/place/Hotel+Konark+Eluru/@16.7060,81.0978,17z",
+    "PVR Cinemas Eluru": "https://www.google.com/maps/place/PVR+Cinemas+Eluru/@16.7048,81.0961,17z",
+    "Home Centre Eluru": "https://www.google.com/maps/place/Home+Centre+Eluru/@16.7102,81.0938,17z",
+    "Subway Eluru": "https://www.google.com/maps/place/Subway+Eluru/@16.7075,81.1030,17z",
+    "Hotel Yamuna Restaurant Eluru": "https://www.google.com/maps/place/Hotel+Yamuna+Restaurant+Eluru/@16.7055,81.0971,17z",
+    "Airtel Xstream Center Eluru": "https://www.google.com/maps/place/Airtel+Xstream+Center+Eluru/@16.7063,81.0940,17z",
+    "Navayuga Family Restaurant": "https://www.google.com/maps/place/Navayuga+Family+Restaurant+Eluru/@16.7048,81.1008,17z",
+    "Arabic Family Restaurant": "https://www.google.com/maps/place/Arabic+Family+Restaurant+Eluru/@16.7122,81.0968,17z",
+    "Paradise Biryani Eluru": "https://www.google.com/maps/place/Paradise+Biryani+Eluru/@16.7090,81.0985,17z",
+    "Madina Biryani Point": "https://www.google.com/maps/place/Madina+Biryani+Point+Eluru/@16.7042,81.0930,17z",
+    "Garuda Food Court": "https://www.google.com/maps/place/Garuda+Food+Court+Eluru/@16.7058,81.0945,17z",
+    "Ratnadeep Super Market": "https://www.google.com/maps/place/Ratnadeep+Super+Market+Eluru/@16.7065,81.0978,17z",
+    "Reliance Digital Eluru": "https://www.google.com/maps/place/Reliance+Digital+Eluru/@16.7072,81.0982,17z",
+    "Samsung SmartPlaza Eluru": "https://www.google.com/maps/place/Samsung+SmartPlaza+Eluru/@16.7060,81.0979,17z",
+    "Bajaj Electronics Eluru": "https://www.google.com/maps/place/Bajaj+Electronics+Eluru/@16.7048,81.1025,17z",
+    "Green Trends Unisex Salon": "https://www.google.com/maps/place/Green+Trends+Salon+Eluru/@16.7128,81.0968,17z",
+    "Naturals Unisex Salon Eluru": "https://www.google.com/maps/place/Naturals+Salon+Eluru/@16.7132,81.0971,17z",
+    "CMR Central Multiplex Mall": "https://www.google.com/maps/place/CMR+Central+Mall+Eluru/@16.7062,81.0954,17z",
+    "Lalitha Jewellery Mart": "https://www.google.com/maps/place/Lalitha+Jewellery+Mart+Eluru/@16.7130,81.0966,17z",
+    "Apollo Pharmacy Eluru": "https://www.google.com/maps/place/Apollo+Pharmacy+Eluru/@16.7120,81.0962,17z",
+    "VLCC Wellness Eluru": "https://www.google.com/maps/place/VLCC+Wellness+Eluru/@16.7082,81.0958,17z",
+    "BeYou Salon Eluru": "https://www.google.com/maps/place/BeYou+Salon+Eluru/@16.7088,81.0962,17z",
+    "Hotel Sitara A/C": "https://www.google.com/maps/place/Hotel+Sitara+Eluru/@16.7070,81.0975,17z",
+    "F2 Food & Fun Restaurant": "https://www.google.com/maps/place/F2+Food+Fun+Restaurant+Eluru/@16.7055,81.0968,17z",
+    "7th heaven": "https://www.google.com/maps/place/7th+Heaven+Eluru/@16.7088,81.0971,17z",
+    "Zudio Eluru": "https://www.google.com/maps/place/Zudio+Eluru/@16.7050,81.0960,17z",
+  };
+  try {
+    const allShops = await storage.getAllShops();
+    let updated = 0;
+    for (const shop of allShops) {
+      const correctLink = mapLinkData[shop.name];
+      if (correctLink && (!shop.map_link || shop.map_link.includes("goo.gl"))) {
+        await db.update(shops).set({ map_link: correctLink }).where(sql`id = ${shop.id}`);
+        updated++;
+      }
+    }
+    if (updated > 0) console.log(`Updated map_links for ${updated} shops in production.`);
+  } catch (e) {
+    console.error("migrateShopMapLinks error:", e);
+  }
+}
+
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   const cookieParser = (await import("cookie-parser")).default;
   app.use(cookieParser());
@@ -764,6 +832,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   await seedDatabase();
   await seedElurubusinesses();
+  await migrateShopMapLinks();
 
   // Seed vendor accounts for existing shops if none exist
   const existingVendors = await db.select({ count: sql<number>`count(*)` }).from(vendors);

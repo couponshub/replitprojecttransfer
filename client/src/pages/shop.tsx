@@ -269,22 +269,18 @@ export default function ShopPage() {
                     </Badge>
                   </div>
                 )}
-                {(shop.map_link || shop.website_link) && (
-                  <div className="flex flex-wrap gap-2 mt-4">
-                    {shop.map_link && (
-                      <Button size="sm" variant="outline" className="rounded-xl gap-2 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30"
-                        onClick={() => window.open(shop.map_link!, "_blank")} data-testid="button-map-link">
-                        <MapPin className="w-3.5 h-3.5" /> View on Map
-                      </Button>
-                    )}
-                    {shop.website_link && (
-                      <Button size="sm" variant="outline" className="rounded-xl gap-2 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/30"
-                        onClick={() => window.open(shop.website_link!, "_blank")} data-testid="button-website-link">
-                        <Globe className="w-3.5 h-3.5" /> Visit Website
-                      </Button>
-                    )}
-                  </div>
-                )}
+                <div className="flex flex-wrap gap-2 mt-4">
+                  <Button size="sm" variant="outline" className="rounded-xl gap-2 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                    onClick={() => window.open(shop.map_link || `https://www.google.com/maps/search/${encodeURIComponent(shop.name + " " + shop.address)}`, "_blank")} data-testid="button-map-link">
+                    <MapPin className="w-3.5 h-3.5" /> View on Map
+                  </Button>
+                  {shop.website_link && (
+                    <Button size="sm" variant="outline" className="rounded-xl gap-2 border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/30"
+                      onClick={() => window.open(shop.website_link!, "_blank")} data-testid="button-website-link">
+                      <Globe className="w-3.5 h-3.5" /> Visit Website
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>
