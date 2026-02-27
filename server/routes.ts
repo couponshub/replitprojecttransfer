@@ -1069,11 +1069,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/coupons/validate", authMiddleware, async (req, res) => {
     try {
-      const { code, shopId } = req.body;
+      const { code, shopId, cartTotal } = req.body;
       const coupon = await storage.getCouponByCode(code, shopId);
       if (!coupon) return res.status(404).json({ error: "Invalid or expired coupon" });
       if (coupon.expiry_date && new Date(coupon.expiry_date) < new Date()) {
         return res.status(400).json({ error: "Coupon has expired" });
+      }
+
+      // Min order amount check for free_item coupons
+      if (coupon.type === "free_item" && coupon.min_order_amount) {
+        const minAmt = parseFloat(coupon.min_order_amount);
+        const cartAmt = parseFloat(cartTotal || "0");
+        if (cartAmt < minAmt) {
+          return res.status(400).json({ error: `Minimum order ₹${minAmt.toFixed(0)} required for this free item coupon. Add ₹${(minAmt - cartAmt).toFixed(0)} more.` });
+        }
       }
 
       let items_to_add: { id: string; name: string; price: number; shop_id: string; shopName: string; isFreeItem?: boolean }[] = [];
@@ -1092,14 +1101,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }));
       }
 
-      // Free item — always added for free_item type
+      // Free item — added free_item_qty times for free_item type
       if (coupon.type === "free_item" && coupon.free_item_product_id) {
         const product = await storage.getProduct(coupon.free_item_product_id);
         if (product) {
-          items_to_add = [
-            ...items_to_add,
-            { id: product.id, name: product.name, price: 0, shop_id: product.shop_id || "", shopName, isFreeItem: true },
-          ];
+          const qty = Math.max(1, parseInt(String(coupon.free_item_qty || "1")));
+          for (let i = 0; i < qty; i++) {
+            items_to_add = [
+              ...items_to_add,
+              { id: product.id, name: product.name, price: 0, shop_id: product.shop_id || "", shopName, isFreeItem: true },
+            ];
+          }
         }
       }
 

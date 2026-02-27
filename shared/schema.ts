@@ -75,6 +75,8 @@ export const coupons = pgTable("coupons", {
   is_active: boolean("is_active").notNull().default(true),
   featured: boolean("featured").notNull().default(false),
   free_item_product_id: varchar("free_item_product_id"),
+  free_item_qty: integer("free_item_qty").default(1),
+  min_order_amount: numeric("min_order_amount", { precision: 10, scale: 2 }),
   expiry_date: timestamp("expiry_date"),
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });

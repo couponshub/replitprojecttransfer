@@ -121,14 +121,14 @@ export default function VendorDashboard() {
 
   const [couponDialog, setCouponDialog] = useState(false);
   const [editCoupon, setEditCoupon] = useState<any>(null);
-  const [couponForm, setCouponForm] = useState<any>({ code: "", type: "percentage", value: "", is_active: true, featured: false, free_item_product_id: null, expiry_date: "" });
+  const [couponForm, setCouponForm] = useState<any>({ code: "", type: "percentage", value: "", is_active: true, featured: false, free_item_product_id: null, free_item_qty: 1, min_order_amount: null, expiry_date: "" });
   const [couponProdSearch, setCouponProdSearch] = useState("");
 
   const saveCouponMutation = useMutation({
     mutationFn: (data: any) => editCoupon
       ? vendorFetch(`/api/vendor/coupons/${editCoupon.id}`, { method: "PATCH", body: JSON.stringify(data) })
       : vendorFetch("/api/vendor/coupons", { method: "POST", body: JSON.stringify(data) }),
-    onSuccess: () => { toast({ title: editCoupon ? "Coupon updated!" : "Coupon added!" }); setCouponDialog(false); setEditCoupon(null); setCouponForm({ code: "", type: "percentage", value: "", is_active: true, featured: false, free_item_product_id: null, expiry_date: "" }); setCouponProdSearch(""); refetchCoupons(); },
+    onSuccess: () => { toast({ title: editCoupon ? "Coupon updated!" : "Coupon added!" }); setCouponDialog(false); setEditCoupon(null); setCouponForm({ code: "", type: "percentage", value: "", is_active: true, featured: false, free_item_product_id: null, free_item_qty: 1, min_order_amount: null, expiry_date: "" }); setCouponProdSearch(""); refetchCoupons(); },
     onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
   });
 
@@ -606,7 +606,7 @@ export default function VendorDashboard() {
                           </p>
                         </div>
                         <div className="flex gap-1 shrink-0">
-                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => { setEditCoupon(coupon); setCouponForm({ code: coupon.code, type: coupon.type, value: coupon.value, is_active: coupon.is_active, featured: coupon.featured || false, free_item_product_id: coupon.free_item_product_id || null, expiry_date: coupon.expiry_date ? new Date(coupon.expiry_date).toISOString().split("T")[0] : "" }); setCouponProdSearch(""); setCouponDialog(true); }} data-testid={`button-edit-coupon-${coupon.id}`}>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => { setEditCoupon(coupon); setCouponForm({ code: coupon.code, type: coupon.type, value: coupon.value, is_active: coupon.is_active, featured: coupon.featured || false, free_item_product_id: coupon.free_item_product_id || null, free_item_qty: coupon.free_item_qty || 1, min_order_amount: coupon.min_order_amount || null, expiry_date: coupon.expiry_date ? new Date(coupon.expiry_date).toISOString().split("T")[0] : "" }); setCouponProdSearch(""); setCouponDialog(true); }} data-testid={`button-edit-coupon-${coupon.id}`}>
                             <Edit className="w-3 h-3" />
                           </Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => deleteCouponMutation.mutate(coupon.id)} data-testid={`button-delete-coupon-${coupon.id}`}>
@@ -619,7 +619,7 @@ export default function VendorDashboard() {
                 </div>
               )}
 
-              <Dialog open={couponDialog} onOpenChange={v => { setCouponDialog(v); if (!v) { setEditCoupon(null); setCouponForm({ code: "", type: "percentage", value: "", is_active: true, featured: false, free_item_product_id: null, expiry_date: "" }); setCouponProdSearch(""); } }}>
+              <Dialog open={couponDialog} onOpenChange={v => { setCouponDialog(v); if (!v) { setEditCoupon(null); setCouponForm({ code: "", type: "percentage", value: "", is_active: true, featured: false, free_item_product_id: null, free_item_qty: 1, min_order_amount: null, expiry_date: "" }); setCouponProdSearch(""); } }}>
                 <DialogContent className="rounded-2xl max-w-lg max-h-[90vh] overflow-y-auto">
                   <DialogHeader><DialogTitle className="text-lg font-bold">{editCoupon ? "Edit Coupon" : "Add Coupon"}</DialogTitle></DialogHeader>
                   <div className="flex flex-col gap-5 pb-2">
@@ -698,6 +698,26 @@ export default function VendorDashboard() {
                             })}
                           {products.length === 0 && <p className="text-xs text-muted-foreground text-center py-3">No products found. Add products first.</p>}
                         </div>
+                        {/* Quantity + Min order amount — shown when a product is selected */}
+                        {couponForm.free_item_product_id && (
+                          <div className="grid grid-cols-2 gap-3 mt-1">
+                            <div>
+                              <Label className="text-xs font-semibold">Free Qty</Label>
+                              <div className="flex items-center gap-1 mt-1.5">
+                                <button type="button" onClick={() => setCouponForm((f: any) => ({ ...f, free_item_qty: Math.max(1, (f.free_item_qty || 1) - 1) }))} className="w-7 h-7 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center text-sm font-bold hover:bg-gray-100 dark:hover:bg-gray-800" data-testid="button-free-qty-dec">-</button>
+                                <span className="w-8 text-center text-sm font-bold tabular-nums" data-testid="text-free-qty">{couponForm.free_item_qty || 1}</span>
+                                <button type="button" onClick={() => setCouponForm((f: any) => ({ ...f, free_item_qty: Math.min(10, (f.free_item_qty || 1) + 1) }))} className="w-7 h-7 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center text-sm font-bold hover:bg-gray-100 dark:hover:bg-gray-800" data-testid="button-free-qty-inc">+</button>
+                              </div>
+                            </div>
+                            <div>
+                              <Label className="text-xs font-semibold">Min Order (₹) <span className="text-muted-foreground font-normal">optional</span></Label>
+                              <div className="relative mt-1.5">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₹</span>
+                                <Input type="number" min="0" value={couponForm.min_order_amount || ""} onChange={e => setCouponForm((f: any) => ({ ...f, min_order_amount: e.target.value || null }))} className="rounded-xl pl-7 h-9 text-sm" placeholder="e.g. 500" data-testid="input-min-order-amount" />
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 

@@ -1558,6 +1558,26 @@ export default function AdminDashboard() {
                                 })}
                               {products.filter(p => p.shop_id === formData.shop_id).length === 0 && <p className="text-xs text-muted-foreground text-center py-3">No products in this shop</p>}
                             </div>
+                            {/* Quantity + Min order amount — shown when a product is selected */}
+                            {formData.free_item_product_id && (
+                              <div className="grid grid-cols-2 gap-3 mt-1">
+                                <div>
+                                  <Label className="text-xs font-semibold">Free Qty</Label>
+                                  <div className="flex items-center gap-1 mt-1.5">
+                                    <button type="button" onClick={() => setForm("free_item_qty", Math.max(1, (formData.free_item_qty || 1) - 1))} className="w-7 h-7 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center text-sm font-bold hover:bg-gray-100 dark:hover:bg-gray-800" data-testid="button-free-qty-dec">-</button>
+                                    <span className="w-8 text-center text-sm font-bold tabular-nums" data-testid="text-free-qty">{formData.free_item_qty || 1}</span>
+                                    <button type="button" onClick={() => setForm("free_item_qty", Math.min(10, (formData.free_item_qty || 1) + 1))} className="w-7 h-7 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center text-sm font-bold hover:bg-gray-100 dark:hover:bg-gray-800" data-testid="button-free-qty-inc">+</button>
+                                  </div>
+                                </div>
+                                <div>
+                                  <Label className="text-xs font-semibold">Min Order (₹) <span className="text-muted-foreground font-normal">optional</span></Label>
+                                  <div className="relative mt-1.5">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₹</span>
+                                    <Input type="number" min="0" value={formData.min_order_amount || ""} onChange={e => setForm("min_order_amount", e.target.value || null)} className="rounded-xl pl-7 h-9 text-sm" placeholder="e.g. 500" data-testid="input-min-order-amount" />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </>
                         )}
                       </div>

@@ -94,17 +94,17 @@ function BannerSlider({ banners }: { banners: BannerWithCoupon[] }) {
           <>
             <button
               onClick={e => { e.stopPropagation(); go(-1); }}
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm flex items-center justify-center text-white transition-all"
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/90 hover:bg-white shadow-lg shadow-black/20 backdrop-blur-sm flex items-center justify-center text-gray-800 transition-all hover:scale-105 active:scale-95 z-10"
               data-testid="button-banner-prev"
             >
-              <ChevronLeft className="w-5 h-5" />
+              <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
             <button
               onClick={e => { e.stopPropagation(); go(1); }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-sm flex items-center justify-center text-white transition-all"
+              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white/90 hover:bg-white shadow-lg shadow-black/20 backdrop-blur-sm flex items-center justify-center text-gray-800 transition-all hover:scale-105 active:scale-95 z-10"
               data-testid="button-banner-next"
             >
-              <ChevronRight className="w-5 h-5" />
+              <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
           </>
         )}

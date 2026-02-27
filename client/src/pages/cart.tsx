@@ -23,7 +23,15 @@ type ShopCoupon = Coupon & { shop?: Shop };
 function CouponBenefit({ coupon }: { coupon: ShopCoupon }) {
   if (coupon.type === "percentage") return <span className="text-emerald-600 dark:text-emerald-400 font-bold">{coupon.value}% off your order</span>;
   if (coupon.type === "flat") return <span className="text-emerald-600 dark:text-emerald-400 font-bold">₹{coupon.value} flat discount</span>;
-  if (coupon.type === "free_item") return <span className="text-violet-600 dark:text-violet-400 font-bold">Free item added to cart</span>;
+  if (coupon.type === "free_item") {
+    const qty = (coupon as any).free_item_qty || 1;
+    const minAmt = (coupon as any).min_order_amount ? parseFloat((coupon as any).min_order_amount) : null;
+    return (
+      <span className="text-violet-600 dark:text-violet-400 font-bold">
+        {qty > 1 ? `${qty}x free item` : "Free item"} added to cart{minAmt ? ` (min order ₹${minAmt.toFixed(0)})` : ""}
+      </span>
+    );
+  }
   if (coupon.type === "flash") return <span className="text-orange-600 dark:text-orange-400 font-bold">Flash deal!</span>;
   return <span className="text-blue-600 dark:text-blue-400 font-bold">Special offer</span>;
 }
@@ -172,9 +180,21 @@ function AvailableCouponsPanel({ shopId, cartTotal, appliedCode, onApply }: Avai
                   )}
 
                   {coupon.type === "free_item" && !expired && (
-                    <div className="mt-2.5 pt-2 border-t border-gray-100 dark:border-gray-800 flex items-center gap-1.5 text-[11px] text-violet-600 dark:text-violet-400">
-                      <Gift className="w-3 h-3 shrink-0" />
-                      <span>A free product will be added to your cart when applied</span>
+                    <div className="mt-2.5 pt-2 border-t border-gray-100 dark:border-gray-800 flex flex-col gap-1">
+                      <div className="flex items-center gap-1.5 text-[11px] text-violet-600 dark:text-violet-400">
+                        <Gift className="w-3 h-3 shrink-0" />
+                        <span>
+                          {((coupon as any).free_item_qty || 1) > 1
+                            ? `${(coupon as any).free_item_qty} free items added to cart when applied`
+                            : "A free product will be added to your cart when applied"}
+                        </span>
+                      </div>
+                      {(coupon as any).min_order_amount && (
+                        <p className="text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                          <span>⚠️</span>
+                          <span>Min order ₹{parseFloat((coupon as any).min_order_amount).toFixed(0)} required</span>
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -265,6 +285,7 @@ export default function CartPage() {
       const result = await apiRequest("POST", "/api/coupons/validate", {
         code,
         shopId,
+        cartTotal: total.toString(),
       });
       setAppliedCoupon({ code: result.code, type: result.type, value: result.value, items_to_add: result.items_to_add });
       setCouponCode(result.code);
