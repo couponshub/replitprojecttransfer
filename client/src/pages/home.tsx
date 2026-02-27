@@ -6,12 +6,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Crown, ChevronRight, Star, MapPin, Percent, ChevronLeft, Search, Mic, X, LocateFixed, Navigation, Zap } from "lucide-react";
+import { Crown, ChevronRight, Star, MapPin, Percent, ChevronLeft, Search, Mic, X, LocateFixed, Navigation, Zap, Download, WifiOff, Ticket, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/lib/cart";
 import { useAuth } from "@/lib/auth";
 import { apiRequest } from "@/lib/queryClient";
-import type { Category, Shop, Coupon, Banner, Product } from "@shared/schema";
+import type { Category, Shop, Coupon, Banner, Product, OfflineCoupon } from "@shared/schema";
 
 type BannerWithCoupon = Banner & { coupon?: Coupon & { shop?: Shop } };
 
@@ -482,6 +482,202 @@ function ShopCard({ shop }: { shop: Shop & { category?: Category } }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+async function downloadBanner(bannerUrl: string, code: string, title: string, shopName: string) {
+  return new Promise<void>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const W = Math.max(img.width, 800);
+      const H = Math.round(W * 0.5);
+      const canvas = document.createElement("canvas");
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0, W, H);
+      const grad = ctx.createLinearGradient(0, H * 0.45, 0, H);
+      grad.addColorStop(0, "rgba(0,0,0,0)");
+      grad.addColorStop(1, "rgba(0,0,0,0.88)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, H * 0.45, W, H * 0.55);
+      ctx.textAlign = "center";
+      ctx.fillStyle = "rgba(255,255,255,0.75)";
+      ctx.font = `${W * 0.04}px 'Plus Jakarta Sans', sans-serif`;
+      ctx.fillText(shopName, W / 2, H * 0.7);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = `bold ${W * 0.09}px monospace`;
+      ctx.letterSpacing = "4px";
+      ctx.fillText(code, W / 2, H * 0.845);
+      ctx.fillStyle = "rgba(255,255,255,0.45)";
+      ctx.font = `${W * 0.028}px sans-serif`;
+      ctx.letterSpacing = "1px";
+      ctx.fillText("CouponsHub X — Offline Coupon", W / 2, H * 0.945);
+      canvas.toBlob(blob => {
+        if (!blob) { reject(new Error("Export failed")); return; }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${code}-coupon.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        resolve();
+      }, "image/png");
+    };
+    img.onerror = () => reject(new Error("Image load failed — try with a CORS-compatible image URL"));
+    img.src = bannerUrl;
+  });
+}
+
+type OfflineCouponFull = OfflineCoupon & { shop?: Shop; claimed_count: number; remaining: number };
+
+function OfflineCouponCard({ oc }: { oc: OfflineCouponFull }) {
+  const { isAuthenticated, token } = useAuth();
+  const { toast } = useToast();
+  const [, navigate] = useLocation();
+  const [claimedCode, setClaimedCode] = useState<string | null>(null);
+  const [remaining, setRemaining] = useState<number>(oc.remaining);
+  const [isClaiming, setIsClaiming] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const { data: myCodeData } = useQuery({
+    queryKey: ["/api/offline-coupons", oc.id, "my-code"],
+    enabled: isAuthenticated,
+    queryFn: async () => {
+      try {
+        const res = await fetch(`/api/offline-coupons/${oc.id}/my-code`, {
+          headers: { Authorization: `Bearer ${(token as string) || localStorage.getItem("coupons_hub_token") || ""}` },
+        });
+        if (!res.ok) return null;
+        return await res.json();
+      } catch { return null; }
+    },
+    retry: false,
+  });
+
+  const actualCode: string | null = claimedCode || myCodeData?.code?.code || null;
+  const actualRemaining = claimedCode ? remaining : (myCodeData?.remaining ?? oc.remaining);
+  const totalCodes = oc.total_codes;
+  const claimedCount = totalCodes - actualRemaining;
+
+  const handleClaimAndDownload = async () => {
+    if (!isAuthenticated) { navigate("/login"); return; }
+    setIsDownloading(true);
+    try {
+      let code = actualCode;
+      if (!code) {
+        setIsClaiming(true);
+        const res = await apiRequest("POST", `/api/offline-coupons/${oc.id}/claim`, {});
+        code = res.code.code;
+        setClaimedCode(code as string);
+        setRemaining(res.remaining);
+        setIsClaiming(false);
+      }
+      await downloadBanner(oc.banner_image, code!, oc.title, oc.shop?.name || "CouponsHub X");
+      toast({ title: "Downloaded!", description: `Your coupon code: ${code}` });
+    } catch (err: any) {
+      toast({ title: err.message || "Download failed", variant: "destructive" });
+    } finally {
+      setIsDownloading(false);
+      setIsClaiming(false);
+    }
+  };
+
+  const isExhausted = actualRemaining === 0 && !actualCode;
+
+  return (
+    <div className="relative rounded-3xl overflow-hidden shadow-xl bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 flex flex-col" data-testid={`offline-coupon-${oc.id}`}>
+      <div className="relative">
+        <img
+          src={oc.banner_image}
+          alt={oc.title}
+          className="w-full h-52 object-cover"
+          crossOrigin="anonymous"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+        {oc.shop?.logo && (
+          <img src={oc.shop.logo} alt={oc.shop.name} className="absolute top-3 left-3 w-9 h-9 rounded-xl object-cover border-2 border-white/60 shadow-md" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+        )}
+        <Badge className={`absolute top-3 right-3 border-0 text-white ${isExhausted ? "bg-red-500" : "bg-emerald-500"}`}>
+          {isExhausted ? "Sold Out" : `${actualRemaining} left`}
+        </Badge>
+        {oc.shop && (
+          <p className="absolute bottom-3 left-3 text-white/80 text-xs font-medium">{oc.shop.name}</p>
+        )}
+      </div>
+
+      <div className="p-4 flex flex-col gap-3 flex-1">
+        <div>
+          <h3 className="font-bold text-gray-900 dark:text-white text-base leading-snug">{oc.title}</h3>
+          {oc.description && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{oc.description}</p>}
+        </div>
+
+        {actualCode ? (
+          <div className="relative rounded-2xl overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-500 to-violet-500" />
+            <div className="bg-gradient-to-br from-blue-50 to-violet-50 dark:from-blue-950/30 dark:to-violet-950/30 p-3 flex items-center justify-between gap-2">
+              <div>
+                <p className="text-[10px] text-muted-foreground mb-0.5">Your unique code</p>
+                <span className="coupon-shimmer-text font-black text-lg tracking-widest">{actualCode}</span>
+              </div>
+              <button
+                onClick={() => { navigator.clipboard.writeText(actualCode); toast({ title: "Code copied!" }); }}
+                className="text-xs px-2 py-1 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-muted-foreground hover:text-primary transition-colors"
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-2xl bg-gray-50 dark:bg-gray-800/50 p-3 flex items-center gap-2">
+            <WifiOff className="w-4 h-4 text-muted-foreground shrink-0" />
+            <p className="text-xs text-muted-foreground">Claim to get your unique offline coupon code</p>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <Ticket className="w-3.5 h-3.5" />
+            <span>{claimedCount}/{totalCodes} claimed</span>
+          </div>
+          {actualRemaining > 0 && (
+            <div className="w-24 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-blue-500 to-violet-500 transition-all duration-500"
+                style={{ width: `${Math.max(5, (actualRemaining / totalCodes) * 100)}%` }}
+              />
+            </div>
+          )}
+        </div>
+
+        <Button
+          onClick={handleClaimAndDownload}
+          disabled={isExhausted || isDownloading || isClaiming}
+          className={`w-full h-11 rounded-2xl font-semibold gap-2 text-white border-0 shadow-md ${
+            isExhausted
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-gradient-to-r from-blue-500 to-violet-600 shadow-blue-500/25"
+          }`}
+          data-testid={`button-download-offline-coupon-${oc.id}`}
+        >
+          {isClaiming ? (
+            <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Claiming...</>
+          ) : isDownloading ? (
+            <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Downloading...</>
+          ) : isExhausted ? (
+            "All Codes Claimed"
+          ) : actualCode ? (
+            <><Download className="w-4 h-4" /> Download Again</>
+          ) : (
+            <><Download className="w-4 h-4" /> Claim & Download</>
+          )}
+        </Button>
+        <p className="text-center text-[10px] text-muted-foreground">One coupon per user • Show at store</p>
+      </div>
+    </div>
   );
 }
 
@@ -1083,8 +1279,14 @@ export default function Home() {
     queryKey: ["/api/shops/featured"],
   });
 
+  const [couponTab, setCouponTab] = useState<"top" | "offline">("top");
+
   const { data: activeCoupons = [], isLoading: couponLoading } = useQuery<(Coupon & { shop?: Shop })[]>({
     queryKey: ["/api/coupons/active"],
+  });
+
+  const { data: offlineCouponsList = [], isLoading: offlineLoading } = useQuery<OfflineCouponFull[]>({
+    queryKey: ["/api/offline-coupons"],
   });
 
   const { data: homeBanners = [] } = useQuery<BannerWithCoupon[]>({
@@ -1187,28 +1389,88 @@ export default function Home() {
         )}
       </div>
 
-      {/* Top Coupons */}
+      {/* Top Coupons / Offline Coupons Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 pb-16">
         {(() => {
           const featured = activeCoupons.filter(c => (c as any).featured);
           const topCoupons = featured.length > 0 ? featured : activeCoupons;
           return (
             <>
-              <div className="flex items-center gap-2 mb-6">
-                <Percent className="w-5 h-5 text-emerald-500" />
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Top Coupons</h2>
-                <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 border-0 ml-1">
-                  {topCoupons.length} live
-                </Badge>
+              {/* Section Header with Tab Toggle */}
+              <div className="flex flex-wrap items-center gap-3 mb-6">
+                <button
+                  onClick={() => setCouponTab("top")}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-2xl font-semibold text-sm transition-all duration-200 ${
+                    couponTab === "top"
+                      ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md shadow-emerald-500/25"
+                      : "bg-gray-100 dark:bg-gray-800 text-muted-foreground hover:text-gray-900 dark:hover:text-white"
+                  }`}
+                  data-testid="tab-top-coupons"
+                >
+                  <Percent className="w-4 h-4" />
+                  Top Coupons
+                  {couponTab === "top" && (
+                    <span className="ml-1 bg-white/25 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                      {topCoupons.length} live
+                    </span>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setCouponTab("offline")}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-2xl font-semibold text-sm transition-all duration-200 ${
+                    couponTab === "offline"
+                      ? "bg-gradient-to-r from-blue-500 to-violet-600 text-white shadow-md shadow-blue-500/25"
+                      : "bg-gray-100 dark:bg-gray-800 text-muted-foreground hover:text-gray-900 dark:hover:text-white"
+                  }`}
+                  data-testid="tab-offline-coupons"
+                >
+                  <WifiOff className="w-4 h-4" />
+                  Offline Coupons
+                  {couponTab === "offline" && offlineCouponsList.length > 0 && (
+                    <span className="ml-1 bg-white/25 text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">
+                      {offlineCouponsList.length}
+                    </span>
+                  )}
+                </button>
               </div>
-              {couponLoading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {Array(8).fill(0).map((_, i) => <Skeleton key={i} className="h-44 rounded-2xl" />)}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {topCoupons.map(coupon => <CouponCard key={coupon.id} coupon={coupon} />)}
-                </div>
+
+              {/* Top Coupons Tab */}
+              {couponTab === "top" && (
+                couponLoading ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {Array(8).fill(0).map((_, i) => <Skeleton key={i} className="h-44 rounded-2xl" />)}
+                  </div>
+                ) : topCoupons.length === 0 ? (
+                  <div className="text-center py-16 text-muted-foreground">No active coupons at the moment.</div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 coupon-slide-in">
+                    {topCoupons.map(coupon => <CouponCard key={coupon.id} coupon={coupon} />)}
+                  </div>
+                )
+              )}
+
+              {/* Offline Coupons Tab */}
+              {couponTab === "offline" && (
+                offlineLoading ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+                    {Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-80 rounded-3xl" />)}
+                  </div>
+                ) : offlineCouponsList.length === 0 ? (
+                  <div className="flex flex-col items-center py-20 gap-4 text-center">
+                    <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-blue-100 to-violet-100 dark:from-blue-950/40 dark:to-violet-950/40 flex items-center justify-center">
+                      <WifiOff className="w-10 h-10 text-blue-400" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-900 dark:text-white text-lg">No offline coupons yet</h3>
+                      <p className="text-muted-foreground text-sm mt-1">Offline printable coupons will appear here</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5 coupon-slide-in">
+                    {offlineCouponsList.map(oc => <OfflineCouponCard key={oc.id} oc={oc} />)}
+                  </div>
+                )
               )}
             </>
           );

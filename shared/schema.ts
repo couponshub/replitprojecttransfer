@@ -127,6 +127,30 @@ export const banners = pgTable("banners", {
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+export const offlineCoupons = pgTable("offline_coupons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  shop_id: varchar("shop_id").references(() => shops.id),
+  title: text("title").notNull(),
+  description: text("description"),
+  banner_image: text("banner_image").notNull(),
+  total_codes: integer("total_codes").notNull().default(10),
+  is_active: boolean("is_active").notNull().default(true),
+  created_at: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const offlineCouponCodes = pgTable("offline_coupon_codes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  offline_coupon_id: varchar("offline_coupon_id").references(() => offlineCoupons.id),
+  code: text("code").notNull(),
+  claimed_by_user_id: varchar("claimed_by_user_id"),
+  claimed_at: timestamp("claimed_at"),
+});
+
+export const insertOfflineCouponSchema = createInsertSchema(offlineCoupons).omit({ id: true, created_at: true });
+export type InsertOfflineCoupon = z.infer<typeof insertOfflineCouponSchema>;
+export type OfflineCoupon = typeof offlineCoupons.$inferSelect;
+export type OfflineCouponCode = typeof offlineCouponCodes.$inferSelect;
+
 export const insertVendorSchema = createInsertSchema(vendors).omit({ id: true, created_at: true });
 export type InsertVendor = z.infer<typeof insertVendorSchema>;
 export type Vendor = typeof vendors.$inferSelect;

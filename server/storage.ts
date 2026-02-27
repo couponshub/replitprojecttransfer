@@ -13,7 +13,9 @@ import {
   type OrderItem, type InsertOrderItem,
   type Vendor, type InsertVendor,
   type Banner, type InsertBanner,
-  users, categories, shops, products, coupons, couponProducts, orders, orderItems, vendors, banners
+  type OfflineCoupon, type InsertOfflineCoupon, type OfflineCouponCode,
+  users, categories, shops, products, coupons, couponProducts, orders, orderItems, vendors, banners,
+  offlineCoupons, offlineCouponCodes
 } from "@shared/schema";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -94,6 +96,17 @@ export interface IStorage {
   getRecentOrders(): Promise<(Order & { user?: User })[]>;
   getTopShops(): Promise<Shop[]>;
   getTopCoupons(): Promise<(Coupon & { shop?: Shop })[]>;
+
+  // Offline Coupons
+  getOfflineCoupons(): Promise<(OfflineCoupon & { shop?: Shop; claimed_count: number; remaining: number })[]>;
+  getOfflineCoupon(id: string): Promise<OfflineCoupon | undefined>;
+  createOfflineCoupon(data: InsertOfflineCoupon): Promise<OfflineCoupon>;
+  updateOfflineCoupon(id: string, data: Partial<InsertOfflineCoupon>): Promise<OfflineCoupon | undefined>;
+  deleteOfflineCoupon(id: string): Promise<void>;
+  getOfflineCouponCodes(offlineCouponId: string): Promise<OfflineCouponCode[]>;
+  createOfflineCouponCodes(offlineCouponId: string, codes: string[]): Promise<OfflineCouponCode[]>;
+  claimOfflineCouponCode(offlineCouponId: string, userId: string): Promise<{ code: OfflineCouponCode; remaining: number } | null>;
+  getUserClaimedCode(offlineCouponId: string, userId: string): Promise<OfflineCouponCode | undefined>;
 }
 
 export class PgStorage implements IStorage {
@@ -449,6 +462,83 @@ export class PgStorage implements IStorage {
       products: productRows.map(r => ({ ...r.products, shop: r.shops || undefined })),
       coupons: couponRows.map(r => ({ ...r.coupons, shop: r.shops || undefined })),
     };
+  }
+
+  // ─── Offline Coupons ────────────────────────────────────────────────────────
+  async getOfflineCoupons(): Promise<(OfflineCoupon & { shop?: Shop; claimed_count: number; remaining: number })[]> {
+    const rows = await db.select().from(offlineCoupons)
+      .leftJoin(shops, eq(offlineCoupons.shop_id, shops.id))
+      .orderBy(desc(offlineCoupons.created_at));
+    const result = await Promise.all(rows.map(async r => {
+      const codes = await db.select().from(offlineCouponCodes)
+        .where(eq(offlineCouponCodes.offline_coupon_id, r.offline_coupons.id));
+      const claimed_count = codes.filter(c => c.claimed_by_user_id).length;
+      const remaining = codes.filter(c => !c.claimed_by_user_id).length;
+      return { ...r.offline_coupons, shop: r.shops || undefined, claimed_count, remaining };
+    }));
+    return result;
+  }
+
+  async getOfflineCoupon(id: string): Promise<OfflineCoupon | undefined> {
+    const result = await db.select().from(offlineCoupons).where(eq(offlineCoupons.id, id)).limit(1);
+    return result[0];
+  }
+
+  async createOfflineCoupon(data: InsertOfflineCoupon): Promise<OfflineCoupon> {
+    const result = await db.insert(offlineCoupons).values(data).returning();
+    return result[0];
+  }
+
+  async updateOfflineCoupon(id: string, data: Partial<InsertOfflineCoupon>): Promise<OfflineCoupon | undefined> {
+    const result = await db.update(offlineCoupons).set(data).where(eq(offlineCoupons.id, id)).returning();
+    return result[0];
+  }
+
+  async deleteOfflineCoupon(id: string): Promise<void> {
+    await db.delete(offlineCouponCodes).where(eq(offlineCouponCodes.offline_coupon_id, id));
+    await db.delete(offlineCoupons).where(eq(offlineCoupons.id, id));
+  }
+
+  async getOfflineCouponCodes(offlineCouponId: string): Promise<OfflineCouponCode[]> {
+    return db.select().from(offlineCouponCodes).where(eq(offlineCouponCodes.offline_coupon_id, offlineCouponId));
+  }
+
+  async createOfflineCouponCodes(offlineCouponId: string, codes: string[]): Promise<OfflineCouponCode[]> {
+    const rows = codes.map(code => ({ offline_coupon_id: offlineCouponId, code }));
+    return db.insert(offlineCouponCodes).values(rows).returning();
+  }
+
+  async claimOfflineCouponCode(offlineCouponId: string, userId: string): Promise<{ code: OfflineCouponCode; remaining: number } | null> {
+    const existing = await this.getUserClaimedCode(offlineCouponId, userId);
+    if (existing) {
+      const all = await this.getOfflineCouponCodes(offlineCouponId);
+      const remaining = all.filter(c => !c.claimed_by_user_id).length;
+      return { code: existing, remaining };
+    }
+    const available = await db.select().from(offlineCouponCodes)
+      .where(and(
+        eq(offlineCouponCodes.offline_coupon_id, offlineCouponId),
+        sql`${offlineCouponCodes.claimed_by_user_id} IS NULL`
+      ))
+      .limit(1);
+    if (!available[0]) return null;
+    const claimed = await db.update(offlineCouponCodes)
+      .set({ claimed_by_user_id: userId, claimed_at: sql`now()` })
+      .where(eq(offlineCouponCodes.id, available[0].id))
+      .returning();
+    const all = await this.getOfflineCouponCodes(offlineCouponId);
+    const remaining = all.filter(c => !c.claimed_by_user_id).length;
+    return { code: claimed[0], remaining };
+  }
+
+  async getUserClaimedCode(offlineCouponId: string, userId: string): Promise<OfflineCouponCode | undefined> {
+    const result = await db.select().from(offlineCouponCodes)
+      .where(and(
+        eq(offlineCouponCodes.offline_coupon_id, offlineCouponId),
+        eq(offlineCouponCodes.claimed_by_user_id, userId)
+      ))
+      .limit(1);
+    return result[0];
   }
 }
 

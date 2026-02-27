@@ -6,7 +6,7 @@ import jwt from "jsonwebtoken";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
-import { insertUserSchema, insertCategorySchema, insertShopSchema, insertProductSchema, insertCouponSchema, users, categories, shops, products, coupons, orders, orderItems, vendors } from "@shared/schema";
+import { insertUserSchema, insertCategorySchema, insertShopSchema, insertProductSchema, insertCouponSchema, users, categories, shops, products, coupons, orders, orderItems, vendors, offlineCoupons } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 
 const JWT_SECRET = process.env.SESSION_SECRET || "coupons-hub-secret-key";
@@ -738,6 +738,90 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.delete("/api/admin/vendors/:id", adminMiddleware, async (req, res) => {
     await storage.deleteVendor(req.params.id);
     res.json({ ok: true });
+  });
+
+  // ── Offline Coupons ──────────────────────────────────────────────────────────
+  app.get("/api/offline-coupons", async (_req, res) => {
+    try {
+      const data = await storage.getOfflineCoupons();
+      res.json(data.filter(d => d.is_active));
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.get("/api/admin/offline-coupons", adminMiddleware, async (_req, res) => {
+    try {
+      res.json(await storage.getOfflineCoupons());
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.post("/api/offline-coupons", adminMiddleware, upload.single("banner"), async (req, res) => {
+    try {
+      const { shop_id, title, description, total_codes } = req.body;
+      if (!title) return res.status(400).json({ error: "title is required" });
+      let banner_image = req.body.banner_image || "";
+      if (req.file) banner_image = `/uploads/${req.file.filename}`;
+      if (!banner_image) return res.status(400).json({ error: "banner image is required" });
+
+      const oc = await storage.createOfflineCoupon({
+        shop_id: shop_id || null,
+        title,
+        description: description || null,
+        banner_image,
+        total_codes: parseInt(total_codes || "10"),
+        is_active: true,
+      });
+
+      const shop = shop_id ? await storage.getShop(shop_id) : null;
+      const prefix = (shop?.name || "OFF").replace(/[^A-Za-z]/g, "").toUpperCase().slice(0, 4);
+      const count = parseInt(total_codes || "10");
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      const generatedCodes: string[] = [];
+      while (generatedCodes.length < count) {
+        let code = prefix;
+        for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+        if (!generatedCodes.includes(code)) generatedCodes.push(code);
+      }
+      await storage.createOfflineCouponCodes(oc.id, generatedCodes);
+      res.json(oc);
+    } catch (err: any) { res.status(400).json({ error: err.message }); }
+  });
+
+  app.patch("/api/offline-coupons/:id", adminMiddleware, async (req, res) => {
+    try {
+      const updated = await storage.updateOfflineCoupon(req.params.id, req.body);
+      res.json(updated);
+    } catch (err: any) { res.status(400).json({ error: err.message }); }
+  });
+
+  app.delete("/api/offline-coupons/:id", adminMiddleware, async (req, res) => {
+    await storage.deleteOfflineCoupon(req.params.id);
+    res.json({ ok: true });
+  });
+
+  app.get("/api/offline-coupons/:id/codes", adminMiddleware, async (req, res) => {
+    try {
+      res.json(await storage.getOfflineCouponCodes(req.params.id));
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.post("/api/offline-coupons/:id/claim", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const result = await storage.claimOfflineCouponCode(req.params.id, userId);
+      if (!result) return res.status(410).json({ error: "No codes remaining for this coupon" });
+      res.json(result);
+    } catch (err: any) { res.status(400).json({ error: err.message }); }
+  });
+
+  app.get("/api/offline-coupons/:id/my-code", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const code = await storage.getUserClaimedCode(req.params.id, userId);
+      if (!code) return res.status(404).json({ error: "No code claimed" });
+      const all = await storage.getOfflineCouponCodes(req.params.id);
+      const remaining = all.filter(c => !c.claimed_by_user_id).length;
+      res.json({ code, remaining });
+    } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
 
   return httpServer;

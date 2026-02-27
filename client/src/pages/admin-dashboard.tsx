@@ -16,12 +16,13 @@ import {
   LayoutDashboard, Tag, Store, Package, Ticket, ShoppingBag,
   Plus, Edit, Trash2, Crown, LogOut, ChevronRight, Users, TrendingUp,
   Zap, Star, Check, X, Menu, Award, Flame, UserCheck, Phone, Mail,
-  Globe, MapPin, Wifi, WifiOff, Search, Image, Link, ExternalLink, Upload, Loader2, Eye, EyeOff
+  Globe, MapPin, Wifi, WifiOff, Search, Image, Link, ExternalLink, Upload, Loader2, Eye, EyeOff,
+  Download, RefreshCw
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import type { Category, Shop, Product, Coupon, Order, User } from "@shared/schema";
 
-type Tab = "overview" | "categories" | "shops" | "products" | "coupons" | "orders" | "users" | "vendors" | "top-shops" | "top-coupons" | "banners";
+type Tab = "overview" | "categories" | "shops" | "products" | "coupons" | "orders" | "users" | "vendors" | "top-shops" | "top-coupons" | "banners" | "offline-coupons";
 
 const NAV_ITEMS: { id: Tab; label: string; icon: any; section?: string }[] = [
   { id: "overview", label: "Dashboard", icon: LayoutDashboard, section: "Main" },
@@ -30,6 +31,7 @@ const NAV_ITEMS: { id: Tab; label: string; icon: any; section?: string }[] = [
   { id: "products", label: "Products", icon: Package, section: "Manage" },
   { id: "coupons", label: "Coupons", icon: Ticket, section: "Manage" },
   { id: "banners", label: "Banners", icon: Image, section: "Manage" },
+  { id: "offline-coupons", label: "Offline Coupons", icon: WifiOff, section: "Manage" },
   { id: "orders", label: "Orders", icon: ShoppingBag, section: "Manage" },
   { id: "users", label: "Users", icon: Users, section: "People" },
   { id: "vendors", label: "Vendors", icon: Crown, section: "People" },
@@ -1666,6 +1668,8 @@ export default function AdminDashboard() {
 
           {activeTab === "banners" && <BannersTab toast={toast} allCoupons={coupons} />}
 
+          {activeTab === "offline-coupons" && <OfflineCouponsTab toast={toast} />}
+
         </main>
       </div>
     </div>
@@ -1882,6 +1886,341 @@ function BannersTab({ toast, allCoupons }: { toast: any; allCoupons: any[] }) {
               {saveMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : editBanner ? "Save Changes" : "Create Banner"}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function OfflineCouponsTab({ toast }: { toast: any }) {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [codesDialogOpen, setCodesDialogOpen] = useState(false);
+  const [selectedCouponId, setSelectedCouponId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [form, setForm] = useState({
+    shop_id: "",
+    title: "",
+    description: "",
+    total_codes: "10",
+    banner_image: "",
+  });
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+
+  const { data: offlineCoupons = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/admin/offline-coupons"],
+  });
+
+  const { data: shops = [] } = useQuery<any[]>({ queryKey: ["/api/shops"] });
+
+  const { data: selectedCodes = [], isLoading: codesLoading } = useQuery<any[]>({
+    queryKey: ["/api/offline-coupons", selectedCouponId, "codes"],
+    queryFn: async () => {
+      if (!selectedCouponId) return [];
+      const token = localStorage.getItem("coupons_hub_token");
+      const res = await fetch(`/api/offline-coupons/${selectedCouponId}/codes`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return res.json();
+    },
+    enabled: !!selectedCouponId && codesDialogOpen,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/offline-coupons/${id}`, {}),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/admin/offline-coupons"] }); toast({ title: "Deleted" }); },
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) => apiRequest("PATCH", `/api/offline-coupons/${id}`, { is_active }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/admin/offline-coupons"] }),
+  });
+
+  const handleBannerSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBannerFile(file);
+    setBannerPreview(URL.createObjectURL(file));
+  };
+
+  const handleCreate = async () => {
+    if (!form.title.trim()) { toast({ title: "Title is required", variant: "destructive" }); return; }
+    if (!bannerFile && !form.banner_image.trim()) { toast({ title: "Banner image is required", variant: "destructive" }); return; }
+    setUploading(true);
+    try {
+      const token = localStorage.getItem("coupons_hub_token");
+      const fd = new FormData();
+      if (bannerFile) fd.append("banner", bannerFile);
+      fd.append("title", form.title.trim());
+      if (form.description.trim()) fd.append("description", form.description.trim());
+      if (form.shop_id) fd.append("shop_id", form.shop_id);
+      fd.append("total_codes", form.total_codes || "10");
+      if (!bannerFile && form.banner_image) fd.append("banner_image", form.banner_image);
+      const res = await fetch("/api/offline-coupons", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to create");
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/offline-coupons"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/offline-coupons"] });
+      toast({ title: `Created! ${form.total_codes || 10} codes auto-generated.` });
+      setDialogOpen(false);
+      setForm({ shop_id: "", title: "", description: "", total_codes: "10", banner_image: "" });
+      setBannerFile(null);
+      setBannerPreview(null);
+    } catch (err: any) {
+      toast({ title: err.message, variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="p-6 sm:p-8">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Offline Coupons</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">Upload banners — auto-generate unique printable coupon codes</p>
+        </div>
+        <Button
+          onClick={() => { setDialogOpen(true); setForm({ shop_id: "", title: "", description: "", total_codes: "10", banner_image: "" }); setBannerFile(null); setBannerPreview(null); }}
+          className="rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 border-0 text-white gap-2"
+          data-testid="button-add-offline-coupon"
+        >
+          <Plus className="w-4 h-4" /> Add Offline Coupon
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1,2,3].map(i => <Skeleton key={i} className="h-64 rounded-2xl" />)}
+        </div>
+      ) : offlineCoupons.length === 0 ? (
+        <div className="text-center py-20">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-100 to-violet-100 dark:from-blue-950/40 dark:to-violet-950/40 flex items-center justify-center mx-auto mb-4">
+            <WifiOff className="w-8 h-8 text-blue-400" />
+          </div>
+          <p className="font-semibold text-gray-900 dark:text-white">No offline coupons yet</p>
+          <p className="text-sm text-muted-foreground mt-1">Create your first offline coupon banner</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {offlineCoupons.map((oc: any) => (
+            <div key={oc.id} className="rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 shadow-sm bg-white dark:bg-gray-900" data-testid={`card-offline-coupon-${oc.id}`}>
+              <div className="relative aspect-video bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                <img src={oc.banner_image} alt={oc.title} className="w-full h-full object-cover" />
+                <div className="absolute top-2 right-2">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${oc.is_active ? "bg-emerald-500 text-white" : "bg-gray-400 text-white"}`}>
+                    {oc.is_active ? "Active" : "Hidden"}
+                  </span>
+                </div>
+              </div>
+              <div className="p-4">
+                <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">{oc.title}</p>
+                {oc.shop && <p className="text-xs text-muted-foreground mt-0.5 truncate">{oc.shop.name}</p>}
+                <div className="flex items-center gap-2 mt-2">
+                  <div className="flex-1 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-blue-500 to-violet-500"
+                      style={{ width: `${Math.max(5, (oc.claimed_count / oc.total_codes) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">{oc.claimed_count}/{oc.total_codes} claimed</span>
+                </div>
+                <div className="flex gap-2 mt-3 flex-wrap">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => { setSelectedCouponId(oc.id); setCodesDialogOpen(true); }}
+                    className="rounded-xl h-8 gap-1.5 text-violet-600 border-violet-200 hover:bg-violet-50 dark:hover:bg-violet-950/20"
+                    data-testid={`button-view-codes-${oc.id}`}
+                  >
+                    <Download className="w-3 h-3" /> Codes
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => toggleMutation.mutate({ id: oc.id, is_active: !oc.is_active })}
+                    className={`rounded-xl h-8 gap-1.5 ${oc.is_active ? "text-amber-600 border-amber-200" : "text-emerald-600 border-emerald-200"}`}
+                    data-testid={`button-toggle-offline-coupon-${oc.id}`}
+                  >
+                    {oc.is_active ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                    {oc.is_active ? "Hide" : "Show"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => { if (confirm("Delete this offline coupon?")) deleteMutation.mutate(oc.id); }}
+                    className="rounded-xl h-8 text-red-500 hover:text-red-600 border-red-200"
+                    data-testid={`button-delete-offline-coupon-${oc.id}`}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Create Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-lg rounded-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <WifiOff className="w-5 h-5 text-violet-500" /> New Offline Coupon
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 mt-2">
+            <div>
+              <Label>Shop (optional)</Label>
+              <Select value={form.shop_id} onValueChange={v => setForm(f => ({ ...f, shop_id: v }))}>
+                <SelectTrigger className="mt-1 rounded-xl">
+                  <SelectValue placeholder="Select a shop" />
+                </SelectTrigger>
+                <SelectContent>
+                  {shops.map((s: any) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>Title *</Label>
+              <Input
+                className="mt-1 rounded-xl"
+                placeholder="e.g. Festive Sale — 20% Off"
+                value={form.title}
+                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                data-testid="input-offline-coupon-title"
+              />
+            </div>
+
+            <div>
+              <Label>Description</Label>
+              <Textarea
+                className="mt-1 rounded-xl resize-none"
+                rows={2}
+                placeholder="Valid on all items. Show at store."
+                value={form.description}
+                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <Label>Number of Codes (default 10)</Label>
+              <Input
+                type="number"
+                min="1"
+                max="100"
+                className="mt-1 rounded-xl"
+                value={form.total_codes}
+                onChange={e => setForm(f => ({ ...f, total_codes: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <Label>Banner Image *</Label>
+              <div className="mt-1 flex flex-col gap-2">
+                {bannerPreview ? (
+                  <div className="relative rounded-xl overflow-hidden aspect-video bg-gray-100">
+                    <img src={bannerPreview} alt="Preview" className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => { setBannerFile(null); setBannerPreview(null); }}
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center text-xs"
+                    >✕</button>
+                  </div>
+                ) : form.banner_image ? (
+                  <div className="relative rounded-xl overflow-hidden aspect-video bg-gray-100">
+                    <img src={form.banner_image} alt="Preview" className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => setForm(f => ({ ...f, banner_image: "" }))}
+                      className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 text-white flex items-center justify-center text-xs"
+                    >✕</button>
+                  </div>
+                ) : null}
+
+                <label className="flex items-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 cursor-pointer hover:border-violet-400 transition-colors">
+                  <Upload className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Upload banner image</span>
+                  <input type="file" accept="image/*" className="hidden" onChange={handleBannerSelect} data-testid="input-offline-coupon-banner" />
+                </label>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+                  <span className="text-xs text-muted-foreground">or paste URL</span>
+                  <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+                </div>
+                <Input
+                  className="rounded-xl"
+                  placeholder="https://example.com/banner.jpg"
+                  value={form.banner_image}
+                  onChange={e => { setForm(f => ({ ...f, banner_image: e.target.value })); setBannerFile(null); setBannerPreview(null); }}
+                />
+              </div>
+            </div>
+
+            <div className="mt-2 p-3 rounded-xl bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30">
+              <p className="text-xs text-blue-700 dark:text-blue-300 font-medium">
+                {form.total_codes || 10} unique coupon codes will be auto-generated when you create this banner.
+                Each user can claim only 1 code. Codes include the shop name prefix for easy identification.
+              </p>
+            </div>
+
+            <Button
+              onClick={handleCreate}
+              disabled={uploading}
+              className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 border-0 text-white h-11"
+              data-testid="button-create-offline-coupon"
+            >
+              {uploading ? <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Creating...</> : `Create & Generate ${form.total_codes || 10} Codes`}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Codes Dialog */}
+      <Dialog open={codesDialogOpen} onOpenChange={open => { setCodesDialogOpen(open); if (!open) setSelectedCouponId(null); }}>
+        <DialogContent className="max-w-md rounded-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="w-5 h-5 text-violet-500" /> Coupon Codes
+            </DialogTitle>
+          </DialogHeader>
+          {codesLoading ? (
+            <div className="py-8 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-violet-500" /></div>
+          ) : (
+            <div className="flex flex-col gap-2 mt-2">
+              <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                <span>{selectedCodes.filter((c: any) => c.claimed_by_user_id).length} claimed / {selectedCodes.length} total</span>
+                <span className="text-emerald-600 font-semibold">{selectedCodes.filter((c: any) => !c.claimed_by_user_id).length} remaining</span>
+              </div>
+              {selectedCodes.map((code: any) => (
+                <div
+                  key={code.id}
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl border ${
+                    code.claimed_by_user_id
+                      ? "bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-900/30"
+                      : "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/30"
+                  }`}
+                  data-testid={`code-row-${code.id}`}
+                >
+                  <span className={`font-mono font-bold text-sm tracking-wider ${code.claimed_by_user_id ? "text-orange-700 dark:text-orange-400" : "text-emerald-700 dark:text-emerald-400"}`}>
+                    {code.code}
+                  </span>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                    code.claimed_by_user_id
+                      ? "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400"
+                      : "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
+                  }`}>
+                    {code.claimed_by_user_id ? "Claimed" : "Available"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
