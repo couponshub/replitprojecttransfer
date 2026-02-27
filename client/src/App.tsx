@@ -14,6 +14,7 @@ import CartPage from "@/pages/cart";
 import ProfilePage from "@/pages/profile";
 import AdminDashboard from "@/pages/admin-dashboard";
 import AllShopsPage from "@/pages/shops";
+import CategoriesPage from "@/pages/categories";
 import OrderConfirmPage from "@/pages/order-confirm";
 import MyOrdersPage from "@/pages/my-orders";
 import VendorDashboard from "@/pages/vendor-dashboard";
@@ -48,6 +49,7 @@ function Router() {
       <Route path="/profile" component={ProfilePage} />
       <Route path="/admin-dashboard" component={AdminDashboard} />
       <Route path="/shops" component={AllShopsPage} />
+      <Route path="/categories" component={CategoriesPage} />
       <Route path="/order-confirm" component={OrderConfirmPage} />
       <Route path="/my-orders" component={MyOrdersPage} />
       <Route path="/vendor-dashboard" component={VendorDashboard} />
