@@ -1189,14 +1189,14 @@ function NearbyMapPanel({
 
       const icon = L.divIcon({
         html: `<div style="
-          background:${bgColor};
-          box-shadow:0 0 ${hasActiveCoupon ? "12px" : "8px"} ${glowColor}${hasActiveCoupon ? "cc" : "66"};
+          background:${hasActiveCoupon ? bgColor : "#6b7280"};
+          box-shadow:0 0 ${hasActiveCoupon ? "12px" : "4px"} ${hasActiveCoupon ? glowColor + "cc" : "rgba(107,114,128,0.3)"};
           border:${borderWidth} solid ${borderColor};
           border-radius:7px;
           padding:2px 5px;
-          color:white;
+          color:${hasActiveCoupon ? "white" : "rgba(255,255,255,0.55)"};
           font-size:8px;
-          font-weight:800;
+          font-weight:${hasActiveCoupon ? "800" : "600"};
           white-space:nowrap;
           cursor:pointer;
           position:relative;
@@ -1204,6 +1204,7 @@ function NearbyMapPanel({
           max-width:90px;
           overflow:hidden;
           text-overflow:ellipsis;
+          opacity:${hasActiveCoupon ? "1" : "0.5"};
         ">
           ${hasActiveCoupon ? `<div style="position:absolute;left:-3px;top:50%;transform:translateY(-50%);width:6px;height:6px;background:rgba(0,0,0,0.35);border-radius:50%;"></div><div style="position:absolute;right:-3px;top:50%;transform:translateY(-50%);width:6px;height:6px;background:rgba(0,0,0,0.35);border-radius:50%;"></div>` : ""}
           ${hasActiveCoupon ? "🏷️ " : ""}${displayName}
@@ -1563,11 +1564,27 @@ export default function Home() {
     queryKey: ["/api/shops/featured"],
   });
 
+  const { data: allMapShops = [] } = useQuery<(Shop & { category?: Category })[]>({
+    queryKey: ["/api/shops", "forMap"],
+    queryFn: () => fetch("/api/shops").then(r => r.json()),
+    staleTime: 0,
+    enabled: mapOpen,
+    refetchOnMount: "always",
+  });
+
   const [couponTab, setCouponTab] = useState<"top" | "offline" | "downloads">("top");
   const { isAuthenticated, token } = useAuth();
 
   const { data: activeCoupons = [], isLoading: couponLoading } = useQuery<(Coupon & { shop?: Shop })[]>({
     queryKey: ["/api/coupons/active"],
+  });
+
+  const { data: mapCoupons = [] } = useQuery<(Coupon & { shop?: Shop })[]>({
+    queryKey: ["/api/coupons/active", "forMap"],
+    queryFn: () => fetch("/api/coupons/active").then(r => r.json()),
+    staleTime: 0,
+    enabled: mapOpen,
+    refetchOnMount: "always",
   });
 
   const { data: offlineCouponsList = [], isLoading: offlineLoading } = useQuery<OfflineCouponFull[]>({
@@ -1600,18 +1617,18 @@ export default function Home() {
       <NearbyMapPanel
         isOpen={mapOpen}
         onClose={() => setMapOpen(false)}
-        shops={featuredShops}
-        coupons={activeCoupons}
+        shops={mapOpen && allMapShops.length > 0 ? allMapShops : featuredShops}
+        coupons={mapOpen && mapCoupons.length > 0 ? mapCoupons : activeCoupons}
       />
       <Navbar />
 
       {/* Search bar hero — compact gradient with floating coupons */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700">
-        <div className="absolute inset-0 pointer-events-none">
+      <div className="relative bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-0 right-0 w-72 h-72 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3" />
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/3 -translate-x-1/4" />
         </div>
-        <div className="relative pt-8 pb-8">
+        <div className="relative pt-8 pb-8" style={{ zIndex: 30 }}>
           <SearchBar />
 
           {/* Location label */}

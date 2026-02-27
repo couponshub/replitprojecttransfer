@@ -43,7 +43,7 @@ interface AvailableCouponsPanelProps {
 }
 
 function AvailableCouponsPanel({ shopId, cartTotal, appliedCode, onApply }: AvailableCouponsPanelProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const { data: allCoupons = [], isLoading } = useQuery<ShopCoupon[]>({
