@@ -15,7 +15,7 @@ A full-stack marketplace for Eluru, AP — discover coupons, offline deals, and 
 ### Database Tables
 - `users` - Admin and user accounts (role: admin | user, supports phone field)
 - `categories` - Shop categories (Food, Fashion, Electronics, etc.)
-- `shops` - Marketplace shops with premium/featured flags, listing_type (products/services/both), business_hours (format: HH:MM-HH:MM)
+- `shops` - Marketplace shops with premium/featured flags, listing_type (products/services/both), business_hours (format: HH:MM-HH:MM), show_on_radar (boolean, default true), marker_color (text, optional custom map marker color)
 - `products` - Products within shops (is_active toggle supported)
 - `coupons` - Discount coupons (percentage, flat, free_item, flash types) with is_active + featured flags
 - `orders` - Customer orders (pending, confirmed, completed)

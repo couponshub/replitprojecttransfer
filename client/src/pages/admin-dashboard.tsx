@@ -1076,6 +1076,40 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="flex flex-col gap-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Map Radar Settings</p>
+                      <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+                        <div>
+                          <p className="text-sm font-medium">Show on Radar Map</p>
+                          <p className="text-[11px] text-muted-foreground">Toggle off to hide this shop from the nearby map</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setForm("show_on_radar", (formData as any).show_on_radar === false ? true : false)}
+                          className={`relative w-11 h-6 rounded-full transition-colors ${(formData as any).show_on_radar === false ? "bg-gray-300 dark:bg-gray-600" : "bg-emerald-500"}`}
+                          data-testid="toggle-shop-radar"
+                        >
+                          <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${(formData as any).show_on_radar === false ? "" : "translate-x-5"}`} />
+                        </button>
+                      </div>
+                      <div>
+                        <Label className="text-sm">Marker Color</Label>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {["#ef4444","#f97316","#eab308","#22c55e","#06b6d4","#3b82f6","#6366f1","#8b5cf6","#ec4899","#14b8a6","#f43f5e","#84cc16"].map(c => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => setForm("marker_color", (formData as any).marker_color === c ? "" : c)}
+                              className={`w-8 h-8 rounded-full border-2 transition-all hover:scale-110 ${(formData as any).marker_color === c ? "border-white ring-2 ring-offset-1 ring-blue-500 scale-110" : "border-transparent"}`}
+                              style={{ background: c }}
+                              data-testid={`color-picker-${c}`}
+                            />
+                          ))}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-1.5">Select a custom color for the map marker. Leave blank for auto-color.</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-4">
                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Media</p>
                       <div>
                         <Label className="text-sm flex items-center gap-1.5"><Image className="w-3.5 h-3.5" /> Logo URL</Label>

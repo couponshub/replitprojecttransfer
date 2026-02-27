@@ -956,9 +956,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.put("/api/categories/:id", adminMiddleware, async (req, res) => {
-    const updated = await storage.updateCategory(req.params.id, req.body);
-    if (!updated) return res.status(404).json({ error: "Not found" });
-    res.json(updated);
+    try {
+      const updated = await storage.updateCategory(req.params.id, sanitizeBody(req.body));
+      if (!updated) return res.status(404).json({ error: "Not found" });
+      res.json(updated);
+    } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
 
   app.delete("/api/categories/:id", adminMiddleware, async (req, res) => {

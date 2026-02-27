@@ -46,6 +46,8 @@ export const shops = pgTable("shops", {
   featured: boolean("featured").notNull().default(false),
   listing_type: text("listing_type").notNull().default("both"),
   business_hours: text("business_hours"),
+  show_on_radar: boolean("show_on_radar").notNull().default(true),
+  marker_color: text("marker_color"),
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });
 

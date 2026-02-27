@@ -56,8 +56,8 @@ function BannerSlider({ banners }: { banners: BannerWithCoupon[] }) {
   if (banners.length === 0) return null;
 
   return (
-    <div className="w-full bg-black" data-testid="section-banners">
-      <div className="relative max-w-7xl mx-auto overflow-hidden" style={{ aspectRatio: "16/6.5" }}>
+    <div className="w-full px-4 sm:px-6 lg:px-8" data-testid="section-banners">
+      <div className="relative max-w-7xl mx-auto overflow-hidden rounded-2xl sm:rounded-3xl shadow-xl" style={{ aspectRatio: "16/6.5" }}>
         <div
           className="flex h-full transition-transform duration-500 ease-in-out"
           style={{ transform: `translateX(-${current * 100}%)`, width: `${banners.length * 100}%` }}
@@ -1116,25 +1116,29 @@ function NearbyMapPanel({
   const [distances, setDistances] = useState<Record<string, number>>({});
 
   const mappableShops = useMemo(() =>
-    shops.map((s, i) => {
-      let coords: { lat: number; lng: number } | null = null;
-      if (s.latitude && s.longitude) {
-        const lat = parseFloat(s.latitude), lng = parseFloat(s.longitude);
-        if (!isNaN(lat) && !isNaN(lng)) coords = { lat, lng };
-      }
-      if (!coords) coords = parseGoogleMapsCoords(s.map_link || "");
-      if (!coords) return null;
-      return { ...s, coords, color: SHOP_ICON_COLORS[i % SHOP_ICON_COLORS.length] };
-    }).filter(Boolean) as (Shop & { category?: Category; coords: { lat: number; lng: number }; color: string })[],
+    shops
+      .filter(s => (s as any).show_on_radar !== false)
+      .map((s, i) => {
+        let coords: { lat: number; lng: number } | null = null;
+        if (s.latitude && s.longitude) {
+          const lat = parseFloat(s.latitude), lng = parseFloat(s.longitude);
+          if (!isNaN(lat) && !isNaN(lng)) coords = { lat, lng };
+        }
+        if (!coords) coords = parseGoogleMapsCoords(s.map_link || "");
+        if (!coords) return null;
+        return { ...s, coords, color: (s as any).marker_color || SHOP_ICON_COLORS[i % SHOP_ICON_COLORS.length] };
+      }).filter(Boolean) as (Shop & { category?: Category; coords: { lat: number; lng: number }; color: string })[],
     [shops]
   );
 
   const linkedShops = useMemo(() =>
-    shops.map((s, i) => ({
-      ...s,
-      color: SHOP_ICON_COLORS[i % SHOP_ICON_COLORS.length],
-      hasCoords: !!(s.latitude && s.longitude) || !!parseGoogleMapsCoords(s.map_link || ""),
-    })).filter(s => (s.latitude && s.longitude) || (s.map_link && s.map_link !== "L" && s.map_link.length > 5)),
+    shops
+      .filter(s => (s as any).show_on_radar !== false)
+      .map((s, i) => ({
+        ...s,
+        color: (s as any).marker_color || SHOP_ICON_COLORS[i % SHOP_ICON_COLORS.length],
+        hasCoords: !!(s.latitude && s.longitude) || !!parseGoogleMapsCoords(s.map_link || ""),
+      })).filter(s => (s.latitude && s.longitude) || (s.map_link && s.map_link !== "L" && s.map_link.length > 5)),
     [shops]
   );
 
@@ -1801,7 +1805,11 @@ export default function Home() {
       </div>
 
       {/* Banner slider — shows admin banners + featured shop banners */}
-      {allBanners.length > 0 && <BannerSlider banners={allBanners} />}
+      {allBanners.length > 0 && (
+        <div className="mt-5 mb-2">
+          <BannerSlider banners={allBanners} />
+        </div>
+      )}
 
       {/* Nearby Mode Active Banner */}
       {nearbyMode && nearbyPos && (
