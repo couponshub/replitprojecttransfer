@@ -10,12 +10,14 @@ import { Zap, Eye, EyeOff, ArrowRight, Sparkles, Phone, Mail, Shield, Store } fr
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 export default function Login() {
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const { login, register } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [tab, setTab] = useState<"login" | "register" | "admin" | "vendor">("login");
+  const [tab, setTab] = useState<"login" | "register" | "admin" | "vendor">(
+    location === "/vendor-login" ? "vendor" : location === "/admin-login" ? "admin" : "login"
+  );
   const [loginMethod, setLoginMethod] = useState<"email" | "phone">("email");
 
   const [loginForm, setLoginForm] = useState({ email: "", phone: "", password: "" });

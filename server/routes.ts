@@ -651,7 +651,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.patch("/api/vendor/shop", vendorMiddleware, async (req, res) => {
     try {
       const shopId = (req as any).vendor.shop_id;
-      const updated = await storage.updateShop(shopId, req.body);
+      const { id, created_at, category, is_premium, commission_percentage, subscription_active, featured, ...shopData } = req.body;
+      const updated = await storage.updateShop(shopId, shopData);
       res.json(updated);
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
@@ -697,14 +698,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/vendor/coupons", vendorMiddleware, async (req, res) => {
     try {
       const shopId = (req as any).vendor.shop_id;
-      const coupon = await storage.createCoupon({ ...req.body, shop_id: shopId });
+      const body = { ...req.body, shop_id: shopId };
+      if (body.expiry_date) body.expiry_date = new Date(body.expiry_date);
+      const coupon = await storage.createCoupon(body);
       res.json(coupon);
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
 
   app.patch("/api/vendor/coupons/:id", vendorMiddleware, async (req, res) => {
     try {
-      const updated = await storage.updateCoupon(req.params.id, req.body);
+      const body = { ...req.body };
+      if (body.expiry_date) body.expiry_date = new Date(body.expiry_date);
+      const updated = await storage.updateCoupon(req.params.id, body);
       res.json(updated);
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });

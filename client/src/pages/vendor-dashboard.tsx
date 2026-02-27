@@ -121,13 +121,14 @@ export default function VendorDashboard() {
 
   const [couponDialog, setCouponDialog] = useState(false);
   const [editCoupon, setEditCoupon] = useState<any>(null);
-  const [couponForm, setCouponForm] = useState<any>({ code: "", type: "percentage", value: "", is_active: true });
+  const [couponForm, setCouponForm] = useState<any>({ code: "", type: "percentage", value: "", is_active: true, featured: false, free_item_product_id: null, expiry_date: "" });
+  const [couponProdSearch, setCouponProdSearch] = useState("");
 
   const saveCouponMutation = useMutation({
     mutationFn: (data: any) => editCoupon
       ? vendorFetch(`/api/vendor/coupons/${editCoupon.id}`, { method: "PATCH", body: JSON.stringify(data) })
       : vendorFetch("/api/vendor/coupons", { method: "POST", body: JSON.stringify(data) }),
-    onSuccess: () => { toast({ title: editCoupon ? "Coupon updated!" : "Coupon added!" }); setCouponDialog(false); setEditCoupon(null); setCouponForm({ code: "", type: "percentage", value: "", is_active: true }); refetchCoupons(); },
+    onSuccess: () => { toast({ title: editCoupon ? "Coupon updated!" : "Coupon added!" }); setCouponDialog(false); setEditCoupon(null); setCouponForm({ code: "", type: "percentage", value: "", is_active: true, featured: false, free_item_product_id: null, expiry_date: "" }); setCouponProdSearch(""); refetchCoupons(); },
     onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
   });
 
@@ -513,7 +514,7 @@ export default function VendorDashboard() {
                   <h1 className="text-xl font-bold text-gray-900 dark:text-white">Coupons</h1>
                   <p className="text-sm text-muted-foreground">{coupons.length} coupon{coupons.length !== 1 ? "s" : ""}</p>
                 </div>
-                <Button size="sm" onClick={() => { setEditCoupon(null); setCouponForm({ code: "", type: "percentage", value: "", is_active: true }); setCouponDialog(true); }} className="rounded-xl gap-2 bg-gradient-to-r from-pink-500 to-rose-600 border-0" data-testid="button-add-coupon">
+                <Button size="sm" onClick={() => { setEditCoupon(null); setCouponForm({ code: "", type: "percentage", value: "", is_active: true, featured: false, free_item_product_id: null, expiry_date: "" }); setCouponProdSearch(""); setCouponDialog(true); }} className="rounded-xl gap-2 bg-gradient-to-r from-pink-500 to-rose-600 border-0" data-testid="button-add-coupon">
                   <Plus className="w-3.5 h-3.5" /> Add
                 </Button>
               </div>
@@ -530,12 +531,13 @@ export default function VendorDashboard() {
                   {coupons.map((coupon: any) => (
                     <Card key={coupon.id} className="border-0 shadow-md rounded-2xl" data-testid={`card-coupon-${coupon.id}`}>
                       <CardContent className="p-4 flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center text-white font-bold text-xs shrink-0">
-                          {coupon.type === "percentage" ? "%" : "₹"}
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-sm shrink-0 ${coupon.type === "free_item" ? "bg-gradient-to-br from-violet-500 to-purple-600" : "bg-gradient-to-br from-pink-500 to-rose-600"}`}>
+                          {coupon.type === "percentage" ? "%" : coupon.type === "flat" ? "₹" : "🎁"}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-bold text-sm text-gray-900 dark:text-white font-mono">{coupon.code}</p>
+                            {coupon.featured && <Badge className="bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 border-0 text-[10px] px-1.5">⭐ Top</Badge>}
                             <div className="flex items-center gap-1.5">
                               <button
                                 onClick={() => toggleCouponMutation.mutate({ id: coupon.id, is_active: true })}
@@ -550,12 +552,12 @@ export default function VendorDashboard() {
                             </div>
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            {coupon.type === "percentage" ? `${coupon.value}% off` : coupon.type === "flat" ? `₹${coupon.value} off` : coupon.type}
+                            {coupon.type === "percentage" ? `${coupon.value}% off` : coupon.type === "flat" ? `₹${coupon.value} off` : "Free item"}
                             {coupon.expiry_date && ` · Expires ${new Date(coupon.expiry_date).toLocaleDateString("en-IN")}`}
                           </p>
                         </div>
                         <div className="flex gap-1 shrink-0">
-                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => { setEditCoupon(coupon); setCouponForm({ code: coupon.code, type: coupon.type, value: coupon.value, is_active: coupon.is_active, expiry_date: coupon.expiry_date ? new Date(coupon.expiry_date).toISOString().split("T")[0] : "" }); setCouponDialog(true); }} data-testid={`button-edit-coupon-${coupon.id}`}>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => { setEditCoupon(coupon); setCouponForm({ code: coupon.code, type: coupon.type, value: coupon.value, is_active: coupon.is_active, featured: coupon.featured || false, free_item_product_id: coupon.free_item_product_id || null, expiry_date: coupon.expiry_date ? new Date(coupon.expiry_date).toISOString().split("T")[0] : "" }); setCouponProdSearch(""); setCouponDialog(true); }} data-testid={`button-edit-coupon-${coupon.id}`}>
                             <Edit className="w-3 h-3" />
                           </Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => deleteCouponMutation.mutate(coupon.id)} data-testid={`button-delete-coupon-${coupon.id}`}>
@@ -568,32 +570,120 @@ export default function VendorDashboard() {
                 </div>
               )}
 
-              <Dialog open={couponDialog} onOpenChange={v => { setCouponDialog(v); if (!v) { setEditCoupon(null); setCouponForm({ code: "", type: "percentage", value: "", is_active: true }); } }}>
-                <DialogContent className="rounded-2xl max-w-md">
-                  <DialogHeader><DialogTitle>{editCoupon ? "Edit Coupon" : "Add Coupon"}</DialogTitle></DialogHeader>
-                  <div className="flex flex-col gap-4 pb-2">
-                    <div><Label className="text-sm">Coupon Code *</Label><Input value={couponForm.code} onChange={e => setCouponForm((f: any) => ({ ...f, code: e.target.value.toUpperCase() }))} className="mt-1.5 rounded-xl font-mono" placeholder="e.g. SAVE20" data-testid="input-coupon-code" /></div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-sm">Type *</Label>
-                        <Select value={couponForm.type} onValueChange={v => setCouponForm((f: any) => ({ ...f, type: v }))}>
-                          <SelectTrigger className="mt-1.5 rounded-xl" data-testid="select-coupon-type"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="percentage">Percentage %</SelectItem>
-                            <SelectItem value="flat">Flat ₹</SelectItem>
-                            <SelectItem value="free_item">Free Item</SelectItem>
-                          </SelectContent>
-                        </Select>
+              <Dialog open={couponDialog} onOpenChange={v => { setCouponDialog(v); if (!v) { setEditCoupon(null); setCouponForm({ code: "", type: "percentage", value: "", is_active: true, featured: false, free_item_product_id: null, expiry_date: "" }); setCouponProdSearch(""); } }}>
+                <DialogContent className="rounded-2xl max-w-lg max-h-[90vh] overflow-y-auto">
+                  <DialogHeader><DialogTitle className="text-lg font-bold">{editCoupon ? "Edit Coupon" : "Add Coupon"}</DialogTitle></DialogHeader>
+                  <div className="flex flex-col gap-5 pb-2">
+
+                    {/* Coupon Type — 3 big buttons */}
+                    <div>
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Coupon Type</Label>
+                      <div className="grid grid-cols-3 gap-2 mt-2">
+                        {([
+                          { value: "percentage", label: "% Discount", desc: "Percentage off", icon: "%" },
+                          { value: "flat", label: "₹ Flat Off", desc: "Fixed amount off", icon: "₹" },
+                          { value: "free_item", label: "Free Item", desc: "Give free product", icon: "🎁" },
+                        ] as const).map(opt => {
+                          const active = (couponForm.type || "percentage") === opt.value;
+                          return (
+                            <button key={opt.value} type="button" onClick={() => setCouponForm((f: any) => ({ ...f, type: opt.value, free_item_product_id: null }))}
+                              data-testid={`coupon-type-${opt.value}`}
+                              className={`flex flex-col items-start gap-0.5 p-3 rounded-xl border-2 text-left transition-all ${active ? "border-pink-500 bg-pink-50 dark:bg-pink-950/30" : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"}`}>
+                              <span className="text-base leading-none mb-1">{opt.icon}</span>
+                              <span className={`text-[11px] font-bold ${active ? "text-pink-700 dark:text-pink-400" : "text-gray-700 dark:text-gray-300"}`}>{opt.label}</span>
+                              <span className="text-[10px] text-muted-foreground leading-tight">{opt.desc}</span>
+                            </button>
+                          );
+                        })}
                       </div>
-                      <div><Label className="text-sm">Value</Label><Input type="number" value={couponForm.value} onChange={e => setCouponForm((f: any) => ({ ...f, value: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="0" data-testid="input-coupon-value" /></div>
                     </div>
-                    <div><Label className="text-sm">Expiry Date</Label><Input type="date" value={couponForm.expiry_date || ""} onChange={e => setCouponForm((f: any) => ({ ...f, expiry_date: e.target.value }))} className="mt-1.5 rounded-xl" /></div>
-                    <div className="flex items-center gap-3">
-                      <button type="button" onClick={() => setCouponForm((f: any) => ({ ...f, is_active: !f.is_active }))} className={`w-10 h-6 rounded-full transition-colors flex items-center ${couponForm.is_active ? "bg-emerald-500 justify-end" : "bg-gray-300 dark:bg-gray-700 justify-start"}`} data-testid="toggle-coupon-active">
-                        <div className="w-5 h-5 rounded-full bg-white shadow-sm mx-0.5" />
-                      </button>
-                      <Label className="text-sm">Active</Label>
+
+                    {/* Coupon Code */}
+                    <div>
+                      <Label className="text-xs font-semibold">Coupon Code *</Label>
+                      <Input value={couponForm.code} onChange={e => setCouponForm((f: any) => ({ ...f, code: e.target.value.toUpperCase() }))} className="mt-1.5 rounded-xl font-mono uppercase" placeholder="e.g. SAVE20" data-testid="input-coupon-code" />
                     </div>
+
+                    {/* Percentage value */}
+                    {(couponForm.type === "percentage" || !couponForm.type) && (
+                      <div>
+                        <Label className="text-xs font-semibold">Discount Percentage (%)</Label>
+                        <div className="relative mt-1.5">
+                          <Input type="number" min="1" max="100" value={couponForm.value} onChange={e => setCouponForm((f: any) => ({ ...f, value: e.target.value }))} className="rounded-xl pr-10" placeholder="e.g. 20" data-testid="input-coupon-value" />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">%</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Flat value */}
+                    {couponForm.type === "flat" && (
+                      <div>
+                        <Label className="text-xs font-semibold">Discount Amount (₹)</Label>
+                        <div className="relative mt-1.5">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">₹</span>
+                          <Input type="number" min="1" value={couponForm.value} onChange={e => setCouponForm((f: any) => ({ ...f, value: e.target.value }))} className="rounded-xl pl-8" placeholder="e.g. 100" data-testid="input-coupon-value-flat" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Free item picker */}
+                    {couponForm.type === "free_item" && (
+                      <div className="flex flex-col gap-3">
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Select Free Item</Label>
+                        <Input placeholder="Search products..." value={couponProdSearch} onChange={e => setCouponProdSearch(e.target.value)} className="rounded-xl h-8 text-xs" data-testid="input-free-product-search" />
+                        <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto pr-1">
+                          {products
+                            .filter(p => !couponProdSearch || (p.name || "").toLowerCase().includes(couponProdSearch.toLowerCase()))
+                            .map((p: any) => {
+                              const selected = couponForm.free_item_product_id === p.id;
+                              return (
+                                <button key={p.id} type="button" onClick={() => setCouponForm((f: any) => ({ ...f, free_item_product_id: selected ? null : p.id }))} data-testid={`free-item-product-${p.id}`}
+                                  className={`flex items-center justify-between p-2.5 rounded-xl border-2 text-left w-full transition-all ${selected ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/20" : "border-gray-200 dark:border-gray-700 hover:border-gray-300"}`}>
+                                  <div>
+                                    <p className="text-xs font-semibold text-gray-900 dark:text-white">{p.name}</p>
+                                    <p className="text-[10px] text-muted-foreground">₹{Number(p.price).toLocaleString()}</p>
+                                  </div>
+                                  {selected && <Badge className="bg-emerald-500 text-white border-0 text-[10px]">FREE ✓</Badge>}
+                                </button>
+                              );
+                            })}
+                          {products.length === 0 && <p className="text-xs text-muted-foreground text-center py-3">No products found. Add products first.</p>}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Expiry date */}
+                    <div>
+                      <Label className="text-xs font-semibold">Expiry Date</Label>
+                      <Input type="date" value={couponForm.expiry_date || ""} onChange={e => setCouponForm((f: any) => ({ ...f, expiry_date: e.target.value || null }))} className="mt-1.5 rounded-xl" data-testid="input-coupon-expiry" />
+                    </div>
+
+                    {/* Active + Featured toggles */}
+                    <div className="flex flex-col gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/50">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white">Active</p>
+                          <p className="text-xs text-muted-foreground">Show coupon on app</p>
+                        </div>
+                        <button type="button" onClick={() => setCouponForm((f: any) => ({ ...f, is_active: !f.is_active }))}
+                          className={`relative w-11 h-6 rounded-full transition-colors focus:outline-none ${couponForm.is_active ? "bg-emerald-500" : "bg-gray-300 dark:bg-gray-600"}`}
+                          data-testid="toggle-coupon-active">
+                          <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${couponForm.is_active ? "translate-x-[22px]" : "translate-x-0.5"}`} />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white">Top Coupon ⭐</p>
+                          <p className="text-xs text-muted-foreground">Feature in top coupons section</p>
+                        </div>
+                        <button type="button" onClick={() => setCouponForm((f: any) => ({ ...f, featured: !f.featured }))}
+                          className={`relative w-11 h-6 rounded-full transition-colors focus:outline-none ${couponForm.featured ? "bg-violet-500" : "bg-gray-300 dark:bg-gray-600"}`}
+                          data-testid="toggle-coupon-featured">
+                          <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${couponForm.featured ? "translate-x-[22px]" : "translate-x-0.5"}`} />
+                        </button>
+                      </div>
+                    </div>
+
                     <Button onClick={() => saveCouponMutation.mutate(couponForm)} disabled={saveCouponMutation.isPending || !couponForm.code} className="rounded-xl bg-gradient-to-r from-pink-500 to-rose-600 border-0" data-testid="button-save-coupon">
                       {saveCouponMutation.isPending ? "Saving..." : editCoupon ? "Update Coupon" : "Add Coupon"}
                     </Button>
