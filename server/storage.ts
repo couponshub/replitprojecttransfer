@@ -195,8 +195,8 @@ export class PgStorage implements IStorage {
     const result = await db.select().from(shops)
       .leftJoin(categories, eq(shops.category_id, categories.id))
       .where(eq(shops.featured, true))
-      .orderBy(desc(shops.is_premium))
-      .limit(6);
+      .orderBy(desc(shops.is_premium), desc(shops.created_at))
+      .limit(20);
     return result.map(r => ({ ...r.shops, category: r.categories || undefined }));
   }
 
@@ -271,8 +271,8 @@ export class PgStorage implements IStorage {
     const result = await db.select().from(coupons)
       .leftJoin(shops, eq(coupons.shop_id, shops.id))
       .where(eq(coupons.is_active, true))
-      .orderBy(desc(coupons.created_at))
-      .limit(10);
+      .orderBy(desc(coupons.featured), desc(coupons.created_at))
+      .limit(60);
     return result.map(r => ({ ...r.coupons, shop: r.shops || undefined }));
   }
 

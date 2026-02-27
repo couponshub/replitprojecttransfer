@@ -1,6 +1,6 @@
 # CouponsHub X
 
-A full-stack marketplace web application for discovering and using coupons from top shops.
+A full-stack marketplace for Eluru, AP — discover coupons, offline deals, and top offers from 49 real local shops across all categories. Apple-inspired frosted glass UI with blue-to-violet gradients.
 
 ## Tech Stack
 - **Frontend**: React + TypeScript + Vite + TailwindCSS + shadcn/ui

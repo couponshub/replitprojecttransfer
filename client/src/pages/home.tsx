@@ -48,6 +48,8 @@ function BannerSlider({ banners }: { banners: BannerWithCoupon[] }) {
           : "Use this code at checkout",
       });
       if (banner.coupon.shop) navigate(`/shop/${banner.coupon.shop.id}`);
+    } else if ((banner as any).link_url) {
+      navigate((banner as any).link_url);
     }
   };
 
@@ -1484,6 +1486,29 @@ export default function Home() {
     queryKey: ["/api/banners"],
   });
 
+  const allBanners = useMemo<BannerWithCoupon[]>(() => {
+    const shopBanners: BannerWithCoupon[] = featuredShops.flatMap(shop => {
+      const imgs: string[] = [];
+      if (shop.banner_image) imgs.push(shop.banner_image);
+      if (Array.isArray((shop as any).banners)) {
+        ((shop as any).banners as string[]).forEach((b: string) => { if (b && !imgs.includes(b)) imgs.push(b); });
+      }
+      return imgs.slice(0, 2).map((img, i) => ({
+        id: `shop-${shop.id}-${i}`,
+        title: shop.name,
+        image_url: img,
+        link_url: `/shop/${shop.id}`,
+        banner_image: img,
+        is_active: true,
+        sort_order: 100 + i,
+        created_at: new Date() as any,
+        coupon_id: null,
+        coupon: undefined,
+      } as BannerWithCoupon));
+    });
+    return [...homeBanners, ...shopBanners];
+  }, [homeBanners, featuredShops]);
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <NearbyMapPanel
@@ -1526,8 +1551,8 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Banner slider */}
-      {homeBanners.length > 0 && <BannerSlider banners={homeBanners} />}
+      {/* Banner slider — shows admin banners + featured shop banners */}
+      {allBanners.length > 0 && <BannerSlider banners={allBanners} />}
 
       {/* Categories */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">

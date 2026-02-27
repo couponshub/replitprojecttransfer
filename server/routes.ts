@@ -197,6 +197,565 @@ async function seedDatabase() {
   console.log("Seeding complete!");
 }
 
+async function seedElurubusinesses() {
+  const existingCount = await db.select({ count: sql<number>`count(*)` }).from(shops);
+  if (Number(existingCount[0].count) >= 35) return;
+
+  console.log("Seeding additional Eluru businesses...");
+  const allCats = await storage.getAllCategories();
+  const cat = (name: string) => allCats.find(c => c.name === name)?.id ?? allCats[0].id;
+  const exp30 = new Date(Date.now() + 86400000 * 30);
+  const exp60 = new Date(Date.now() + 86400000 * 60);
+  const exp90 = new Date(Date.now() + 86400000 * 90);
+
+  const elurushops: any[] = [
+    {
+      name: "Anand Bhavan Restaurant", description: "Famous pure vegetarian restaurant in Eluru since 1968. Known for idli, dosa, meals & tiffins.", category_id: cat("Restaurants"),
+      address: "Opp. Bus Stand, Masjid Road, Eluru - 534001, AP", whatsapp_number: "+918812234501", map_link: "https://goo.gl/maps/eluru-anand",
+      banner_image: "https://images.unsplash.com/photo-1555396273-59e20c6a80aa?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1547592180-85f173990554?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1555396273-59e20c6a80aa?w=200&h=200&fit=crop", is_premium: true, featured: true, subscription_active: true, commission_percentage: "10", listing_type: "both",
+      business_hours: "Mon-Sun: 7 AM - 10 PM",
+      products: [
+        { name: "Veg Thali (Full Meals)", type: "product", description: "Rice, sambar, rasam, 3 curries, curd, papad, pickle", price: "120", image: "https://images.unsplash.com/photo-1547592180-85f173990554?w=400&h=300&fit=crop" },
+        { name: "Masala Dosa", type: "product", description: "Crispy dosa with potato masala & chutneys", price: "60", image: "https://images.unsplash.com/photo-1565557623262-b51c2513a641?w=400&h=300&fit=crop" },
+        { name: "Idly Plate (4 pcs)", type: "product", description: "Soft idly with sambar & 2 chutneys", price: "40", image: "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "ANAND20", type: "percentage", value: "20", featured: true, expiry_date: exp30 },
+        { code: "ANANDMEAL", type: "flat", value: "30", featured: false, expiry_date: exp60 },
+      ],
+      offline: { title: "Anand Bhavan - Show & Save ₹20", description: "Show this coupon at billing counter for ₹20 off on orders above ₹100", banner_image: "https://images.unsplash.com/photo-1555396273-59e20c6a80aa?w=800&h=450&fit=crop", total_codes: 50 },
+    },
+    {
+      name: "Sri Santhi Sagar Restaurant", description: "Family restaurant serving Andhra-style meals, tiffins and snacks. Popular for Pesarattu & Upma.", category_id: cat("Restaurants"),
+      address: "Near Railway Station, Eluru - 534002, AP", whatsapp_number: "+918812234502", map_link: "https://goo.gl/maps/eluru-santhi",
+      banner_image: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1555396273-59e20c6a80aa?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=200&h=200&fit=crop", is_premium: false, featured: true, subscription_active: true, commission_percentage: "8", listing_type: "both",
+      business_hours: "Mon-Sun: 6 AM - 10:30 PM",
+      products: [
+        { name: "Pesarattu Upma", type: "product", description: "Green moong dosa stuffed with upma, a classic Andhra breakfast", price: "50", image: "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=400&h=300&fit=crop" },
+        { name: "Andhra Meals", type: "product", description: "Unlimited rice with 5 curries, dal, rasam, curd & dessert", price: "100", image: "https://images.unsplash.com/photo-1547592180-85f173990554?w=400&h=300&fit=crop" },
+        { name: "Vada Plate (3 pcs)", type: "product", description: "Crispy medu vada with chutney & sambar", price: "45", image: "https://images.unsplash.com/photo-1606491956689-2ea866880c84?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "SANTHI15", type: "percentage", value: "15", featured: true, expiry_date: exp30 },
+      ],
+    },
+    {
+      name: "Al-Raheem Biryani", description: "Authentic Hyderabadi-style dum biryani prepared fresh every day. Famous among biryani lovers of Eluru.", category_id: cat("Biryani"),
+      address: "Muslim Bazar, Eluru - 534001, AP", whatsapp_number: "+918812234503",
+      banner_image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1630383249896-424e482df921?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1512058564366-18510be2db19?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=200&h=200&fit=crop", is_premium: true, featured: true, subscription_active: true, commission_percentage: "12", listing_type: "both",
+      business_hours: "Mon-Sun: 11 AM - 11 PM",
+      products: [
+        { name: "Chicken Dum Biryani (Full)", type: "product", description: "Full pot of aromatic dum biryani (serves 2)", price: "280", image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=400&h=300&fit=crop" },
+        { name: "Mutton Biryani", type: "product", description: "Tender mutton with long-grain basmati rice", price: "350", image: "https://images.unsplash.com/photo-1630383249896-424e482df921?w=400&h=300&fit=crop" },
+        { name: "Veg Biryani", type: "product", description: "Mixed vegetable biryani with raita & mirchi ka salan", price: "180", image: "https://images.unsplash.com/photo-1512058564366-18510be2db19?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "RAHEEM10", type: "percentage", value: "10", featured: true, expiry_date: exp30 },
+        { code: "RAHEEMFULL", type: "flat", value: "50", featured: false, expiry_date: exp60 },
+      ],
+      offline: { title: "Al-Raheem - Free Raita", description: "Show coupon for free raita & salad with any biryani order above ₹200", banner_image: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=800&h=450&fit=crop", total_codes: 30 },
+    },
+    {
+      name: "Sri Krishna Bakery & Sweets", description: "Traditional Eluru sweets shop. Famous for authentic Pootharekulu (paper sweets), Boondi Laddu & seasonal sweets.", category_id: cat("Bakery"),
+      address: "Gandhi Nagar, Main Road, Eluru - 534001, AP", whatsapp_number: "+918812234504",
+      banner_image: "https://images.unsplash.com/photo-1509440159596-0280db8693f5?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1509440159596-0280db8693f5?w=200&h=200&fit=crop", is_premium: true, featured: true, subscription_active: true, commission_percentage: "10", listing_type: "both",
+      business_hours: "Mon-Sun: 8 AM - 10 PM",
+      products: [
+        { name: "Pootharekulu Box (500g)", type: "product", description: "Traditional Eluru paper sweets - famous across Andhra Pradesh", price: "350", image: "https://images.unsplash.com/photo-1509440159596-0280db8693f5?w=400&h=300&fit=crop" },
+        { name: "Boondi Laddu (1kg)", type: "product", description: "Classic temple-style boondi laddu, fresh daily", price: "280", image: "https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?w=400&h=300&fit=crop" },
+        { name: "Special Cake (1kg)", type: "product", description: "Customised fresh cream cakes for all occasions", price: "650", image: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "KRISHNA10", type: "percentage", value: "10", featured: true, expiry_date: exp30 },
+      ],
+      offline: { title: "Sri Krishna - Free Sweet Sample", description: "Visit store & show coupon for free Pootharekulu tasting pack", banner_image: "https://images.unsplash.com/photo-1509440159596-0280db8693f5?w=800&h=450&fit=crop", total_codes: 100 },
+    },
+    {
+      name: "Sri Sai Sweets Eluru", description: "Fresh sweets, namkeens and bakery items. Speciality: Kakinada Kaja, Ariselu, Bobbatlu for festivals.", category_id: cat("Bakery"),
+      address: "Ramachandra Rao Street, Eluru - 534001, AP", whatsapp_number: "+918812234505",
+      banner_image: "https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1509440159596-0280db8693f5?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?w=200&h=200&fit=crop", is_premium: false, featured: false, subscription_active: true, commission_percentage: "8", listing_type: "both",
+      business_hours: "Mon-Sun: 7 AM - 9 PM",
+      products: [
+        { name: "Kakinada Kaja (500g)", type: "product", description: "Famous flaky sweet soaked in sugar syrup", price: "200", image: "https://images.unsplash.com/photo-1563729784474-d77dbb933a9e?w=400&h=300&fit=crop" },
+        { name: "Ariselu (250g)", type: "product", description: "Traditional rice flour & jaggery sweet for festivals", price: "150", image: "https://images.unsplash.com/photo-1509440159596-0280db8693f5?w=400&h=300&fit=crop" },
+        { name: "Mixed Namkeen Box", type: "product", description: "Assorted savory snacks box 500g", price: "120", image: "https://images.unsplash.com/photo-1599490659213-e2b9527bd087?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "SAISWEEET100", type: "flat", value: "30", featured: false, expiry_date: exp60 },
+      ],
+    },
+    {
+      name: "KFC Eluru", description: "KFC Eluru - Finger Lickin' Good! Crispy fried chicken, burgers, Zinger meals & more. Drive-thru available.", category_id: cat("Food & Dining"),
+      address: "Powerpet, NH-16, Eluru - 534002, AP", whatsapp_number: "+919000234506",
+      banner_image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1562967914-608f82629710?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=200&h=200&fit=crop", is_premium: true, featured: true, subscription_active: true, commission_percentage: "12", listing_type: "both",
+      business_hours: "Mon-Sun: 11 AM - 11 PM",
+      products: [
+        { name: "Zinger Burger Meal", type: "product", description: "Spicy Zinger burger + fries + Pepsi", price: "299", image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400&h=300&fit=crop" },
+        { name: "Chicken Bucket (8 pcs)", type: "product", description: "8-piece crispy chicken bucket for the family", price: "699", image: "https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?w=400&h=300&fit=crop" },
+        { name: "Krushers (Large)", type: "product", description: "Creamy blended Krusher beverage - Mocha or Vanilla", price: "149", image: "https://images.unsplash.com/photo-1562967914-608f82629710?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "KFCELURU20", type: "percentage", value: "20", featured: true, expiry_date: exp30 },
+        { code: "KFCBUCKET", type: "flat", value: "100", featured: true, expiry_date: exp30 },
+      ],
+    },
+    {
+      name: "Dominos Pizza Eluru", description: "Domino's Pizza Eluru - Hot pizzas delivered in 30 minutes. Thick crust, thin crust & stuffed crust options.", category_id: cat("Food & Dining"),
+      address: "Bus Stand Road, Eluru - 534001, AP", whatsapp_number: "+919000234507",
+      banner_image: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1571407970349-bc81e7e96d47?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=200&h=200&fit=crop", is_premium: true, featured: true, subscription_active: true, commission_percentage: "10", listing_type: "both",
+      business_hours: "Mon-Sun: 11 AM - 11:30 PM",
+      products: [
+        { name: "Farmhouse Pizza (Medium)", type: "product", description: "Loaded with fresh veggies & cheese on thin crust", price: "349", image: "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400&h=300&fit=crop" },
+        { name: "Pepperoni Pizza (Large)", type: "product", description: "Classic pepperoni with extra mozzarella", price: "549", image: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400&h=300&fit=crop" },
+        { name: "Pasta Carbonara", type: "product", description: "Creamy white sauce pasta with mushrooms", price: "199", image: "https://images.unsplash.com/photo-1571407970349-bc81e7e96d47?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "DOMINOS30", type: "percentage", value: "30", featured: true, expiry_date: exp30 },
+        { code: "PIZZAFREE", type: "free_item", value: "0", featured: true, expiry_date: exp30 },
+      ],
+      offline: { title: "Dominos - Buy 1 Get 1 Free", description: "Show at counter: Buy any medium pizza, get 2nd medium pizza free on weekdays", banner_image: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=800&h=450&fit=crop", total_codes: 20 },
+    },
+    {
+      name: "Poorvika Mobiles Eluru", description: "Eluru's trusted mobile store. Latest smartphones from Samsung, Apple, Vivo, Oppo, Realme. EMI available.", category_id: cat("Electronics"),
+      address: "Ramaraopeta, Main Road, Eluru - 534002, AP", whatsapp_number: "+918812234508",
+      banner_image: "https://images.unsplash.com/photo-1585771724702-34681be2a29d?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1567581935884-3349723552ca?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1585771724702-34681be2a29d?w=200&h=200&fit=crop", is_premium: true, featured: true, subscription_active: true, commission_percentage: "8", listing_type: "both",
+      business_hours: "Mon-Sat: 10 AM - 8:30 PM, Sun: 11 AM - 7 PM",
+      products: [
+        { name: "Samsung Galaxy M35 5G", type: "product", description: "6.6\" display, 50MP camera, 6000mAh battery, 8GB RAM", price: "19999", image: "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?w=400&h=300&fit=crop" },
+        { name: "Mobile Screen Guard", type: "product", description: "Tempered glass screen guard with installation", price: "199", image: "https://images.unsplash.com/photo-1585771724702-34681be2a29d?w=400&h=300&fit=crop" },
+        { name: "Mobile Accessories Combo", type: "product", description: "Case + charger + earphones bundle", price: "599", image: "https://images.unsplash.com/photo-1567581935884-3349723552ca?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "POORVIKA500", type: "flat", value: "500", featured: true, expiry_date: exp30 },
+        { code: "MOBILELURU", type: "percentage", value: "8", featured: false, expiry_date: exp60 },
+      ],
+    },
+    {
+      name: "Croma Electronics Eluru", description: "India's trusted multi-brand electronics store. TVs, laptops, ACs, refrigerators, washing machines & more.", category_id: cat("Electronics"),
+      address: "D. Bhulakshmamma Road, Eluru - 534001, AP", whatsapp_number: "+918812234509",
+      banner_image: "https://images.unsplash.com/photo-1588508065123-287b28e013da?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1567581935884-3349723552ca?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1593359677879-a4bb92f4e10e?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1588508065123-287b28e013da?w=200&h=200&fit=crop", is_premium: false, featured: false, subscription_active: true, commission_percentage: "6", listing_type: "both",
+      business_hours: "Mon-Sun: 10 AM - 9 PM",
+      products: [
+        { name: "Samsung 43\" 4K Smart TV", type: "product", description: "4K Ultra HD, HDR10+, built-in WiFi & apps", price: "34999", image: "https://images.unsplash.com/photo-1593359677879-a4bb92f4e10e?w=400&h=300&fit=crop" },
+        { name: "Boat Bluetooth Speaker", type: "product", description: "360° sound, 10hr battery, waterproof", price: "1499", image: "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=400&h=300&fit=crop" },
+        { name: "Whirlpool 1.5 Ton AC", type: "product", description: "5-star rated, inverter AC, auto-clean", price: "34990", image: "https://images.unsplash.com/photo-1588508065123-287b28e013da?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "CROMA2000", type: "flat", value: "2000", featured: true, expiry_date: exp30 },
+        { code: "CROMALURU", type: "percentage", value: "5", featured: false, expiry_date: exp90 },
+      ],
+    },
+    {
+      name: "Max Fashion Eluru", description: "Trendy fashion for the entire family. Western & Indian wear, kids section, home linen. Unbeatable prices.", category_id: cat("Fashion"),
+      address: "RTC Complex, Eluru - 534001, AP", whatsapp_number: "+918812234510",
+      banner_image: "https://images.unsplash.com/photo-1441984904996-1035abb5dd88?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1441984904996-1035abb5dd88?w=200&h=200&fit=crop", is_premium: true, featured: true, subscription_active: true, commission_percentage: "14", listing_type: "both",
+      business_hours: "Mon-Sun: 10 AM - 9:30 PM",
+      products: [
+        { name: "Women's Kurta (Set of 3)", type: "product", description: "Printed cotton kurtas in trending colours", price: "999", image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop" },
+        { name: "Men's Formal Shirt", type: "product", description: "100% cotton formal shirt, all sizes", price: "599", image: "https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=400&h=300&fit=crop" },
+        { name: "Kids Dress Pack", type: "product", description: "Set of 2 casual dresses for kids (2-12 yrs)", price: "799", image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "MAXFASH30", type: "percentage", value: "30", featured: true, expiry_date: exp30 },
+        { code: "MAXKIDS", type: "flat", value: "200", featured: false, expiry_date: exp60 },
+      ],
+      offline: { title: "Max Fashion - Special Store Discount", description: "Show at billing: flat 10% extra off on all items (not combinable with other offers)", banner_image: "https://images.unsplash.com/photo-1441984904996-1035abb5dd88?w=800&h=450&fit=crop", total_codes: 100 },
+    },
+    {
+      name: "Fabindia Eluru", description: "Authentic handloom and handcraft clothing from India. Sarees, kurtas, home textiles & organic food products.", category_id: cat("Fashion"),
+      address: "Congress Office Road, Eluru - 534001, AP", whatsapp_number: "+918812234511",
+      banner_image: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1441984904996-1035abb5dd88?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=200&h=200&fit=crop", is_premium: false, featured: false, subscription_active: true, commission_percentage: "12", listing_type: "both",
+      business_hours: "Mon-Sun: 10:30 AM - 8:30 PM",
+      products: [
+        { name: "Handloom Saree", type: "product", description: "Pure cotton handloom saree with zari border", price: "2499", image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=300&fit=crop" },
+        { name: "Khadi Kurta (Men)", type: "product", description: "Handspun khadi kurta, eco-friendly & comfortable", price: "1299", image: "https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=400&h=300&fit=crop" },
+        { name: "Organic Honey (500g)", type: "product", description: "Pure unprocessed multiflora honey", price: "499", image: "https://images.unsplash.com/photo-1587049352851-8d4e89133924?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "FABINDIA15", type: "percentage", value: "15", featured: false, expiry_date: exp60 },
+      ],
+    },
+    {
+      name: "Jawed Habib Hair Studio Eluru", description: "Premium hair salon with expert stylists. Haircut, colour, keratin treatment, bridal makeup & more.", category_id: cat("Beauty & Wellness"),
+      address: "Venkata Rao Street, Eluru - 534001, AP", whatsapp_number: "+918812234512",
+      banner_image: "https://images.unsplash.com/photo-1560066984-138daec99fd9?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1487412912498-0447fe886868?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1562322140-8baeececf3df?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1560066984-138daec99fd9?w=200&h=200&fit=crop", is_premium: true, featured: true, subscription_active: true, commission_percentage: "18", listing_type: "both",
+      business_hours: "Mon-Sat: 10 AM - 8 PM, Sun: 10 AM - 6 PM",
+      products: [
+        { name: "Haircut (Men)", type: "service", description: "Wash + cut + blow dry by expert stylist", price: "299", image: "https://images.unsplash.com/photo-1517832207067-4db24a2ae47c?w=400&h=300&fit=crop" },
+        { name: "Hair Colour (Women)", type: "service", description: "Global hair colour with premium brands", price: "1499", image: "https://images.unsplash.com/photo-1562322140-8baeececf3df?w=400&h=300&fit=crop" },
+        { name: "Keratin Treatment", type: "service", description: "Frizz-free straight hair for 3-6 months", price: "3999", image: "https://images.unsplash.com/photo-1487412912498-0447fe886868?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "JAWEDHAIR25", type: "percentage", value: "25", featured: true, expiry_date: exp30 },
+      ],
+      offline: { title: "Jawed Habib - Free Head Massage", description: "Show coupon for complimentary 15-min head massage with any haircut", banner_image: "https://images.unsplash.com/photo-1560066984-138daec99fd9?w=800&h=450&fit=crop", total_codes: 40 },
+    },
+    {
+      name: "Lakme Salon Eluru", description: "Trusted beauty salon brand. Facials, waxing, threading, mehndi, bridal packages & nail art services.", category_id: cat("Beauty & Wellness"),
+      address: "Srinivasa Nagar, Eluru - 534001, AP", whatsapp_number: "+918812234513",
+      banner_image: "https://images.unsplash.com/photo-1487412912498-0447fe886868?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1560066984-138daec99fd9?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1487412912498-0447fe886868?w=200&h=200&fit=crop", is_premium: true, featured: false, subscription_active: true, commission_percentage: "16", listing_type: "both",
+      business_hours: "Mon-Sun: 10 AM - 7:30 PM",
+      products: [
+        { name: "Classic Facial", type: "service", description: "Cleansing + scrub + massage + mask (60 min)", price: "799", image: "https://images.unsplash.com/photo-1487412912498-0447fe886868?w=400&h=300&fit=crop" },
+        { name: "Manicure + Pedicure Combo", type: "service", description: "Complete hand & foot care with nail paint", price: "999", image: "https://images.unsplash.com/photo-1604654894610-df63bc536371?w=400&h=300&fit=crop" },
+        { name: "Bridal Makeup Package", type: "service", description: "Full bridal makeup including trial session", price: "9999", image: "https://images.unsplash.com/photo-1512290923902-8a9f81dc236c?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "LAKME20", type: "percentage", value: "20", featured: true, expiry_date: exp30 },
+        { code: "LAKMEFACIAL", type: "free_item", value: "0", featured: true, expiry_date: exp30 },
+      ],
+    },
+    {
+      name: "Kalyan Jewellers Eluru", description: "India's trusted jewellery brand. Gold, silver, platinum jewellery. Exchange offers, EMI available.", category_id: cat("Jewelry"),
+      address: "Main Road, Near Clock Tower, Eluru - 534001, AP", whatsapp_number: "+918812234514",
+      banner_image: "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1573408301185-9519f94558ec?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1603974372039-adc49044b6bd?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=200&h=200&fit=crop", is_premium: true, featured: true, subscription_active: true, commission_percentage: "5", listing_type: "both",
+      business_hours: "Mon-Sun: 10 AM - 8 PM",
+      products: [
+        { name: "Gold Chain (22KT, 5g)", type: "product", description: "Classic design 22kt gold chain, BIS hallmarked", price: "30000", image: "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=400&h=300&fit=crop" },
+        { name: "Diamond Earrings", type: "product", description: "0.25 ct solitaire diamond stud earrings in 18kt white gold", price: "18500", image: "https://images.unsplash.com/photo-1573408301185-9519f94558ec?w=400&h=300&fit=crop" },
+        { name: "Silver Anklets (Pair)", type: "product", description: "Traditional silver payal with bell charm, 925 silver", price: "2500", image: "https://images.unsplash.com/photo-1603974372039-adc49044b6bd?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "KALYAN1000", type: "flat", value: "1000", featured: true, expiry_date: exp30 },
+      ],
+    },
+    {
+      name: "Tanishq Jewellery Eluru", description: "India's most trusted jewellery brand. Exquisite diamond & gold jewellery. Exchange offer on old gold.", category_id: cat("Jewelry"),
+      address: "Powerpet, Eluru - 534002, AP", whatsapp_number: "+918812234515",
+      banner_image: "https://images.unsplash.com/photo-1573408301185-9519f94558ec?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1573408301185-9519f94558ec?w=200&h=200&fit=crop", is_premium: true, featured: false, subscription_active: true, commission_percentage: "5", listing_type: "both",
+      business_hours: "Mon-Sun: 10 AM - 8:30 PM",
+      products: [
+        { name: "Tanishq Mia Ring", type: "product", description: "14kt gold diamond ring from Mia collection", price: "12500", image: "https://images.unsplash.com/photo-1603974372039-adc49044b6bd?w=400&h=300&fit=crop" },
+        { name: "Mangalsutra (Gold)", type: "product", description: "Traditional Telugu mangalsutra, 22kt gold, 5g", price: "28000", image: "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=400&h=300&fit=crop" },
+        { name: "Bangles Set (4 pcs)", type: "product", description: "Plain gold bangles, 22kt, 10g set", price: "58000", image: "https://images.unsplash.com/photo-1573408301185-9519f94558ec?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "TANISHQ500", type: "flat", value: "500", featured: true, expiry_date: exp30 },
+        { code: "TANISHQGOLD", type: "percentage", value: "2", featured: false, expiry_date: exp90 },
+      ],
+    },
+    {
+      name: "Reliance Fresh Eluru", description: "Fresh fruits, vegetables, dairy, groceries & household essentials. Daily fresh produce from local farms.", category_id: cat("Groceries"),
+      address: "Aditya Nagar, Eluru - 534001, AP", whatsapp_number: "+918812234516",
+      banner_image: "https://images.unsplash.com/photo-1588964895597-cfca880b5a6c?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1506617564039-2f3b650b7010?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1588964895597-cfca880b5a6c?w=200&h=200&fit=crop", is_premium: false, featured: false, subscription_active: true, commission_percentage: "5", listing_type: "both",
+      business_hours: "Mon-Sun: 8 AM - 9:30 PM",
+      products: [
+        { name: "Fresh Vegetables Basket (2kg)", type: "product", description: "Seasonal mixed vegetables, farm fresh daily", price: "89", image: "https://images.unsplash.com/photo-1506617564039-2f3b650b7010?w=400&h=300&fit=crop" },
+        { name: "Amul Full Cream Milk (1L)", type: "product", description: "Fresh pasteurised full cream milk", price: "70", image: "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=400&h=300&fit=crop" },
+        { name: "Grocery Essentials Box", type: "product", description: "Rice 5kg + dal 1kg + oil 1L + spices combo", price: "849", image: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "RFRESH100", type: "flat", value: "50", featured: false, expiry_date: exp30 },
+      ],
+    },
+    {
+      name: "Big Bazaar Eluru", description: "India's favourite superstore. Groceries, clothing, electronics, household items - all under one roof.", category_id: cat("Groceries"),
+      address: "VBC Complex, Eluru - 534002, AP", whatsapp_number: "+918812234517",
+      banner_image: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1588964895597-cfca880b5a6c?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=200&h=200&fit=crop", is_premium: false, featured: false, subscription_active: true, commission_percentage: "6", listing_type: "both",
+      business_hours: "Mon-Sun: 9 AM - 10 PM",
+      products: [
+        { name: "Monthly Grocery Pack", type: "product", description: "Complete household grocery bundle for 1 month", price: "2499", image: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=300&fit=crop" },
+        { name: "Household Cleaning Kit", type: "product", description: "Detergent, floor cleaner, toilet cleaner, dishwash combo", price: "399", image: "https://images.unsplash.com/photo-1563453392212-326f5e854473?w=400&h=300&fit=crop" },
+        { name: "Snacks & Beverages Hamper", type: "product", description: "Biscuits, chips, juices, tea & more in gift box", price: "699", image: "https://images.unsplash.com/photo-1599490659213-e2b9527bd087?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "BAZAAR10", type: "percentage", value: "10", featured: false, expiry_date: exp60 },
+        { code: "BIGBFREE", type: "free_item", value: "0", featured: true, expiry_date: exp30 },
+      ],
+      offline: { title: "Big Bazaar - Wednesday Special", description: "Every Wednesday: 5% extra off on all groceries. Show this coupon at billing.", banner_image: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&h=450&fit=crop", total_codes: 200 },
+    },
+    {
+      name: "MedPlus Pharmacy Eluru", description: "Trusted pharmacy chain with genuine medicines. Diagnostic booking, health monitoring, baby care & more.", category_id: cat("Pharmacy & Health"),
+      address: "Gopi Colony, Eluru - 534001, AP", whatsapp_number: "+918812234518",
+      banner_image: "https://images.unsplash.com/photo-1576602976047-174e57a47881?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1576602976047-174e57a47881?w=200&h=200&fit=crop", is_premium: false, featured: false, subscription_active: true, commission_percentage: "8", listing_type: "both",
+      business_hours: "Mon-Sun: 8 AM - 10 PM",
+      products: [
+        { name: "Health Check-up Booking", type: "service", description: "Complete blood count + sugar + thyroid panel", price: "699", image: "https://images.unsplash.com/photo-1576602976047-174e57a47881?w=400&h=300&fit=crop" },
+        { name: "Blood Pressure Monitor", type: "product", description: "Digital BP monitor with memory function", price: "1299", image: "https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=400&h=300&fit=crop" },
+        { name: "Vitamin D3 + B12 Combo", type: "product", description: "3-month supply vitamin supplement pack", price: "499", image: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "MEDPLUS15", type: "percentage", value: "15", featured: true, expiry_date: exp30 },
+      ],
+    },
+    {
+      name: "Sriram Hospitals Eluru", description: "Multi-speciality hospital with pharmacy. 24/7 emergency, ICU, operation theatre, lab & pharmacy.", category_id: cat("Pharmacy & Health"),
+      address: "Rajamandri Road, Eluru - 534001, AP", whatsapp_number: "+918812234519",
+      banner_image: "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1576602976047-174e57a47881?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=200&h=200&fit=crop", is_premium: true, featured: false, subscription_active: true, commission_percentage: "5", listing_type: "services",
+      business_hours: "24/7 (Emergency), OPD: 9 AM - 5 PM",
+      products: [
+        { name: "OPD Consultation", type: "service", description: "Doctor consultation with digital prescription", price: "300", image: "https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=400&h=300&fit=crop" },
+        { name: "Full Body Check-up", type: "service", description: "Complete health check-up with 40+ parameters", price: "1999", image: "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=400&h=300&fit=crop" },
+        { name: "Pharmacy - Generic Medicines", type: "service", description: "Quality generic medicines at 50-70% less than branded", price: "0", image: "https://images.unsplash.com/photo-1576602976047-174e57a47881?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "SRIRAM20", type: "percentage", value: "20", featured: false, expiry_date: exp90 },
+      ],
+    },
+    {
+      name: "Sri Chaitanya School Eluru", description: "Premier educational institution. CBSE curriculum, JEE & NEET coaching, experienced faculty, results-oriented.", category_id: cat("Education"),
+      address: "BVN Colony, Eluru - 534001, AP", whatsapp_number: "+918812234520",
+      banner_image: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1434030216411-0b5816825d34?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=200&h=200&fit=crop", is_premium: true, featured: false, subscription_active: true, commission_percentage: "10", listing_type: "services",
+      business_hours: "Mon-Sat: 7 AM - 5 PM",
+      products: [
+        { name: "JEE Coaching (Annual)", type: "service", description: "Complete JEE Main + Advanced classroom coaching (11th-12th)", price: "95000", image: "https://images.unsplash.com/photo-1434030216411-0b5816825d34?w=400&h=300&fit=crop" },
+        { name: "NEET Coaching (Annual)", type: "service", description: "Medical entrance coaching with daily tests", price: "85000", image: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=400&h=300&fit=crop" },
+        { name: "Study Material Pack", type: "product", description: "Complete textbooks & DPP sheets set for Class 10", price: "2999", image: "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "CHAITANYA5000", type: "flat", value: "5000", featured: true, expiry_date: exp90 },
+      ],
+    },
+    {
+      name: "Narayana IIT Academy Eluru", description: "Top coaching for IIT-JEE, NEET & Foundation courses. Expert faculty, smart classes, hostel available.", category_id: cat("Education"),
+      address: "Arundelpet, Eluru - 534001, AP", whatsapp_number: "+918812234521",
+      banner_image: "https://images.unsplash.com/photo-1434030216411-0b5816825d34?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1434030216411-0b5816825d34?w=200&h=200&fit=crop", is_premium: false, featured: false, subscription_active: true, commission_percentage: "10", listing_type: "services",
+      business_hours: "Mon-Sat: 7 AM - 6 PM",
+      products: [
+        { name: "Foundation Course (Class 8-10)", type: "service", description: "Maths & Science foundation with competitive exam prep", price: "35000", image: "https://images.unsplash.com/photo-1434030216411-0b5816825d34?w=400&h=300&fit=crop" },
+        { name: "Online Test Series", type: "service", description: "1000+ practice tests for JEE & NEET preparation", price: "4999", image: "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=400&h=300&fit=crop" },
+        { name: "Crash Course (60 days)", type: "service", description: "Intensive 2-month revision for board & competitive exams", price: "15000", image: "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "NARAYANA3000", type: "flat", value: "3000", featured: false, expiry_date: exp90 },
+      ],
+    },
+    {
+      name: "Decathlon Sports Eluru", description: "Everything for sport! Cricket, football, badminton, gym, swimming, cycling equipment at best prices.", category_id: cat("Sports & Fitness"),
+      address: "Bypass Road, Eluru - 534002, AP", whatsapp_number: "+918812234522",
+      banner_image: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1593906657550-81e48c7c4e3b?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=200&h=200&fit=crop", is_premium: false, featured: true, subscription_active: true, commission_percentage: "8", listing_type: "both",
+      business_hours: "Mon-Sun: 9 AM - 9 PM",
+      products: [
+        { name: "Cricket Set (Junior)", type: "product", description: "Bat + ball + stumps + gloves set for kids 8-14 yrs", price: "1299", image: "https://images.unsplash.com/photo-1593906657550-81e48c7c4e3b?w=400&h=300&fit=crop" },
+        { name: "Badminton Racket Set", type: "product", description: "2 rackets + 6 shuttles + bag, tournament quality", price: "999", image: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=400&h=300&fit=crop" },
+        { name: "Gym Fitness Combo", type: "product", description: "Dumbbell pair (5kg) + resistance bands + yoga mat", price: "1799", image: "https://images.unsplash.com/photo-1540497077202-7c8a3999166f?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "DECA15", type: "percentage", value: "15", featured: true, expiry_date: exp30 },
+        { code: "SPORTHUB", type: "flat", value: "200", featured: false, expiry_date: exp60 },
+      ],
+      offline: { title: "Decathlon - Free Sport Consultation", description: "Show coupon for free 30-min session with our sports expert to pick right gear", banner_image: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=800&h=450&fit=crop", total_codes: 50 },
+    },
+    {
+      name: "Hotel Grand Eluru", description: "Premium 4-star hotel in the heart of Eluru. AC rooms, restaurant, banquet hall, conference rooms & spa.", category_id: cat("Travel"),
+      address: "D.L. Road, Eluru - 534001, AP", whatsapp_number: "+918812234523",
+      banner_image: "https://images.unsplash.com/photo-1566073771259-e5c8674bbb0c?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1566073771259-e5c8674bbb0c?w=200&h=200&fit=crop", is_premium: true, featured: true, subscription_active: true, commission_percentage: "12", listing_type: "both",
+      business_hours: "24/7",
+      products: [
+        { name: "Standard Deluxe Room (1 night)", type: "product", description: "AC room with breakfast, WiFi, TV & daily housekeeping", price: "2499", image: "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&h=300&fit=crop" },
+        { name: "Banquet Hall Booking", type: "service", description: "Hall for 100-500 guests with A/V setup (per day)", price: "25000", image: "https://images.unsplash.com/photo-1566073771259-e5c8674bbb0c?w=400&h=300&fit=crop" },
+        { name: "Couple Spa Package", type: "service", description: "90-min spa session for two with herbal treatments", price: "3999", image: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "GRANDROOM", type: "percentage", value: "20", featured: true, expiry_date: exp30 },
+        { code: "GRANDSPA", type: "flat", value: "500", featured: true, expiry_date: exp60 },
+      ],
+      offline: { title: "Hotel Grand - Free Breakfast Upgrade", description: "Show at check-in for complimentary buffet breakfast upgrade for both guests", banner_image: "https://images.unsplash.com/photo-1566073771259-e5c8674bbb0c?w=800&h=450&fit=crop", total_codes: 30 },
+    },
+    {
+      name: "Hotel Konark Eluru", description: "Budget-friendly hotel with clean rooms, free parking, restaurant, and central Eluru location.", category_id: cat("Travel"),
+      address: "Chakali Road, Eluru - 534001, AP", whatsapp_number: "+918812234524",
+      banner_image: "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1566073771259-e5c8674bbb0c?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=200&h=200&fit=crop", is_premium: false, featured: false, subscription_active: true, commission_percentage: "10", listing_type: "both",
+      business_hours: "24/7",
+      products: [
+        { name: "Standard Room (1 night)", type: "product", description: "Air-conditioned room with TV & hot water", price: "1200", image: "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&h=300&fit=crop" },
+        { name: "Family Room (2 nights)", type: "product", description: "Spacious family room, 2 beds, AC, free WiFi", price: "2800", image: "https://images.unsplash.com/photo-1566073771259-e5c8674bbb0c?w=400&h=300&fit=crop" },
+        { name: "Conference Room (half day)", type: "service", description: "Meeting room for 10-20 people with projector", price: "3000", image: "https://images.unsplash.com/photo-1517502884422-41eaead166d4?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "KONARK15", type: "percentage", value: "15", featured: false, expiry_date: exp60 },
+      ],
+    },
+    {
+      name: "PVR Cinemas Eluru", description: "Premium multiplex cinema with Dolby Atmos, recliner seats. Telugu, Hindi, English movies daily.", category_id: cat("Entertainment"),
+      address: "VBC Mall, Eluru - 534002, AP", whatsapp_number: "+918812234525",
+      banner_image: "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1574267432553-4b4628081c31?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=200&h=200&fit=crop", is_premium: true, featured: true, subscription_active: true, commission_percentage: "8", listing_type: "both",
+      business_hours: "Daily shows: 10 AM, 1 PM, 4 PM, 7 PM, 10 PM",
+      products: [
+        { name: "Movie Ticket - Standard", type: "product", description: "2D standard hall ticket (any show)", price: "200", image: "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=400&h=300&fit=crop" },
+        { name: "Movie Ticket - Recliner", type: "product", description: "Premium recliner seat with extra legroom", price: "450", image: "https://images.unsplash.com/photo-1574267432553-4b4628081c31?w=400&h=300&fit=crop" },
+        { name: "Popcorn + Drink Combo", type: "product", description: "Large caramel popcorn + 2 cold drinks", price: "299", image: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "PVR2FOR1", type: "percentage", value: "50", featured: true, expiry_date: exp30 },
+        { code: "PVRPOPCORN", type: "free_item", value: "0", featured: true, expiry_date: exp30 },
+      ],
+      offline: { title: "PVR Cinemas - Tuesday Discount", description: "Every Tuesday: Show coupon for 30% off on all tickets (valid for 1 person)", banner_image: "https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?w=800&h=450&fit=crop", total_codes: 100 },
+    },
+    {
+      name: "Home Centre Eluru", description: "Complete home furnishing & decor store. Furniture, beds, sofas, curtains, kitchenware & home accessories.", category_id: cat("Home & Living"),
+      address: "Industrial Area, Eluru - 534001, AP", whatsapp_number: "+918812234526",
+      banner_image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=200&h=200&fit=crop", is_premium: false, featured: false, subscription_active: true, commission_percentage: "12", listing_type: "both",
+      business_hours: "Mon-Sun: 10 AM - 9 PM",
+      products: [
+        { name: "3-Seater Sofa Set", type: "product", description: "Premium fabric sofa set with cushions, 5yr warranty", price: "18999", image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&h=300&fit=crop" },
+        { name: "King Size Bed Frame", type: "product", description: "Solid wood king bed with storage drawers", price: "24999", image: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=400&h=300&fit=crop" },
+        { name: "Curtain Set (Window)", type: "product", description: "Blackout curtains, pair, 4 colour options", price: "1299", image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "HOMECENTRE10", type: "percentage", value: "10", featured: false, expiry_date: exp60 },
+        { code: "HOMEFURNISH", type: "flat", value: "1000", featured: true, expiry_date: exp30 },
+      ],
+    },
+    {
+      name: "Subway Eluru", description: "Fresh custom sandwiches, wraps, salads. Choose your bread, protein, veggies & sauces. Healthy fast food.", category_id: cat("Food & Dining"),
+      address: "Powerpet Main Road, Eluru - 534002, AP", whatsapp_number: "+919000234527",
+      banner_image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=800&h=450&fit=crop", "https://images.unsplash.com/photo-1619096252214-ef06c45683e3?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=200&h=200&fit=crop", is_premium: false, featured: false, subscription_active: true, commission_percentage: "10", listing_type: "both",
+      business_hours: "Mon-Sun: 10 AM - 11 PM",
+      products: [
+        { name: "Veggie Delight Sub (6\")", type: "product", description: "Fresh veggies on Italian bread with sauces", price: "199", image: "https://images.unsplash.com/photo-1619096252214-ef06c45683e3?w=400&h=300&fit=crop" },
+        { name: "Chicken Tikka Sub (12\")", type: "product", description: "Grilled chicken tikka with fresh veggies & chipotle sauce", price: "349", image: "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=400&h=300&fit=crop" },
+        { name: "Meal Deal (Sub + Drink + Cookie)", type: "product", description: "6\" sub + fountain drink + cookie combo", price: "299", image: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "SUBWAYCLUB", type: "flat", value: "50", featured: false, expiry_date: exp60 },
+        { code: "SUBFREECOOKIE", type: "free_item", value: "0", featured: true, expiry_date: exp30 },
+      ],
+    },
+    {
+      name: "Hotel Yamuna Restaurant Eluru", description: "Andhra traditional non-veg meals, fish fry, chicken curry. Famous for Sunday special mutton curry & bone marrow.", category_id: cat("Restaurants"),
+      address: "Near Devi Theatre, Eluru - 534001, AP", whatsapp_number: "+918812234528",
+      banner_image: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=200&h=200&fit=crop", is_premium: false, featured: false, subscription_active: true, commission_percentage: "8", listing_type: "both",
+      business_hours: "Mon-Sun: 11 AM - 3:30 PM, 7 PM - 10:30 PM",
+      products: [
+        { name: "Andhra Non-Veg Meals", type: "product", description: "Rice + chicken curry + fish fry + sambar + curd", price: "150", image: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400&h=300&fit=crop" },
+        { name: "Fish Fry (Rohu, 250g)", type: "product", description: "Spicy Andhra-style rohu fish fry", price: "180", image: "https://images.unsplash.com/photo-1519984388953-d2406bc725e1?w=400&h=300&fit=crop" },
+        { name: "Mutton Curry (Single)", type: "product", description: "Slow-cooked mutton curry with rice", price: "220", image: "https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "YAMUNA10", type: "percentage", value: "10", featured: false, expiry_date: exp60 },
+      ],
+    },
+    {
+      name: "Airtel Xstream Center Eluru", description: "Official Airtel store. Prepaid & postpaid SIM, fiber broadband, Airtel Black plans, DTH & accessories.", category_id: cat("Electronics"),
+      address: "One Town, Eluru - 534001, AP", whatsapp_number: "+918812234529",
+      banner_image: "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?w=1200&h=500&fit=crop",
+      banners: ["https://images.unsplash.com/photo-1585771724702-34681be2a29d?w=800&h=450&fit=crop"],
+      logo: "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?w=200&h=200&fit=crop", is_premium: false, featured: false, subscription_active: true, commission_percentage: "5", listing_type: "services",
+      business_hours: "Mon-Sat: 9:30 AM - 7:30 PM",
+      products: [
+        { name: "Airtel Fiber 100Mbps (Monthly)", type: "service", description: "Unlimited broadband + free OTT + unlimited calls", price: "599", image: "https://images.unsplash.com/photo-1601784551446-20c9e07cdbdb?w=400&h=300&fit=crop" },
+        { name: "Postpaid Plan ₹299", type: "service", description: "Unlimited calls + 25GB data + international roaming", price: "299", image: "https://images.unsplash.com/photo-1585771724702-34681be2a29d?w=400&h=300&fit=crop" },
+        { name: "Airtel DTH Recharge (Monthly)", type: "service", description: "350+ channels + HD channels pack", price: "399", image: "https://images.unsplash.com/photo-1593359677879-a4bb92f4e10e?w=400&h=300&fit=crop" },
+      ],
+      coupons: [
+        { code: "AIRTELSETUP", type: "flat", value: "200", featured: false, expiry_date: exp60 },
+      ],
+    },
+  ];
+
+  const newShopIds: string[] = [];
+  for (const shopData of elurushops) {
+    const { products: prods, coupons: cpns, offline, ...shopFields } = shopData;
+    try {
+      const createdShop = await storage.createShop(shopFields as any);
+      newShopIds.push(createdShop.id);
+
+      if (prods) {
+        for (const p of prods) {
+          try { await storage.createProduct({ ...p, shop_id: createdShop.id } as any); } catch {}
+        }
+      }
+
+      const shopProducts = await storage.getProductsByShop(createdShop.id);
+      const freeItemProductId = shopProducts[0]?.id;
+
+      if (cpns) {
+        for (const c of cpns) {
+          const couponData: any = { ...c, shop_id: createdShop.id };
+          if (c.type === "free_item" && freeItemProductId) {
+            couponData.free_item_product_id = freeItemProductId;
+          }
+          try { await storage.createCoupon(couponData); } catch {}
+        }
+      }
+
+      if (offline) {
+        try {
+          const oc = await storage.createOfflineCoupon({ ...offline, shop_id: createdShop.id } as any);
+          const codes: string[] = [];
+          const prefix = shopFields.name.replace(/[^A-Za-z]/g, "").slice(0, 4).toUpperCase();
+          for (let i = 0; i < Math.min(offline.total_codes, 20); i++) {
+            codes.push(`${prefix}${Math.random().toString(36).slice(2, 8).toUpperCase()}`);
+          }
+          await storage.createOfflineCouponCodes(oc.id, codes);
+        } catch {}
+      }
+    } catch {}
+  }
+
+  if (newShopIds.length > 0) {
+    const vendorPass = await bcrypt.hash("Vendor@123", 10);
+    for (const shopId of newShopIds) {
+      const allShops2 = await storage.getAllShops();
+      const shop = allShops2.find(s => s.id === shopId);
+      if (shop) {
+        const slug = shop.name.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 20);
+        const email = `${slug}@vendor.com`;
+        try { await storage.createVendor({ shop_id: shop.id, name: shop.name, email, password: vendorPass }); } catch {}
+      }
+    }
+  }
+
+  console.log(`Seeded ${newShopIds.length} Eluru businesses!`);
+}
+
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   const cookieParser = (await import("cookie-parser")).default;
   app.use(cookieParser());
@@ -204,6 +763,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.use("/uploads", express.static(uploadsDir));
 
   await seedDatabase();
+  await seedElurubusinesses();
 
   // Seed vendor accounts for existing shops if none exist
   const existingVendors = await db.select({ count: sql<number>`count(*)` }).from(vendors);
