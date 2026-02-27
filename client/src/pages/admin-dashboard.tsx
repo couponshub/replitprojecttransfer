@@ -1240,6 +1240,46 @@ export default function AdminDashboard() {
                       <Input value={formData.name || ""} onChange={e => setForm("name", e.target.value)} className="mt-1.5 rounded-xl" placeholder="e.g. Classic Cheeseburger" data-testid="input-product-name" />
                     </div>
 
+                    {/* Sub Category */}
+                    {(() => {
+                      const selectedShop = shops.find(s => s.id === formData.shop_id);
+                      const catName = (selectedShop as any)?.category?.name || "";
+                      const subCatMap: Record<string, string[]> = {
+                        "Food & Dining": ["Starters", "Soups", "Biryanis", "Main Course", "Breads", "Desserts", "Beverages", "Rice Items", "Combos", "Non-Veg", "Veg"],
+                        "Biryani": ["Veg Biryanis", "Non-Veg Biryanis", "Starters", "Soups", "Rotis", "Desserts", "Beverages", "Combos"],
+                        "Restaurants": ["Starters", "Soups", "Main Course", "Biryanis", "Breads", "Desserts", "Beverages", "Combos", "Tiffins", "Thalis"],
+                        "Bakery": ["Cakes", "Pastries", "Cookies", "Breads", "Savories", "Beverages", "Sweets", "Desserts"],
+                        "Beauty & Wellness": ["Hair", "Facials", "Spa", "Waxing", "Makeup", "Nail Art", "Massage", "Body Treatments", "Threading", "Skin Care"],
+                        "Electronics": ["Mobiles", "Laptops", "Tablets", "Accessories", "Audio", "Smart Home", "Gaming", "Cameras", "TVs", "Cables & Chargers"],
+                        "Fashion": ["Men", "Women", "Kids", "Footwear", "Accessories", "Traditional Wear", "Casual Wear", "Sportswear", "Innerwear"],
+                        "Jewelry": ["Gold Jewelry", "Diamond Jewelry", "Silver Jewelry", "Chains", "Rings", "Bangles", "Pendants", "Earrings", "Bracelets"],
+                        "Groceries": ["Fruits & Vegetables", "Dairy", "Grains & Pulses", "Snacks", "Beverages", "Personal Care", "Cleaning", "Frozen Foods"],
+                        "Pharmacy & Health": ["Medicines", "Health Supplements", "Baby Care", "Vitamins", "Medical Devices", "Skin Care", "Personal Hygiene"],
+                        "Education": ["Courses", "Study Materials", "Books", "Stationery", "Test Prep", "Coaching"],
+                        "Sports & Fitness": ["Footwear", "Clothing", "Equipment", "Accessories", "Nutrition", "Cricket", "Football", "Badminton", "Yoga"],
+                        "Entertainment": ["Movie Tickets", "Snacks & Beverages", "Merchandise", "Combo Deals"],
+                        "Travel": ["Rooms", "Dining", "Spa", "Events", "Meeting Halls", "Packages"],
+                        "Home & Living": ["Furniture", "Decor", "Kitchen", "Bedding", "Lighting", "Storage", "Bath"],
+                      };
+                      const suggestions = subCatMap[catName] || ["General", "Special", "Featured", "New Arrivals", "Best Sellers", "Seasonal"];
+                      return (
+                        <div>
+                          <Label className="text-xs font-semibold">Category <span className="text-muted-foreground font-normal">(group products by type)</span></Label>
+                          <Input value={formData.sub_category || ""} onChange={e => setForm("sub_category", e.target.value)} className="mt-1.5 rounded-xl" placeholder="e.g. Starters, Hair, Mobiles..." data-testid="input-product-subcategory" list="subcategory-suggestions" />
+                          <datalist id="subcategory-suggestions">{suggestions.map(s => <option key={s} value={s} />)}</datalist>
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {suggestions.slice(0, 8).map(s => (
+                              <button key={s} type="button" onClick={() => setForm("sub_category", s)}
+                                className={`text-[11px] px-2 py-1 rounded-lg border transition-all ${formData.sub_category === s ? "bg-blue-500 text-white border-blue-500" : "border-gray-200 dark:border-gray-700 text-muted-foreground hover:border-blue-300 hover:text-blue-600"}`}
+                                data-testid={`chip-subcategory-${s.replace(/\s+/g, "-").toLowerCase()}`}>
+                                {s}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     {/* Description */}
                     <div>
                       <Label className="text-xs font-semibold">Description</Label>

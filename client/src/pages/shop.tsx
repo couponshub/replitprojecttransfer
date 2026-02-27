@@ -79,6 +79,7 @@ export default function ShopPage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [bannerIdx, setBannerIdx] = useState(0);
   const [claimingCoupon, setClaimingCoupon] = useState<string | null>(null);
+  const [activeSubCat, setActiveSubCat] = useState<string>("All");
 
   const { data: shop, isLoading: shopLoading } = useQuery<Shop & { category?: Category }>({
     queryKey: [`/api/shops/${id}`],
@@ -368,6 +369,29 @@ export default function ShopPage() {
               </Badge>
             )}
           </div>
+
+          {/* Sub-category tabs */}
+          {(() => {
+            const subCats = Array.from(new Set(shopProducts.map((p: any) => p.sub_category).filter(Boolean))) as string[];
+            if (subCats.length < 2) return null;
+            const allTabs = ["All", ...subCats];
+            return (
+              <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide" data-testid="section-subcategory-tabs">
+                {allTabs.map(cat => (
+                  <button key={cat} type="button" onClick={() => setActiveSubCat(cat)}
+                    className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-all border ${
+                      activeSubCat === cat
+                        ? "bg-gradient-to-r from-blue-500 to-violet-600 text-white border-transparent shadow-md shadow-blue-500/20"
+                        : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-300"
+                    }`}
+                    data-testid={`tab-subcategory-${cat.replace(/\s+/g, "-").toLowerCase()}`}>
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
+
           {prodLoading ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
               {Array(8).fill(0).map((_, i) => <Skeleton key={i} className="h-56 rounded-2xl" />)}
@@ -379,7 +403,7 @@ export default function ShopPage() {
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {shopProducts.map(product => {
+              {shopProducts.filter((p: any) => activeSubCat === "All" || p.sub_category === activeSubCat).map(product => {
                 const isService = (product as any).type === "service";
                 const qty = getItemQuantity(product.id);
                 const imgs = (product as any).images;

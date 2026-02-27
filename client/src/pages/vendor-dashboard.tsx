@@ -97,13 +97,13 @@ export default function VendorDashboard() {
 
   const [prodDialog, setProdDialog] = useState(false);
   const [editProd, setEditProd] = useState<any>(null);
-  const [prodForm, setProdForm] = useState<any>({ name: "", price: "", description: "", type: "product" });
+  const [prodForm, setProdForm] = useState<any>({ name: "", price: "", description: "", type: "product", sub_category: "" });
 
   const saveProdMutation = useMutation({
     mutationFn: (data: any) => editProd
       ? vendorFetch(`/api/vendor/products/${editProd.id}`, { method: "PATCH", body: JSON.stringify(data) })
       : vendorFetch("/api/vendor/products", { method: "POST", body: JSON.stringify(data) }),
-    onSuccess: () => { toast({ title: editProd ? "Product updated!" : "Product added!" }); setProdDialog(false); setEditProd(null); setProdForm({ name: "", price: "", description: "", type: "product" }); refetchProds(); },
+    onSuccess: () => { toast({ title: editProd ? "Product updated!" : "Product added!" }); setProdDialog(false); setEditProd(null); setProdForm({ name: "", price: "", description: "", type: "product", sub_category: "" }); refetchProds(); },
     onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
   });
 
@@ -429,7 +429,7 @@ export default function VendorDashboard() {
                   <h1 className="text-xl font-bold text-gray-900 dark:text-white">Products</h1>
                   <p className="text-sm text-muted-foreground">{products.length} item{products.length !== 1 ? "s" : ""}</p>
                 </div>
-                <Button size="sm" onClick={() => { setEditProd(null); setProdForm({ name: "", price: "", description: "", type: "product" }); setProdDialog(true); }} className="rounded-xl gap-2 bg-gradient-to-r from-blue-500 to-violet-600 border-0" data-testid="button-add-product">
+                <Button size="sm" onClick={() => { setEditProd(null); setProdForm({ name: "", price: "", description: "", type: "product", sub_category: "" }); setProdDialog(true); }} className="rounded-xl gap-2 bg-gradient-to-r from-blue-500 to-violet-600 border-0" data-testid="button-add-product">
                   <Plus className="w-3.5 h-3.5" /> Add
                 </Button>
               </div>
@@ -463,10 +463,11 @@ export default function VendorDashboard() {
                             <p className="text-sm font-bold text-emerald-600 mt-1">₹{prod.price}</p>
                           </div>
                         </div>
-                        <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+                        <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 flex-wrap">
                           <Badge className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-0 text-[10px]">{prod.type}</Badge>
+                          {prod.sub_category && <Badge className="bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 border-0 text-[10px]">{prod.sub_category}</Badge>}
                           <div className="ml-auto flex gap-1">
-                            <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => { setEditProd(prod); setProdForm({ name: prod.name, price: prod.price, description: prod.description || "", type: prod.type || "product" }); setProdDialog(true); }} data-testid={`button-edit-product-${prod.id}`}>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => { setEditProd(prod); setProdForm({ name: prod.name, price: prod.price, description: prod.description || "", type: prod.type || "product", sub_category: prod.sub_category || "" }); setProdDialog(true); }} data-testid={`button-edit-product-${prod.id}`}>
                               <Edit className="w-3 h-3" />
                             </Button>
                             <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => deleteProdMutation.mutate(prod.id)} data-testid={`button-delete-product-${prod.id}`}>
@@ -480,13 +481,13 @@ export default function VendorDashboard() {
                 </div>
               )}
 
-              <Dialog open={prodDialog} onOpenChange={v => { setProdDialog(v); if (!v) { setEditProd(null); setProdForm({ name: "", price: "", description: "", type: "product" }); } }}>
-                <DialogContent className="rounded-2xl max-w-md">
+              <Dialog open={prodDialog} onOpenChange={v => { setProdDialog(v); if (!v) { setEditProd(null); setProdForm({ name: "", price: "", description: "", type: "product", sub_category: "" }); } }}>
+                <DialogContent className="rounded-2xl max-w-md max-h-[90vh] overflow-y-auto">
                   <DialogHeader><DialogTitle>{editProd ? "Edit Product" : "Add Product"}</DialogTitle></DialogHeader>
                   <div className="flex flex-col gap-4 pb-2">
                     <div><Label className="text-sm">Name *</Label><Input value={prodForm.name} onChange={e => setProdForm((f: any) => ({ ...f, name: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="Product name" data-testid="input-prod-name" /></div>
                     <div><Label className="text-sm">Price (₹) *</Label><Input type="number" value={prodForm.price} onChange={e => setProdForm((f: any) => ({ ...f, price: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="e.g. 299" data-testid="input-prod-price" /></div>
-                    <div><Label className="text-sm">Description</Label><Textarea value={prodForm.description} onChange={e => setProdForm((f: any) => ({ ...f, description: e.target.value }))} className="mt-1.5 rounded-xl resize-none" rows={3} /></div>
+                    <div><Label className="text-sm">Description</Label><Textarea value={prodForm.description} onChange={e => setProdForm((f: any) => ({ ...f, description: e.target.value }))} className="mt-1.5 rounded-xl resize-none" rows={2} /></div>
                     <div>
                       <Label className="text-sm">Type</Label>
                       <Select value={prodForm.type} onValueChange={v => setProdForm((f: any) => ({ ...f, type: v }))}>
@@ -497,6 +498,44 @@ export default function VendorDashboard() {
                         </SelectContent>
                       </Select>
                     </div>
+                    {/* Sub Category */}
+                    {(() => {
+                      const catName = (shop as any)?.category?.name || "";
+                      const subCatMap: Record<string, string[]> = {
+                        "Food & Dining": ["Starters", "Soups", "Biryanis", "Main Course", "Breads", "Desserts", "Beverages", "Rice Items", "Combos", "Non-Veg", "Veg"],
+                        "Biryani": ["Veg Biryanis", "Non-Veg Biryanis", "Starters", "Soups", "Rotis", "Desserts", "Beverages", "Combos"],
+                        "Restaurants": ["Starters", "Soups", "Main Course", "Biryanis", "Breads", "Desserts", "Beverages", "Combos", "Tiffins", "Thalis"],
+                        "Bakery": ["Cakes", "Pastries", "Cookies", "Breads", "Savories", "Beverages", "Sweets", "Desserts"],
+                        "Beauty & Wellness": ["Hair", "Facials", "Spa", "Waxing", "Makeup", "Nail Art", "Massage", "Body Treatments", "Threading", "Skin Care"],
+                        "Electronics": ["Mobiles", "Laptops", "Tablets", "Accessories", "Audio", "Smart Home", "Gaming", "Cameras", "TVs", "Cables & Chargers"],
+                        "Fashion": ["Men", "Women", "Kids", "Footwear", "Accessories", "Traditional Wear", "Casual Wear", "Sportswear", "Innerwear"],
+                        "Jewelry": ["Gold Jewelry", "Diamond Jewelry", "Silver Jewelry", "Chains", "Rings", "Bangles", "Pendants", "Earrings", "Bracelets"],
+                        "Groceries": ["Fruits & Vegetables", "Dairy", "Grains & Pulses", "Snacks", "Beverages", "Personal Care", "Cleaning", "Frozen Foods"],
+                        "Pharmacy & Health": ["Medicines", "Health Supplements", "Baby Care", "Vitamins", "Medical Devices", "Skin Care", "Personal Hygiene"],
+                        "Education": ["Courses", "Study Materials", "Books", "Stationery", "Test Prep", "Coaching"],
+                        "Sports & Fitness": ["Footwear", "Clothing", "Equipment", "Accessories", "Nutrition", "Cricket", "Football", "Badminton", "Yoga"],
+                        "Entertainment": ["Movie Tickets", "Snacks & Beverages", "Merchandise", "Combo Deals"],
+                        "Travel": ["Rooms", "Dining", "Spa", "Events", "Meeting Halls", "Packages"],
+                        "Home & Living": ["Furniture", "Decor", "Kitchen", "Bedding", "Lighting", "Storage", "Bath"],
+                      };
+                      const suggestions = subCatMap[catName] || ["General", "Special", "Featured", "New Arrivals", "Best Sellers", "Seasonal"];
+                      return (
+                        <div>
+                          <Label className="text-sm">Category <span className="text-muted-foreground text-xs font-normal">(groups products by type)</span></Label>
+                          <Input value={prodForm.sub_category || ""} onChange={e => setProdForm((f: any) => ({ ...f, sub_category: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="e.g. Starters, Hair, Mobiles..." data-testid="input-prod-subcategory" list="vendor-subcategory-suggestions" />
+                          <datalist id="vendor-subcategory-suggestions">{suggestions.map(s => <option key={s} value={s} />)}</datalist>
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {suggestions.slice(0, 8).map(s => (
+                              <button key={s} type="button" onClick={() => setProdForm((f: any) => ({ ...f, sub_category: s }))}
+                                className={`text-[11px] px-2 py-1 rounded-lg border transition-all ${prodForm.sub_category === s ? "bg-blue-500 text-white border-blue-500" : "border-gray-200 dark:border-gray-700 text-muted-foreground hover:border-blue-300 hover:text-blue-600"}`}
+                                data-testid={`chip-subcategory-${s.replace(/\s+/g, "-").toLowerCase()}`}>
+                                {s}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
                     <Button onClick={() => saveProdMutation.mutate(prodForm)} disabled={saveProdMutation.isPending || !prodForm.name || !prodForm.price} className="rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 border-0" data-testid="button-save-product">
                       {saveProdMutation.isPending ? "Saving..." : editProd ? "Update Product" : "Add Product"}
                     </Button>

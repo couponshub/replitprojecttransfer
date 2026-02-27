@@ -56,6 +56,7 @@ export const products = pgTable("products", {
   price: numeric("price", { precision: 10, scale: 2 }),
   images: text("images").array(),
   image: text("image"),
+  sub_category: text("sub_category"),
   grams: text("grams"),
   quantity: text("quantity"),
   size: text("size"),
