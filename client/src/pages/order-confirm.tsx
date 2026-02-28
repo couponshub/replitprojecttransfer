@@ -83,7 +83,10 @@ export default function OrderConfirmPage() {
   };
 
   const handleSharePaymentWhatsApp = async () => {
-    if (!order.shopWhatsapp) return;
+    if (!order.shopWhatsapp) {
+      toast({ title: "Shop WhatsApp number not available", description: "This shop has not set up a WhatsApp number.", variant: "destructive" });
+      return;
+    }
     setScreenshotUploading(true);
     try {
       let screenshotUrl = "";
@@ -97,16 +100,26 @@ export default function OrderConfirmPage() {
         }
       }
 
+      const paymentStatus = screenshotUrl
+        ? `✅ Paid — Screenshot attached`
+        : utrNumber.trim()
+          ? `✅ Paid — UTR provided`
+          : `⏳ Payment Pending`;
+
       const lines = [
         `💳 *Payment Confirmation — CouponsHub X*`, ``,
-        `*Shop:* ${order.shopName}`, ``,
+        `*Shop:* ${order.shopName}`,
+        order.orderId ? `*Order ID:* #${order.orderId.slice(0, 8).toUpperCase()}` : "",
+        ``,
         `*Order Items:*`,
         ...order.items.map(i => i.isFreeItem
           ? `• ${i.name} ×${i.quantity} — FREE 🎁`
           : `• ${i.name} ×${i.quantity} — ₹${(i.price * i.quantity).toLocaleString()}`
         ), ``,
         order.discount > 0 ? `*Discount (${order.couponCode || "coupon"}):* -₹${order.discount.toFixed(0)}` : "",
-        `*Total Paid:* ₹${order.finalAmount.toLocaleString()}`, ``,
+        `*Total:* ₹${order.finalAmount.toLocaleString()}`,
+        ``,
+        `*Payment Status:* ${paymentStatus}`,
         utrNumber.trim() ? `*UTR / Transaction ID:* ${utrNumber.trim()}` : "",
         screenshotUrl ? `*Payment Screenshot:* ${screenshotUrl}` : "",
         ``,
@@ -115,7 +128,7 @@ export default function OrderConfirmPage() {
 
       const phone = (order.shopWhatsapp || "").replace(/\D/g, "");
       window.open(`https://wa.me/${phone}?text=${encodeURIComponent(lines.join("\n"))}`, "_blank");
-      toast({ title: "Opening WhatsApp!", description: screenshotFile ? "Screenshot URL included in message. You can also manually attach the screenshot." : "Order + payment details sent!" });
+      toast({ title: "Opening WhatsApp!", description: `Sending to shop's WhatsApp: ${order.shopWhatsapp}` });
     } catch (e: any) {
       toast({ title: e.message || "Failed to share", variant: "destructive" });
     } finally {
