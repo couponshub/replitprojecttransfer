@@ -88,6 +88,9 @@ export default function OrderConfirmPage() {
       return;
     }
     setScreenshotUploading(true);
+    // Open the window IMMEDIATELY (synchronous, tied to user tap) so mobile doesn't block it
+    const phone = (order.shopWhatsapp || "").replace(/\D/g, "");
+    const win = window.open("", "_blank");
     try {
       let screenshotUrl = "";
       if (screenshotFile) {
@@ -126,10 +129,15 @@ export default function OrderConfirmPage() {
         `Please confirm receipt. Thank you! 🙏`,
       ].filter(Boolean);
 
-      const phone = (order.shopWhatsapp || "").replace(/\D/g, "");
-      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(lines.join("\n"))}`, "_blank");
-      toast({ title: "Opening WhatsApp!", description: `Sending to shop's WhatsApp: ${order.shopWhatsapp}` });
+      const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(lines.join("\n"))}`;
+      if (win) {
+        win.location.href = waUrl;
+      } else {
+        window.location.href = waUrl;
+      }
+      toast({ title: "WhatsApp తెరుచుకుంటోంది ✓" });
     } catch (e: any) {
+      if (win) win.close();
       toast({ title: e.message || "Failed to share", variant: "destructive" });
     } finally {
       setScreenshotUploading(false);
