@@ -47,7 +47,7 @@ function sanitizeBody(body: any, extraOmit: string[] = []): any {
   for (const [k, v] of Object.entries(body)) {
     if (omit.has(k)) continue;
     if (k === "expiry_date" && v) { out[k] = new Date(v as string); continue; }
-    out[k] = v;
+    out[k] = v === "" ? null : v;
   }
   return out;
 }
@@ -1508,7 +1508,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const shopId = (req as any).vendor.shop_id;
       const { coupon_products: cpItems, ...rest } = req.body;
-      const body = { ...rest, shop_id: shopId };
+      const cleaned = Object.fromEntries(Object.entries(rest).map(([k, v]) => [k, v === "" ? null : v]));
+      const body = { ...cleaned, shop_id: shopId };
       if (body.expiry_date) body.expiry_date = new Date(body.expiry_date);
       const coupon = await storage.createCoupon(body);
       if (cpItems && Array.isArray(cpItems) && cpItems.length > 0) {
