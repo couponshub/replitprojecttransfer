@@ -481,8 +481,27 @@ export default function VendorDashboard() {
                   <p>No products yet. Add your first one!</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {products.map((prod: any) => (
+                <div className="flex flex-col gap-6">
+                  {(() => {
+                    const grouped: Record<string, any[]> = {};
+                    products.forEach((prod: any) => {
+                      const cat = prod.sub_category || "Other";
+                      if (!grouped[cat]) grouped[cat] = [];
+                      grouped[cat].push(prod);
+                    });
+                    const cats = Object.keys(grouped).sort((a, b) => a === "Other" ? 1 : b === "Other" ? -1 : a.localeCompare(b));
+                    return cats.map(cat => (
+                      <div key={cat}>
+                        <div className="flex items-center gap-2 mb-3" data-testid={`vendor-cat-header-${cat}`}>
+                          <div className="h-px flex-1 bg-gradient-to-r from-blue-200 to-violet-200 dark:from-blue-900 dark:to-violet-900" />
+                          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-blue-100 to-violet-100 dark:from-blue-950/50 dark:to-violet-950/50 border border-blue-200 dark:border-blue-800">
+                            <span className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider">{cat}</span>
+                            <span className="text-[10px] font-bold text-blue-500 dark:text-blue-400 bg-blue-200 dark:bg-blue-900/60 px-1.5 py-0.5 rounded-full">{grouped[cat].length}</span>
+                          </div>
+                          <div className="h-px flex-1 bg-gradient-to-l from-blue-200 to-violet-200 dark:from-blue-900 dark:to-violet-900" />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {grouped[cat].map((prod: any) => (
                     <Card key={prod.id} className="border-0 shadow-md rounded-2xl overflow-hidden" data-testid={`card-product-${prod.id}`}>
                       <div className="h-1 bg-gradient-to-r from-blue-500 to-violet-600" />
                       <CardContent className="p-4">
@@ -514,7 +533,11 @@ export default function VendorDashboard() {
                         </div>
                       </CardContent>
                     </Card>
-                  ))}
+                          ))}
+                        </div>
+                      </div>
+                    ));
+                  })()}
                 </div>
               )}
 

@@ -78,6 +78,9 @@ export default function AdminDashboard() {
   const [couponSort, setCouponSort] = useState<"az" | "za" | "none">("none");
   const [prodShopFilter, setProdShopFilter] = useState("");
   const [couponShopFilter, setCouponShopFilter] = useState("");
+  const [userSearch, setUserSearch] = useState("");
+  const [vendorSearch, setVendorSearch] = useState("");
+  const [orderSearch, setOrderSearch] = useState("");
   const [productImageUrls, setProductImageUrls] = useState<string[]>([""]);
   const [shopBanners, setShopBanners] = useState<string[]>([""]);
   const [qrUploading, setQrUploading] = useState(false);
@@ -569,8 +572,12 @@ export default function AdminDashboard() {
 
           {activeTab === "users" && (
             <div className="flex flex-col gap-4">
-              <div className="flex justify-end">
-                <Button onClick={() => { setUserForm({ name: "", email: "", phone: "", password: "" }); setUserDialogOpen(true); }} size="sm" className="rounded-xl gap-2 bg-gradient-to-r from-blue-500 to-violet-600 shadow-lg shadow-blue-500/25" data-testid="button-create-user">
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="relative flex-1 min-w-[160px] max-w-xs">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                  <Input value={userSearch} onChange={e => setUserSearch(e.target.value)} placeholder="Search users by name or email..." className="pl-8 rounded-xl h-9 text-sm" data-testid="input-user-search" />
+                </div>
+                <Button onClick={() => { setUserForm({ name: "", email: "", phone: "", password: "" }); setUserDialogOpen(true); }} size="sm" className="rounded-xl gap-2 bg-gradient-to-r from-blue-500 to-violet-600 shadow-lg shadow-blue-500/25 shrink-0" data-testid="button-create-user">
                   <Plus className="w-4 h-4" /> Create User
                 </Button>
               </div>
@@ -620,7 +627,7 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-50 dark:divide-gray-800/50">
-                        {allUsers.map((u: any) => (
+                        {allUsers.filter((u: any) => !userSearch || u.name.toLowerCase().includes(userSearch.toLowerCase()) || u.email.toLowerCase().includes(userSearch.toLowerCase()) || (u.phone && u.phone.includes(userSearch))).map((u: any) => (
                           <tr key={u.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors" data-testid={`row-user-${u.id}`}>
                             <td className="px-5 py-3.5">
                               <div className="flex items-center gap-3">
@@ -661,14 +668,18 @@ export default function AdminDashboard() {
 
           {activeTab === "vendors" && (
             <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-3">
                 <div>
                   <h2 className="font-bold text-gray-900 dark:text-white">Vendor Login Accounts</h2>
                   <p className="text-xs text-muted-foreground mt-0.5">Each shop can have one vendor login. Click "Set Login" to create or update.</p>
                 </div>
+                <div className="relative min-w-[200px] max-w-xs w-full sm:w-auto">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                  <Input value={vendorSearch} onChange={e => setVendorSearch(e.target.value)} placeholder="Search shops..." className="pl-8 rounded-xl h-9 text-sm" data-testid="input-vendor-search" />
+                </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {shops.map(shop => {
+                {shops.filter(s => !vendorSearch || s.name.toLowerCase().includes(vendorSearch.toLowerCase())).map(shop => {
                   const vendorAcc = vendorAccounts.find((v: any) => v.shop_id === shop.id);
                   return (
                     <Card key={shop.id} className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900 overflow-hidden" data-testid={`card-vendor-${shop.id}`}>
@@ -1350,10 +1361,10 @@ export default function AdminDashboard() {
               </div>
               <Card className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900">
                 <CardContent className="p-0">
-                  <div className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800">
-                    {filteredProducts.map(prod => {
-                      const isService = (prod as any).type === "service";
-                      const firstImg = (prod as any).images?.[0] || prod.image;
+                  {(() => {
+                    const renderProdRow = (prod: any) => {
+                      const isService = prod.type === "service";
+                      const firstImg = prod.images?.[0] || prod.image;
                       return (
                         <div key={prod.id} className="flex items-center justify-between px-5 py-4 gap-4 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors" data-testid={`row-product-${prod.id}`}>
                           <div className="flex items-center gap-3 min-w-0">
@@ -1363,32 +1374,51 @@ export default function AdminDashboard() {
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <p className="font-medium text-sm text-gray-900 dark:text-white truncate">{prod.name}</p>
-                                <Badge className={`border-0 text-[10px] px-1.5 py-0 shrink-0 ${isService ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"}`}>
-                                  {isService ? "Service" : "Product"}
-                                </Badge>
+                                <Badge className={`border-0 text-[10px] px-1.5 py-0 shrink-0 ${isService ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"}`}>{isService ? "Service" : "Product"}</Badge>
                               </div>
-                              <p className="text-xs text-muted-foreground truncate">
-                                {prod.shop?.name}{prod.price ? ` · ₹${parseFloat(prod.price as string).toLocaleString()}` : ""}
-                              </p>
+                              <p className="text-xs text-muted-foreground truncate">{prod.shop?.name}{prod.price ? ` · ₹${parseFloat(prod.price as string).toLocaleString()}` : ""}</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
-                            <button
-                              onClick={() => saveMutation.mutate({ type: "products", data: { is_active: !(prod as any).is_active }, id: prod.id })}
-                              className={`relative w-10 h-5.5 rounded-full transition-colors shrink-0 focus:outline-none ${(prod as any).is_active !== false ? "bg-emerald-500" : "bg-gray-300 dark:bg-gray-600"}`}
-                              title={(prod as any).is_active !== false ? "Active — click to deactivate" : "Inactive — click to activate"}
-                              data-testid={`toggle-product-active-${prod.id}`}
-                              style={{ minWidth: 36, height: 22 }}
-                            >
-                              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${(prod as any).is_active !== false ? "translate-x-[18px]" : "translate-x-0.5"}`} />
+                            <button onClick={() => saveMutation.mutate({ type: "products", data: { is_active: !prod.is_active }, id: prod.id })} className={`relative rounded-full transition-colors shrink-0 focus:outline-none ${prod.is_active !== false ? "bg-emerald-500" : "bg-gray-300 dark:bg-gray-600"}`} title={prod.is_active !== false ? "Active" : "Inactive"} data-testid={`toggle-product-active-${prod.id}`} style={{ minWidth: 36, height: 22 }}>
+                              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${prod.is_active !== false ? "translate-x-[18px]" : "translate-x-0.5"}`} />
                             </button>
                             <Button size="icon" variant="ghost" className="rounded-xl h-9 w-9" onClick={() => openEdit(prod)} data-testid={`button-edit-product-${prod.id}`}><Edit className="w-4 h-4" /></Button>
                             <Button size="icon" variant="ghost" className="rounded-xl h-9 w-9" onClick={() => deleteMutation.mutate({ type: "products", id: prod.id })} data-testid={`button-delete-product-${prod.id}`}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                           </div>
                         </div>
                       );
-                    })}
-                  </div>
+                    };
+
+                    if (filterShopId) {
+                      const grouped: Record<string, any[]> = {};
+                      filteredProducts.forEach(prod => {
+                        const cat = (prod as any).sub_category || "Other";
+                        if (!grouped[cat]) grouped[cat] = [];
+                        grouped[cat].push(prod);
+                      });
+                      const cats = Object.keys(grouped).sort((a, b) => a === "Other" ? 1 : b === "Other" ? -1 : a.localeCompare(b));
+                      return (
+                        <div className="flex flex-col">
+                          {cats.map(cat => (
+                            <div key={cat}>
+                              <div className="px-5 py-2.5 bg-gradient-to-r from-blue-50 to-violet-50 dark:from-blue-950/30 dark:to-violet-950/20 border-y border-blue-100 dark:border-blue-900/50 flex items-center gap-2 sticky top-0 z-10" data-testid={`category-header-${cat}`}>
+                                <div className="w-5 h-5 rounded bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shrink-0">
+                                  <Tag className="w-2.5 h-2.5 text-white" />
+                                </div>
+                                <span className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider">{cat}</span>
+                                <span className="text-[10px] text-blue-500 dark:text-blue-400 font-bold bg-blue-100 dark:bg-blue-900/50 px-1.5 py-0.5 rounded-full">{grouped[cat].length}</span>
+                              </div>
+                              <div className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800">
+                                {grouped[cat].map(prod => renderProdRow(prod))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    }
+                    return <div className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800">{filteredProducts.map(prod => renderProdRow(prod))}</div>;
+                  })()}
                 </CardContent>
               </Card>
               {/* Bulk Upload from Text Dialog */}
@@ -2033,6 +2063,12 @@ export default function AdminDashboard() {
 
           {activeTab === "orders" && (
             <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                  <Input value={orderSearch} onChange={e => setOrderSearch(e.target.value)} placeholder="Search by customer name, phone or order ID..." className="pl-8 rounded-xl h-9 text-sm" data-testid="input-order-search" />
+                </div>
+              </div>
               <Card className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900">
                 <CardContent className="p-0">
                   <div className="overflow-x-auto">
@@ -2048,7 +2084,7 @@ export default function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-50 dark:divide-gray-800/50">
-                        {orders.map(order => (
+                        {orders.filter(order => !orderSearch || order.id.toLowerCase().includes(orderSearch.toLowerCase()) || (order as any).user?.name?.toLowerCase().includes(orderSearch.toLowerCase()) || (order as any).user?.phone?.includes(orderSearch) || (order as any).shop_name?.toLowerCase().includes(orderSearch.toLowerCase())).map(order => (
                           <tr key={order.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors" data-testid={`row-order-${order.id}`}>
                             <td className="px-5 py-3.5">
                               <span className="font-mono font-bold text-sm text-gray-900 dark:text-white">#{order.id.slice(0, 8).toUpperCase()}</span>

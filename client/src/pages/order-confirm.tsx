@@ -1,12 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
   CheckCircle, MessageCircle, CreditCard, Home, Phone,
-  Copy, Check, QrCode, X, Loader2, IndianRupee, ShieldCheck
+  Copy, Check, QrCode, X, Loader2, IndianRupee, ShieldCheck,
+  Upload, ImageIcon, Send
 } from "lucide-react";
 
 interface OrderData {
@@ -31,6 +34,11 @@ export default function OrderConfirmPage() {
   const [copied, setCopied] = useState(false);
   const [razorpayLoading, setRazorpayLoading] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [utrNumber, setUtrNumber] = useState("");
+  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
+  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
+  const [screenshotUploading, setScreenshotUploading] = useState(false);
+  const screenshotRef = useRef<HTMLInputElement>(null);
 
   const raw = sessionStorage.getItem("pendingOrder");
   const order: OrderData | null = raw ? JSON.parse(raw) : null;
@@ -65,6 +73,54 @@ export default function OrderConfirmPage() {
     window.open(`https://wa.me/${phone}?text=${buildWhatsAppMessage()}`, "_blank");
     sessionStorage.removeItem("pendingOrder");
     navigate("/my-orders");
+  };
+
+  const handleScreenshotSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setScreenshotFile(file);
+    setScreenshotPreview(URL.createObjectURL(file));
+  };
+
+  const handleSharePaymentWhatsApp = async () => {
+    if (!order.shopWhatsapp) return;
+    setScreenshotUploading(true);
+    try {
+      let screenshotUrl = "";
+      if (screenshotFile) {
+        const fd = new FormData();
+        fd.append("file", screenshotFile);
+        const res = await fetch("/api/upload", { method: "POST", body: fd });
+        if (res.ok) {
+          const data = await res.json();
+          screenshotUrl = data.url || "";
+        }
+      }
+
+      const lines = [
+        `💳 *Payment Confirmation — CouponsHub X*`, ``,
+        `*Shop:* ${order.shopName}`, ``,
+        `*Order Items:*`,
+        ...order.items.map(i => i.isFreeItem
+          ? `• ${i.name} ×${i.quantity} — FREE 🎁`
+          : `• ${i.name} ×${i.quantity} — ₹${(i.price * i.quantity).toLocaleString()}`
+        ), ``,
+        order.discount > 0 ? `*Discount (${order.couponCode || "coupon"}):* -₹${order.discount.toFixed(0)}` : "",
+        `*Total Paid:* ₹${order.finalAmount.toLocaleString()}`, ``,
+        utrNumber.trim() ? `*UTR / Transaction ID:* ${utrNumber.trim()}` : "",
+        screenshotUrl ? `*Payment Screenshot:* ${screenshotUrl}` : "",
+        ``,
+        `Please confirm receipt. Thank you! 🙏`,
+      ].filter(Boolean);
+
+      const phone = (order.shopWhatsapp || "").replace(/\D/g, "");
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(lines.join("\n"))}`, "_blank");
+      toast({ title: "Opening WhatsApp!", description: screenshotFile ? "Screenshot URL included in message. You can also manually attach the screenshot." : "Order + payment details sent!" });
+    } catch (e: any) {
+      toast({ title: e.message || "Failed to share", variant: "destructive" });
+    } finally {
+      setScreenshotUploading(false);
+    }
   };
 
   const handleCopyUPI = () => {
@@ -234,11 +290,51 @@ export default function OrderConfirmPage() {
                   </div>
                 </div>
               )}
-              <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 rounded-xl px-4 py-2 text-center w-full">
-                After payment, share screenshot on WhatsApp for confirmation.
-              </p>
+              {/* UTR Number */}
+              <div className="w-full">
+                <Label className="text-xs font-semibold text-muted-foreground mb-1.5 block">UTR / Transaction ID <span className="font-normal">(optional)</span></Label>
+                <Input
+                  value={utrNumber}
+                  onChange={e => setUtrNumber(e.target.value)}
+                  placeholder="e.g. 424242424242"
+                  className="rounded-xl text-sm"
+                  data-testid="input-utr-number"
+                />
+              </div>
+
+              {/* Screenshot Upload */}
+              <div className="w-full">
+                <Label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Payment Screenshot <span className="font-normal">(optional)</span></Label>
+                <input type="file" accept="image/*" ref={screenshotRef} className="hidden" onChange={handleScreenshotSelect} data-testid="input-screenshot-file" />
+                {screenshotPreview ? (
+                  <div className="relative">
+                    <img src={screenshotPreview} alt="Screenshot" className="w-full h-32 object-cover rounded-xl border border-gray-200 dark:border-gray-700" data-testid="img-screenshot-preview" />
+                    <button onClick={() => { setScreenshotFile(null); setScreenshotPreview(null); if (screenshotRef.current) screenshotRef.current.value = ""; }} className="absolute top-2 right-2 w-7 h-7 bg-black/60 text-white rounded-full flex items-center justify-center" data-testid="button-remove-screenshot">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={() => screenshotRef.current?.click()} className="w-full flex items-center justify-center gap-2 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl py-4 text-sm text-muted-foreground hover:border-blue-400 hover:text-blue-500 transition-colors" data-testid="button-upload-screenshot">
+                    <ImageIcon className="w-4 h-4" /> Upload payment screenshot
+                  </button>
+                )}
+              </div>
+
+              {/* Share on WhatsApp */}
+              {order.shopWhatsapp && (
+                <Button
+                  onClick={handleSharePaymentWhatsApp}
+                  disabled={screenshotUploading}
+                  className="w-full rounded-xl bg-[#25D366] hover:bg-[#20b958] text-white border-0 gap-2"
+                  data-testid="button-share-payment-whatsapp"
+                >
+                  {screenshotUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  {screenshotUploading ? "Uploading & Sharing..." : "Share Payment via WhatsApp"}
+                </Button>
+              )}
+
               <Button onClick={() => { sessionStorage.removeItem("pendingOrder"); navigate("/my-orders"); }} className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 border-0 text-white" data-testid="button-done-payment">
-                I've Paid — View Orders
+                Done — View My Orders
               </Button>
             </CardContent>
           </Card>
