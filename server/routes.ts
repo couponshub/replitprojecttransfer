@@ -995,8 +995,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           .from(SUPABASE_BUCKET)
           .upload(fileName, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
         if (error) {
-          if (error.message?.includes("Bucket not found") || error.message?.includes("bucket")) {
-            return res.status(400).json({ error: "supabase_bucket_missing", message: "Please create a public bucket named 'images' in your Supabase Storage dashboard." });
+          console.error("[Supabase Upload Error]", JSON.stringify(error));
+          const msg = (error.message || "").toLowerCase();
+          if (msg.includes("bucket") || msg.includes("not found") || msg.includes("does not exist") || msg.includes("no such")) {
+            return res.status(400).json({ error: "supabase_bucket_missing", message: "Please create a public bucket named 'images' in your Supabase Storage dashboard.", detail: error.message });
           }
           throw new Error(error.message);
         }
