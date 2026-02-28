@@ -8,10 +8,34 @@ import path from "path";
 import fs from "fs";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY)
-  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
+// Use service key for server-side uploads (has storage write permissions)
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
+const supabase = (process.env.SUPABASE_URL && supabaseServiceKey)
+  ? createClient(process.env.SUPABASE_URL, supabaseServiceKey)
   : null;
 const SUPABASE_BUCKET = "images";
+
+// Try to auto-create the bucket on startup
+if (supabase) {
+  (async () => {
+    try {
+      const { error } = await supabase.storage.createBucket(SUPABASE_BUCKET, {
+        public: true,
+        allowedMimeTypes: ["image/*"],
+        fileSizeLimit: 10 * 1024 * 1024,
+      });
+      if (!error) {
+        console.log(`[Supabase] Bucket '${SUPABASE_BUCKET}' created successfully`);
+      } else if (error.message?.toLowerCase().includes("already exists") || error.message?.toLowerCase().includes("duplicate")) {
+        console.log(`[Supabase] Bucket '${SUPABASE_BUCKET}' already exists — ready`);
+      } else {
+        console.warn(`[Supabase] Could not auto-create bucket: ${error.message} — please create '${SUPABASE_BUCKET}' (Public) manually in Supabase Dashboard → Storage`);
+      }
+    } catch (e: any) {
+      console.warn("[Supabase] Startup bucket check failed:", e.message);
+    }
+  })();
+}
 import { insertUserSchema, insertCategorySchema, insertShopSchema, insertProductSchema, insertCouponSchema, users, categories, shops, products, coupons, orders, orderItems, vendors, offlineCoupons } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 
