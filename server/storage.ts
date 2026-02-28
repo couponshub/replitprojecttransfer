@@ -31,9 +31,11 @@ export interface IStorage {
 
   // Categories
   getAllCategories(): Promise<Category[]>;
+  getTopCategories(): Promise<Category[]>;
   getCategory(id: string): Promise<Category | undefined>;
   createCategory(cat: InsertCategory): Promise<Category>;
   updateCategory(id: string, cat: Partial<InsertCategory>): Promise<Category | undefined>;
+  toggleTopCategory(id: string): Promise<Category | undefined>;
   deleteCategory(id: string): Promise<void>;
 
   // Shops
@@ -43,6 +45,7 @@ export interface IStorage {
   updateShop(id: string, shop: Partial<InsertShop>): Promise<Shop | undefined>;
   deleteShop(id: string): Promise<void>;
   getFeaturedShops(): Promise<(Shop & { category?: Category })[]>;
+  toggleTopShop(id: string): Promise<Shop | undefined>;
 
   // Products
   getAllProducts(shopId?: string): Promise<(Product & { shop?: Shop })[]>;
@@ -158,6 +161,17 @@ export class PgStorage implements IStorage {
 
   async deleteCategory(id: string): Promise<void> {
     await db.delete(categories).where(eq(categories.id, id));
+  }
+
+  async getTopCategories(): Promise<Category[]> {
+    return db.select().from(categories).where(eq(categories.is_top, true)).orderBy(categories.name);
+  }
+
+  async toggleTopCategory(id: string): Promise<Category | undefined> {
+    const current = await db.select().from(categories).where(eq(categories.id, id)).limit(1);
+    if (!current[0]) return undefined;
+    const result = await db.update(categories).set({ is_top: !current[0].is_top }).where(eq(categories.id, id)).returning();
+    return result[0];
   }
 
   async getAllShops(categoryId?: string): Promise<(Shop & { category?: Category })[]> {
@@ -439,7 +453,18 @@ export class PgStorage implements IStorage {
   }
 
   async getTopShops(): Promise<Shop[]> {
-    return db.select().from(shops).where(eq(shops.featured, true)).orderBy(desc(shops.is_premium), desc(shops.created_at)).limit(6);
+    const result = await db.select().from(shops)
+      .leftJoin(categories, eq(shops.category_id, categories.id))
+      .where(eq(shops.is_top, true))
+      .orderBy(desc(shops.is_premium), desc(shops.created_at));
+    return result.map(r => ({ ...r.shops, category: r.categories || undefined }));
+  }
+
+  async toggleTopShop(id: string): Promise<Shop | undefined> {
+    const current = await db.select().from(shops).where(eq(shops.id, id)).limit(1);
+    if (!current[0]) return undefined;
+    const result = await db.update(shops).set({ is_top: !current[0].is_top }).where(eq(shops.id, id)).returning();
+    return result[0];
   }
 
   async getTopCoupons(): Promise<(Coupon & { shop?: Shop })[]> {

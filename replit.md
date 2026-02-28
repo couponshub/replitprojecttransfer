@@ -44,13 +44,26 @@ A full-stack marketplace for Eluru, AP — discover coupons, offline deals, and 
 - **Top Shops** - Ranked premium shops
 - **Top Coupons** - Active coupons showcase
 
+### Category Page Features
+- **Shops tab** (default): Premium shops first, then regular shops, A→Z / Z→A sort
+- **Products & Services tab**: Fetches all products from shops in this category, live search bar filtering by name/description/sub_category, product count badge
+
+### Home Page
+- **Top Categories** (Apple-style grid): Shows categories with `is_top=true` in a 5-column×2-row horizontally scrollable grid; falls back to standard list if none marked
+- **Top Shops**: Shows shops with `is_top=true` as circular logos; falls back to featured/all shops
+- Admin marks categories/shops as "top" via the ★ toggle in the Admin panel → Categories tab and all-shops list
+
 ### API Endpoints
 - `POST /api/auth/login` - Login (email or phone)
 - `POST /api/auth/register` - Register (with optional phone)
 - `GET /api/auth/me` - Current user
 - `GET/POST/PUT/DELETE /api/categories` - Categories CRUD
+- `GET /api/categories/top` - Categories with is_top=true
 - `GET/POST/PUT/DELETE /api/shops` - Shops CRUD
 - `GET /api/shops/featured` - Featured shops
+- `GET /api/shops/top` - Shops with is_top=true
+- `PATCH /api/admin/categories/:id/toggle-top` - Toggle top status for category (admin)
+- `PATCH /api/admin/shops/:id/toggle-top` - Toggle top status for shop (admin)
 - `GET/POST/PUT/DELETE /api/products` - Products CRUD
 - `GET/POST/PUT/DELETE /api/coupons` - Coupons CRUD
 - `POST /api/coupons/validate` - Validate coupon code

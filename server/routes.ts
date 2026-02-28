@@ -988,6 +988,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(allCats);
   });
 
+  app.get("/api/categories/top", async (req, res) => {
+    res.json(await storage.getTopCategories());
+  });
+
+  app.patch("/api/admin/categories/:id/toggle-top", adminMiddleware, async (req, res) => {
+    const updated = await storage.toggleTopCategory(req.params.id);
+    if (!updated) return res.status(404).json({ error: "Not found" });
+    res.json(updated);
+  });
+
+  app.patch("/api/admin/shops/:id/toggle-top", adminMiddleware, async (req, res) => {
+    const updated = await storage.toggleTopShop(req.params.id);
+    if (!updated) return res.status(404).json({ error: "Not found" });
+    res.json(updated);
+  });
+
   app.post("/api/categories", adminMiddleware, async (req, res) => {
     try {
       const data = insertCategorySchema.parse(req.body);
@@ -1046,6 +1062,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/api/shops/featured", async (req, res) => {
     res.json(await storage.getFeaturedShops());
+  });
+
+  app.get("/api/shops/top", async (req, res) => {
+    res.json(await storage.getTopShops());
   });
 
   app.get("/api/shops/:id", async (req, res) => {

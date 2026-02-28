@@ -246,6 +246,15 @@ export default function AdminDashboard() {
     }
   };
 
+  const toggleTopCategoryMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("PATCH", `/api/admin/categories/${id}/toggle-top`),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/categories"] }); toast({ title: "Top category updated!" }); },
+  });
+  const toggleTopShopMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("PATCH", `/api/admin/shops/${id}/toggle-top`),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/shops"] }); queryClient.invalidateQueries({ queryKey: ["/api/admin/top-shops"] }); toast({ title: "Top shop updated!" }); },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: ({ type, id }: { type: string; id: string }) => apiRequest("DELETE", `/api/${type}/${id}`),
     onSuccess: (_, { type }) => {
@@ -781,31 +790,43 @@ export default function AdminDashboard() {
 
           {activeTab === "top-shops" && (
             <div className="flex flex-col gap-4">
-              {topShops.map((shop, i) => (
-                <Card key={shop.id} className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900 overflow-hidden" data-testid={`card-top-shop-${shop.id}`}>
-                  <CardContent className="p-5 flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-lg ${
-                      i === 0 ? "bg-gradient-to-br from-yellow-400 to-amber-500" :
-                      i === 1 ? "bg-gradient-to-br from-gray-300 to-gray-400" :
-                      i === 2 ? "bg-gradient-to-br from-amber-600 to-amber-700" :
-                      "bg-gradient-to-br from-blue-400 to-violet-500"
-                    }`}>
-                      #{i + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-gray-900 dark:text-white">{shop.name}</h3>
-                      <p className="text-xs text-muted-foreground">{shop.description}</p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Badge className="bg-amber-100 text-amber-700 border-0 text-xs gap-1">
-                        <Crown className="w-3 h-3" /> Premium
-                      </Badge>
-                      <span className="text-sm font-semibold text-gray-500">{shop.commission_percentage}%</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-              {topShops.length === 0 && <div className="text-center py-12 text-muted-foreground">No top shops</div>}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-bold text-gray-900 dark:text-white">Top Shops</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">Toggle shops to show them in the "Top Shops" section on home screen. <span className="text-amber-600 font-semibold">{topShops.length} selected</span></p>
+                </div>
+              </div>
+              <Card className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900">
+                <CardContent className="p-0">
+                  <div className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800">
+                    {shops.map((shop: any) => (
+                      <div key={shop.id} className="flex items-center justify-between px-5 py-3.5 gap-4 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors" data-testid={`row-top-shop-${shop.id}`}>
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          {shop.logo ? (
+                            <img src={shop.logo} alt={shop.name} className="w-10 h-10 rounded-xl object-cover shrink-0" onError={e => { (e.target as any).style.display = "none"; }} />
+                          ) : (
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                              {shop.name[0]}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">{shop.name}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">{shop.category?.name || "—"}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => toggleTopShopMutation.mutate(shop.id)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shrink-0 ${shop.is_top ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-700" : "bg-gray-100 dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700 hover:border-amber-300"}`}
+                          data-testid={`button-toggle-top-shop-${shop.id}`}
+                        >
+                          <Star className={`w-3.5 h-3.5 ${shop.is_top ? "fill-amber-500 text-amber-500" : ""}`} />
+                          {shop.is_top ? "Top Shop ✓" : "Add to Top"}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
 
@@ -862,6 +883,14 @@ export default function AdminDashboard() {
                           <span className="font-medium text-gray-900 dark:text-white">{cat.name}</span>
                         </div>
                         <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => toggleTopCategoryMutation.mutate(cat.id)}
+                            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${(cat as any).is_top ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-700" : "bg-gray-100 dark:bg-gray-800 text-gray-500 border-gray-200 dark:border-gray-700 hover:border-amber-300"}`}
+                            data-testid={`button-toggle-top-category-${cat.id}`}
+                          >
+                            <Star className={`w-3 h-3 ${(cat as any).is_top ? "fill-amber-500 text-amber-500" : ""}`} />
+                            {(cat as any).is_top ? "Top" : "Top?"}
+                          </button>
                           <Button size="icon" variant="ghost" className="rounded-xl h-9 w-9" onClick={() => openEdit(cat)} data-testid={`button-edit-category-${cat.id}`}>
                             <Edit className="w-4 h-4" />
                           </Button>

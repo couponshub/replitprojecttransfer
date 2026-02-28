@@ -1636,8 +1636,18 @@ export default function Home() {
     queryFn: () => fetch("/api/categories?withShops=true").then(r => r.json()),
   });
 
+  const { data: topCategories = [], isLoading: topCatLoading } = useQuery<Category[]>({
+    queryKey: ["/api/categories/top"],
+    queryFn: () => fetch("/api/categories/top").then(r => r.json()),
+  });
+
   const { data: featuredShops = [], isLoading: shopLoading } = useQuery<(Shop & { category?: Category })[]>({
     queryKey: ["/api/shops/featured"],
+  });
+
+  const { data: topShopsData = [], isLoading: topShopLoading } = useQuery<(Shop & { category?: Category })[]>({
+    queryKey: ["/api/shops/top"],
+    queryFn: () => fetch("/api/shops/top").then(r => r.json()),
   });
 
   const { data: allMapShops = [] } = useQuery<(Shop & { category?: Category })[]>({
@@ -1833,30 +1843,77 @@ export default function Home() {
         </div>
       )}
 
-      {/* Categories */}
+      {/* Top Categories — Apple-style */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">
             {nearbyMode ? "🎯 Nearby Categories" : "Shop by Category"}
           </h2>
-          <button onClick={() => navigate("/categories")} className="flex items-center gap-1 text-sm font-semibold text-primary hover:underline" data-testid="button-view-all-categories">
+          <button onClick={() => navigate("/categories")} className="flex items-center gap-1 text-sm font-semibold text-blue-500 hover:text-blue-600" data-testid="button-view-all-categories">
             View All <ChevronRight className="w-4 h-4" />
           </button>
         </div>
-        <div className="flex gap-6 overflow-x-auto pb-2 scrollbar-hide">
-          {catLoading
-            ? Array(8).fill(0).map((_, i) => (
-                <div key={i} className="flex flex-col items-center gap-2 shrink-0">
-                  <Skeleton className="w-16 h-16 rounded-2xl" />
-                  <Skeleton className="w-14 h-3 rounded" />
-                </div>
-              ))
-            : displayCategories.map((cat, i) => <CategoryCard key={cat.id} category={cat} index={i} />)
-          }
-        </div>
+
+        {nearbyMode ? (
+          /* Nearby mode: show all categories sorted by proximity */
+          <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide">
+            {topCatLoading || catLoading
+              ? Array(8).fill(0).map((_, i) => (
+                  <div key={i} className="flex flex-col items-center gap-2 shrink-0">
+                    <Skeleton className="w-[72px] h-[72px] rounded-2xl" />
+                    <Skeleton className="w-14 h-3 rounded" />
+                  </div>
+                ))
+              : displayCategories.map((cat, i) => <CategoryCard key={cat.id} category={cat} index={i} />)
+            }
+          </div>
+        ) : topCategories.length > 0 ? (
+          /* Apple-style grid: 4 columns wide, overflow scroll, 2 visible rows */
+          <div className="overflow-x-auto scrollbar-hide -mx-1 px-1">
+            <div
+              className="grid gap-x-3 gap-y-4 pb-2"
+              style={{ gridTemplateColumns: "repeat(5, minmax(72px, 1fr))", gridTemplateRows: "auto auto", gridAutoFlow: "column" }}
+              data-testid="section-top-categories-grid"
+            >
+              {topCategories.map((cat, i) => {
+                const colors = CATEGORY_COLORS[i % CATEGORY_COLORS.length];
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => navigate(`/category/${cat.id}`)}
+                    className="flex flex-col items-center gap-1.5 group"
+                    data-testid={`card-top-category-${cat.id}`}
+                  >
+                    <div className={`w-[72px] h-[72px] rounded-[20px] bg-gradient-to-br ${colors} flex items-center justify-center shadow-md transition-transform active:scale-95 group-hover:scale-105 overflow-hidden relative`}>
+                      {cat.image ? (
+                        <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" onError={e => { (e.target as any).style.display = "none"; }} />
+                      ) : (
+                        <span className="text-3xl">{getCategoryIcon(cat.name)}</span>
+                      )}
+                    </div>
+                    <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 text-center leading-tight max-w-[72px]">{cat.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          /* Fallback if no top categories set */
+          <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide">
+            {catLoading
+              ? Array(8).fill(0).map((_, i) => (
+                  <div key={i} className="flex flex-col items-center gap-2 shrink-0">
+                    <Skeleton className="w-[72px] h-[72px] rounded-2xl" />
+                    <Skeleton className="w-14 h-3 rounded" />
+                  </div>
+                ))
+              : displayCategories.map((cat, i) => <CategoryCard key={cat.id} category={cat} index={i} />)
+            }
+          </div>
+        )}
       </div>
 
-      {/* Top Shops */}
+      {/* Top Shops — Apple-style circles */}
       <div id="shops-section" className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -1872,9 +1929,9 @@ export default function Home() {
         </div>
 
         {/* Round logos row */}
-        {shopLoading ? (
+        {(nearbyMode ? shopLoading : topShopLoading) ? (
           <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide">
-            {Array(8).fill(0).map((_, i) => (
+            {Array(6).fill(0).map((_, i) => (
               <div key={i} className="flex flex-col items-center gap-2 shrink-0">
                 <Skeleton className="w-16 h-16 rounded-full" />
                 <Skeleton className="w-14 h-3 rounded" />
@@ -1883,7 +1940,7 @@ export default function Home() {
           </div>
         ) : (
           <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide" data-testid="section-top-shop-logos">
-            {displayShops.map(shop => (
+            {(nearbyMode ? displayShops : topShopsData.length > 0 ? topShopsData : displayShops).map(shop => (
               <ShopLogoCircle key={shop.id} shop={shop} />
             ))}
           </div>

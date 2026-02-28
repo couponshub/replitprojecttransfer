@@ -22,6 +22,7 @@ export const categories = pgTable("categories", {
   name: text("name").notNull(),
   image: text("image"),
   banner: text("banner"),
+  is_top: boolean("is_top").notNull().default(false),
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -45,6 +46,7 @@ export const shops = pgTable("shops", {
   commission_percentage: numeric("commission_percentage", { precision: 5, scale: 2 }).default("0"),
   subscription_active: boolean("subscription_active").notNull().default(true),
   featured: boolean("featured").notNull().default(false),
+  is_top: boolean("is_top").notNull().default(false),
   listing_type: text("listing_type").notNull().default("both"),
   business_hours: text("business_hours"),
   show_on_radar: boolean("show_on_radar").notNull().default(true),
