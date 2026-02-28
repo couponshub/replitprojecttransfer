@@ -428,10 +428,14 @@ function CategoryCard({ category, index }: { category: Category; index: number }
       className="flex flex-col items-center gap-2 cursor-pointer group shrink-0"
       data-testid={`card-category-${category.id}`}
     >
-      <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${CATEGORY_COLORS[index % CATEGORY_COLORS.length]} flex items-center justify-center text-2xl shadow-md transition-transform group-hover:scale-105`}>
-        {getCategoryIcon(category.name)}
+      <div className={`w-[72px] h-[72px] rounded-[20px] bg-gradient-to-br ${CATEGORY_COLORS[index % CATEGORY_COLORS.length]} flex items-center justify-center text-2xl shadow-md transition-transform group-hover:scale-105 overflow-hidden`}>
+        {(category as any).image ? (
+          <img src={(category as any).image} alt={category.name} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+        ) : (
+          getCategoryIcon(category.name)
+        )}
       </div>
-      <span className="text-xs font-medium text-gray-700 dark:text-gray-300 text-center max-w-16 leading-tight">{category.name}</span>
+      <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 text-center leading-tight max-w-[72px]">{category.name}</span>
     </div>
   );
 }
