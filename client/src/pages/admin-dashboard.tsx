@@ -20,7 +20,7 @@ import {
   Download, RefreshCw, ArrowUpAZ, ArrowDownAZ
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
-import type { Category, Shop, Product, Coupon, Order, User } from "@shared/schema";
+import type { Category, Shop, Product, Coupon, Order, User, OrderItem } from "@shared/schema";
 
 type Tab = "overview" | "categories" | "shops" | "products" | "coupons" | "orders" | "users" | "vendors" | "top-shops" | "top-coupons" | "banners" | "offline-coupons";
 
@@ -83,6 +83,7 @@ export default function AdminDashboard() {
   const [userSearch, setUserSearch] = useState("");
   const [vendorSearch, setVendorSearch] = useState("");
   const [orderSearch, setOrderSearch] = useState("");
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [productImageUrls, setProductImageUrls] = useState<string[]>([""]);
   const [shopBanners, setShopBanners] = useState<string[]>([""]);
   const [qrUploading, setQrUploading] = useState(false);
@@ -147,6 +148,14 @@ export default function AdminDashboard() {
   const { data: topCoupons = [] } = useQuery<(Coupon & { shop?: Shop })[]>({ queryKey: ["/api/admin/top-coupons"] });
   const { data: vendorAccounts = [], refetch: refetchVendors } = useQuery<any[]>({ queryKey: ["/api/admin/vendors"] });
   const { data: adminBanners = [] } = useQuery<any[]>({ queryKey: ["/api/admin/banners"] });
+  const { data: selectedOrderDetail, isLoading: orderDetailLoading } = useQuery<Order & { user?: User; items: (OrderItem & { product?: Product })[] }>({
+    queryKey: ["/api/admin/orders", selectedOrderId],
+    queryFn: () => fetch(`/api/admin/orders/${selectedOrderId}`, {
+      headers: { "Content-Type": "application/json" },
+      credentials: "include"
+    }).then(r => r.json()),
+    enabled: !!selectedOrderId,
+  });
 
   const premiumShops = shops.filter(s => s.is_premium);
 
@@ -2136,6 +2145,7 @@ export default function AdminDashboard() {
                           <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Order</th>
                           <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Customer</th>
                           <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Phone</th>
+                          <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Shop</th>
                           <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Amount</th>
                           <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Date</th>
                           <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Status</th>
@@ -2143,21 +2153,24 @@ export default function AdminDashboard() {
                       </thead>
                       <tbody className="divide-y divide-gray-50 dark:divide-gray-800/50">
                         {orders.filter(order => !orderSearch || order.id.toLowerCase().includes(orderSearch.toLowerCase()) || (order as any).user?.name?.toLowerCase().includes(orderSearch.toLowerCase()) || (order as any).user?.phone?.includes(orderSearch) || (order as any).shop_name?.toLowerCase().includes(orderSearch.toLowerCase())).map(order => (
-                          <tr key={order.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors" data-testid={`row-order-${order.id}`}>
+                          <tr key={order.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer" data-testid={`row-order-${order.id}`} onClick={() => setSelectedOrderId(order.id)}>
                             <td className="px-5 py-3.5">
-                              <span className="font-mono font-bold text-sm text-gray-900 dark:text-white">#{order.id.slice(0, 8).toUpperCase()}</span>
+                              <button className="font-mono font-bold text-sm text-blue-600 dark:text-blue-400 hover:underline" data-testid={`button-order-detail-${order.id}`}>#{order.id.slice(0, 8).toUpperCase()}</button>
                             </td>
                             <td className="px-5 py-3.5">
-                              <span className="text-sm text-gray-700 dark:text-gray-300">{order.user?.name || "Unknown"}</span>
+                              <span className="text-sm text-gray-700 dark:text-gray-300">{(order as any).user?.name || "Unknown"}</span>
                             </td>
                             <td className="px-5 py-3.5">
-                              {order.user?.phone ? (
-                                <a href={`tel:+91${order.user.phone}`} className="text-sm text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:underline" data-testid={`link-order-phone-${order.id}`}>
-                                  <Phone className="w-3 h-3" />+91 {order.user.phone}
+                              {(order as any).user?.phone ? (
+                                <a href={`tel:+91${(order as any).user.phone}`} className="text-sm text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:underline" onClick={e => e.stopPropagation()} data-testid={`link-order-phone-${order.id}`}>
+                                  <Phone className="w-3 h-3" />+91 {(order as any).user.phone}
                                 </a>
                               ) : (
                                 <span className="text-xs text-muted-foreground">—</span>
                               )}
+                            </td>
+                            <td className="px-5 py-3.5">
+                              <span className="text-xs text-muted-foreground truncate max-w-[120px] block">{order.shop_name || "—"}</span>
                             </td>
                             <td className="px-5 py-3.5">
                               <span className="font-bold text-sm text-gray-900 dark:text-white">₹{parseFloat(order.final_amount as string).toLocaleString()}</span>
@@ -2165,7 +2178,7 @@ export default function AdminDashboard() {
                             <td className="px-5 py-3.5 text-xs text-muted-foreground">
                               {new Date(order.created_at).toLocaleDateString()}
                             </td>
-                            <td className="px-5 py-3.5">
+                            <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
                               <Select
                                 value={order.status}
                                 onValueChange={v => updateOrderStatus.mutate({ id: order.id, status: v })}
@@ -2188,6 +2201,133 @@ export default function AdminDashboard() {
                   {orders.length === 0 && <p className="text-muted-foreground text-sm py-8 text-center">No orders yet</p>}
                 </CardContent>
               </Card>
+
+              {/* Order Detail Dialog */}
+              <Dialog open={!!selectedOrderId} onOpenChange={open => { if (!open) setSelectedOrderId(null); }}>
+                <DialogContent className="rounded-2xl max-w-lg max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                      <ShoppingBag className="w-5 h-5 text-primary" />
+                      Order Details
+                    </DialogTitle>
+                  </DialogHeader>
+                  {orderDetailLoading ? (
+                    <div className="flex flex-col gap-3 py-4">
+                      {Array(6).fill(0).map((_, i) => <Skeleton key={i} className="h-8 rounded-xl" />)}
+                    </div>
+                  ) : selectedOrderDetail ? (
+                    <div className="flex flex-col gap-5 pb-2">
+                      {/* Order ID + Status */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-muted-foreground uppercase tracking-wider">Order ID</p>
+                          <p className="font-mono font-bold text-gray-900 dark:text-white">#{selectedOrderDetail.id.slice(0, 8).toUpperCase()}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{new Date(selectedOrderDetail.created_at).toLocaleString("en-IN")}</p>
+                        </div>
+                        <div className="text-right">
+                          <Select
+                            value={selectedOrderDetail.status}
+                            onValueChange={v => { updateOrderStatus.mutate({ id: selectedOrderDetail.id, status: v }); queryClient.invalidateQueries({ queryKey: ["/api/admin/orders", selectedOrderId] }); }}
+                          >
+                            <SelectTrigger className={`rounded-xl text-xs ${STATUS_COLORS[selectedOrderDetail.status] || ""} border-0`} data-testid="select-detail-order-status">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pending">Pending</SelectItem>
+                              <SelectItem value="confirmed">Confirmed</SelectItem>
+                              <SelectItem value="completed">Completed</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* Customer Info */}
+                      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Customer</p>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-2 text-sm">
+                            <Users className="w-4 h-4 text-blue-500 shrink-0" />
+                            <span className="font-semibold text-gray-900 dark:text-white">{selectedOrderDetail.user?.name || "Unknown"}</span>
+                          </div>
+                          {selectedOrderDetail.user?.email && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
+                              <span className="text-muted-foreground">{selectedOrderDetail.user.email}</span>
+                            </div>
+                          )}
+                          {(selectedOrderDetail.user as any)?.phone && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <Phone className="w-4 h-4 text-green-500 shrink-0" />
+                              <a href={`tel:+91${(selectedOrderDetail.user as any).phone}`} className="text-blue-600 dark:text-blue-400 hover:underline">+91 {(selectedOrderDetail.user as any).phone}</a>
+                            </div>
+                          )}
+                          {(selectedOrderDetail.user as any)?.address && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <MapPin className="w-4 h-4 text-violet-500 shrink-0" />
+                              <span className="text-muted-foreground">{(selectedOrderDetail.user as any).address}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Shop */}
+                      {selectedOrderDetail.shop_name && (
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center shrink-0">
+                            <Store className="w-4 h-4 text-emerald-600" />
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Shop</p>
+                            <p className="font-semibold text-sm text-gray-900 dark:text-white">{selectedOrderDetail.shop_name}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Items */}
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Order Items ({selectedOrderDetail.items?.length || 0})</p>
+                        <div className="flex flex-col gap-2">
+                          {(selectedOrderDetail.items || []).map((item, i) => (
+                            <div key={i} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{item.product_name}{item.is_free_item ? " 🎁" : ""}</p>
+                                <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
+                              </div>
+                              <span className="font-semibold text-sm text-gray-900 dark:text-white shrink-0">
+                                {item.is_free_item ? <Badge className="bg-emerald-100 text-emerald-700 border-0 text-xs">FREE</Badge> : `₹${(parseFloat(item.price as string) * item.quantity).toLocaleString()}`}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Amounts */}
+                      <div className="bg-gradient-to-br from-blue-50 to-violet-50 dark:from-blue-950/30 dark:to-violet-950/30 rounded-2xl p-4">
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Subtotal</span>
+                            <span>₹{parseFloat(selectedOrderDetail.total_amount as string).toLocaleString()}</span>
+                          </div>
+                          {parseFloat(selectedOrderDetail.discount_amount as string) > 0 && (
+                            <div className="flex justify-between text-sm text-emerald-600">
+                              <span>Discount {selectedOrderDetail.coupon_code && `(${selectedOrderDetail.coupon_code})`}</span>
+                              <span>-₹{parseFloat(selectedOrderDetail.discount_amount as string).toFixed(0)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between font-bold text-gray-900 dark:text-white pt-1.5 border-t border-gray-200 dark:border-gray-700">
+                            <span>Total</span>
+                            <span className="text-lg">₹{parseFloat(selectedOrderDetail.final_amount as string).toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>Payment</span>
+                            <span className="capitalize">{selectedOrderDetail.payment_status || "unpaid"}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </DialogContent>
+              </Dialog>
             </div>
           )}
 

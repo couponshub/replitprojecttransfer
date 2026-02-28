@@ -15,10 +15,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Store, Package, Ticket, LogOut, Plus, Edit, Trash2, Save,
   Zap, Tag, Phone, MapPin, Globe, Check, ChevronRight,
-  WifiOff, Download, Eye, EyeOff, Upload, Loader2, Image, Link
+  WifiOff, Download, Eye, EyeOff, Upload, Loader2, Image, Link,
+  ShoppingBag, User, IndianRupee, Clock, CheckCircle, X
 } from "lucide-react";
 
-type VTab = "shop" | "products" | "coupons" | "offline-coupons";
+type VTab = "shop" | "products" | "coupons" | "offline-coupons" | "orders";
 
 function getVendorToken() {
   return localStorage.getItem("vendor_token");
@@ -75,6 +76,15 @@ export default function VendorDashboard() {
     queryFn: () => vendorFetch("/api/vendor/shop"),
     enabled: authChecked,
   });
+
+  const { data: vendorOrders = [], isLoading: ordersLoading } = useQuery<any[]>({
+    queryKey: ["/api/vendor/orders"],
+    queryFn: () => vendorFetch("/api/vendor/orders"),
+    enabled: authChecked,
+    refetchInterval: tab === "orders" ? 30000 : false,
+  });
+  const [selectedVendorOrder, setSelectedVendorOrder] = useState<any>(null);
+  const [vendorOrderSearch, setVendorOrderSearch] = useState("");
 
   const [shopForm, setShopForm] = useState<any>({});
   const [shopEditing, setShopEditing] = useState(false);
@@ -256,6 +266,7 @@ export default function VendorDashboard() {
     { id: "products", label: "Products", icon: Package },
     { id: "coupons", label: "Coupons", icon: Ticket },
     { id: "offline-coupons", label: "Offline Coupons", icon: WifiOff },
+    { id: "orders", label: "Orders", icon: ShoppingBag },
   ];
 
   return (
@@ -879,7 +890,194 @@ export default function VendorDashboard() {
             </div>
           )}
 
-          {/* ── Offline Coupons Tab ── */}
+          {/* ── Orders Tab ── */}
+          {tab === "orders" && (
+            <div className="flex flex-col gap-4">
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">Orders</h2>
+                  <p className="text-sm text-muted-foreground">Orders placed from your shop</p>
+                </div>
+                <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-0 text-base px-3 py-1">{vendorOrders.length}</Badge>
+              </div>
+
+              {/* Search */}
+              <div className="relative max-w-sm">
+                <ShoppingBag className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <input
+                  value={vendorOrderSearch}
+                  onChange={e => setVendorOrderSearch(e.target.value)}
+                  placeholder="Search by name, phone or order ID..."
+                  className="w-full pl-8 pr-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm outline-none focus:ring-2 focus:ring-emerald-500/30"
+                  data-testid="input-vendor-order-search"
+                />
+              </div>
+
+              {ordersLoading ? (
+                <div className="flex flex-col gap-3">{Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}</div>
+              ) : vendorOrders.length === 0 ? (
+                <div className="text-center py-16">
+                  <div className="w-20 h-20 rounded-3xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
+                    <ShoppingBag className="w-10 h-10 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">No orders yet</h3>
+                  <p className="text-muted-foreground text-sm">Orders from customers will appear here</p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {vendorOrders
+                    .filter(o => !vendorOrderSearch ||
+                      o.id?.toLowerCase().includes(vendorOrderSearch.toLowerCase()) ||
+                      o.user?.name?.toLowerCase().includes(vendorOrderSearch.toLowerCase()) ||
+                      o.user?.phone?.includes(vendorOrderSearch)
+                    )
+                    .map(order => {
+                      const statusColor = order.status === "completed" ? "bg-emerald-100 text-emerald-700" : order.status === "confirmed" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700";
+                      return (
+                        <Card
+                          key={order.id}
+                          className="rounded-2xl border-0 shadow-md cursor-pointer hover:shadow-lg transition-shadow"
+                          onClick={() => setSelectedVendorOrder(order)}
+                          data-testid={`card-vendor-order-${order.id}`}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center shrink-0">
+                                  <ShoppingBag className="w-5 h-5 text-emerald-600" />
+                                </div>
+                                <div>
+                                  <p className="font-mono font-bold text-sm text-blue-600 dark:text-blue-400">#{order.id.slice(0, 8).toUpperCase()}</p>
+                                  <p className="text-sm font-medium text-gray-900 dark:text-white">{order.user?.name || "Customer"}</p>
+                                  {order.user?.phone && <p className="text-xs text-muted-foreground">+91 {order.user.phone}</p>}
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className="font-bold text-gray-900 dark:text-white">₹{parseFloat(order.final_amount).toLocaleString()}</p>
+                                <Badge className={`${statusColor} border-0 text-[10px] mt-1 capitalize`}>{order.status}</Badge>
+                                <p className="text-[10px] text-muted-foreground mt-1">{new Date(order.created_at).toLocaleDateString("en-IN")}</p>
+                              </div>
+                            </div>
+                            {order.items?.length > 0 && (
+                              <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+                                <p className="text-xs text-muted-foreground">{order.items.length} item{order.items.length > 1 ? "s" : ""}: {order.items.slice(0, 2).map((i: any) => i.product_name).join(", ")}{order.items.length > 2 ? ` +${order.items.length - 2} more` : ""}</p>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })
+                  }
+                </div>
+              )}
+
+              {/* Order Detail Dialog */}
+              <Dialog open={!!selectedVendorOrder} onOpenChange={open => { if (!open) setSelectedVendorOrder(null); }}>
+                <DialogContent className="rounded-2xl max-w-lg max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="text-base font-bold flex items-center gap-2">
+                      <ShoppingBag className="w-4 h-4 text-emerald-500" />
+                      Order #{selectedVendorOrder?.id?.slice(0, 8).toUpperCase()}
+                    </DialogTitle>
+                  </DialogHeader>
+                  {selectedVendorOrder && (
+                    <div className="flex flex-col gap-5 pb-2">
+                      {/* Status + Date */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Placed on</p>
+                          <p className="font-semibold text-sm text-gray-900 dark:text-white">
+                            {new Date(selectedVendorOrder.created_at).toLocaleString("en-IN")}
+                          </p>
+                        </div>
+                        <Badge className={`${selectedVendorOrder.status === "completed" ? "bg-emerald-100 text-emerald-700" : selectedVendorOrder.status === "confirmed" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"} border-0 capitalize text-sm px-3 py-1`}>
+                          {selectedVendorOrder.status}
+                        </Badge>
+                      </div>
+
+                      {/* Customer */}
+                      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Customer</p>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-2 text-sm">
+                            <User className="w-4 h-4 text-blue-500 shrink-0" />
+                            <span className="font-semibold text-gray-900 dark:text-white">{selectedVendorOrder.user?.name || "Unknown"}</span>
+                          </div>
+                          {selectedVendorOrder.user?.phone && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <Phone className="w-4 h-4 text-green-500 shrink-0" />
+                              <a href={`tel:+91${selectedVendorOrder.user.phone}`} className="text-blue-600 dark:text-blue-400">+91 {selectedVendorOrder.user.phone}</a>
+                            </div>
+                          )}
+                          {selectedVendorOrder.user?.address && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <MapPin className="w-4 h-4 text-violet-500 shrink-0" />
+                              <span className="text-muted-foreground">{selectedVendorOrder.user.address}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Items */}
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                          Items ({selectedVendorOrder.items?.length || 0})
+                        </p>
+                        <div className="flex flex-col gap-2">
+                          {(selectedVendorOrder.items || []).map((item: any, i: number) => (
+                            <div key={i} className="flex items-center justify-between py-2.5 border-b border-gray-100 dark:border-gray-800 last:border-0">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 dark:text-white">{item.product_name}{item.is_free_item ? " 🎁" : ""}</p>
+                                <p className="text-xs text-muted-foreground">Qty: {item.quantity} {!item.is_free_item && `× ₹${parseFloat(item.price).toLocaleString()}`}</p>
+                              </div>
+                              <span className="font-semibold text-sm text-gray-900 dark:text-white shrink-0">
+                                {item.is_free_item ? <Badge className="bg-emerald-100 text-emerald-700 border-0 text-xs">FREE</Badge> : `₹${(parseFloat(item.price) * item.quantity).toLocaleString()}`}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Amounts */}
+                      <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 rounded-2xl p-4">
+                        <div className="flex flex-col gap-1.5">
+                          {parseFloat(selectedVendorOrder.discount_amount) > 0 && (
+                            <div className="flex justify-between text-sm text-emerald-600">
+                              <span>Discount {selectedVendorOrder.coupon_code && `(${selectedVendorOrder.coupon_code})`}</span>
+                              <span>-₹{parseFloat(selectedVendorOrder.discount_amount).toFixed(0)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between font-bold text-gray-900 dark:text-white pt-1.5 border-t border-gray-200 dark:border-gray-700">
+                            <span>Total Paid</span>
+                            <span className="text-lg flex items-center gap-0.5"><IndianRupee className="w-4 h-4" />{parseFloat(selectedVendorOrder.final_amount).toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>Payment</span>
+                            <span className="capitalize">{selectedVendorOrder.payment_status || "unpaid"}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* WhatsApp CTA */}
+                      {selectedVendorOrder.user?.phone && (
+                        <a
+                          href={`https://wa.me/91${selectedVendorOrder.user.phone}?text=${encodeURIComponent(`Hi ${selectedVendorOrder.user.name || ""}! Your order #${selectedVendorOrder.id.slice(0, 8).toUpperCase()} from ${shop?.name} is ${selectedVendorOrder.status}. Total: ₹${parseFloat(selectedVendorOrder.final_amount).toLocaleString()}`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center gap-2 py-3 rounded-xl bg-green-500 hover:bg-green-600 transition-colors text-white font-semibold text-sm"
+                          data-testid="button-vendor-whatsapp-customer"
+                        >
+                          <Phone className="w-4 h-4" /> Message Customer on WhatsApp
+                        </a>
+                      )}
+                    </div>
+                  )}
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
+
           {tab === "offline-coupons" && (
             <div>
               <div className="flex items-center justify-between mb-6">

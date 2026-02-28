@@ -72,7 +72,8 @@ export interface IStorage {
   // Orders
   getAllOrders(): Promise<(Order & { user?: User })[]>;
   getUserOrders(userId: string): Promise<(Order & { items: (OrderItem & { product?: Product })[] })[]>;
-  getOrder(id: string): Promise<(Order & { items: (OrderItem & { product?: Product })[] }) | undefined>;
+  getOrder(id: string): Promise<(Order & { user?: User; items: (OrderItem & { product?: Product })[] }) | undefined>;
+  getShopOrders(shopId: string): Promise<(Order & { user?: User; items: (OrderItem & { product?: Product })[] })[]>;
   createOrder(order: InsertOrder, items: InsertOrderItem[]): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order | undefined>;
   updateOrderPayment(id: string, paymentStatus: string, razorpayOrderId?: string): Promise<Order | undefined>;
@@ -335,16 +336,37 @@ export class PgStorage implements IStorage {
     return result;
   }
 
-  async getOrder(id: string): Promise<(Order & { items: (OrderItem & { product?: Product })[] }) | undefined> {
-    const order = await db.select().from(orders).where(eq(orders.id, id)).limit(1);
-    if (!order[0]) return undefined;
+  async getOrder(id: string): Promise<(Order & { user?: User; items: (OrderItem & { product?: Product })[] }) | undefined> {
+    const result = await db.select().from(orders)
+      .leftJoin(users, eq(orders.user_id, users.id))
+      .where(eq(orders.id, id)).limit(1);
+    if (!result[0]) return undefined;
+    const order = result[0];
     const items = await db.select().from(orderItems)
       .leftJoin(products, eq(orderItems.product_id, products.id))
       .where(eq(orderItems.order_id, id));
     return {
-      ...order[0],
+      ...order.orders,
+      user: order.users || undefined,
       items: items.map(r => ({ ...r.order_items, product: r.products || undefined }))
     };
+  }
+
+  async getShopOrders(shopId: string): Promise<(Order & { user?: User; items: (OrderItem & { product?: Product })[] })[]> {
+    const shopOrders = await db.select().from(orders)
+      .leftJoin(users, eq(orders.user_id, users.id))
+      .where(eq(orders.shop_id, shopId))
+      .orderBy(desc(orders.created_at));
+    return Promise.all(shopOrders.map(async (r) => {
+      const items = await db.select().from(orderItems)
+        .leftJoin(products, eq(orderItems.product_id, products.id))
+        .where(eq(orderItems.order_id, r.orders.id));
+      return {
+        ...r.orders,
+        user: r.users || undefined,
+        items: items.map(i => ({ ...i.order_items, product: i.products || undefined }))
+      };
+    }));
   }
 
   async createOrder(order: InsertOrder, items: InsertOrderItem[]): Promise<Order> {

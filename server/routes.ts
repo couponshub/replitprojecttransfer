@@ -1310,6 +1310,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(order);
   });
 
+  app.get("/api/admin/orders/:id", adminMiddleware, async (req, res) => {
+    const order = await storage.getOrder(req.params.id);
+    if (!order) return res.status(404).json({ error: "Not found" });
+    res.json(order);
+  });
+
+  app.get("/api/vendor/orders", vendorMiddleware, async (req, res) => {
+    const vendor = (req as any).vendor;
+    if (!vendor.shop_id) return res.status(400).json({ error: "No shop linked" });
+    res.json(await storage.getShopOrders(vendor.shop_id));
+  });
+
   app.post("/api/orders", authMiddleware, async (req, res) => {
     try {
       const { items, total_amount, discount_amount, final_amount, shop_id, shop_name, coupon_code } = req.body;
