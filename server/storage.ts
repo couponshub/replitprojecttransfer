@@ -27,6 +27,7 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   getUserByPhone(phone: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, data: Partial<Pick<User, "name" | "phone" | "address">>): Promise<User | undefined>;
   getAllUsers(): Promise<User[]>;
 
   // Categories
@@ -133,6 +134,11 @@ export class PgStorage implements IStorage {
 
   async createUser(user: InsertUser): Promise<User> {
     const result = await db.insert(users).values(user).returning();
+    return result[0];
+  }
+
+  async updateUser(id: string, data: Partial<Pick<User, "name" | "phone" | "address">>): Promise<User | undefined> {
+    const result = await db.update(users).set(data).where(eq(users.id, id)).returning();
     return result[0];
   }
 

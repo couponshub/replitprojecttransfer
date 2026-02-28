@@ -267,6 +267,9 @@ export default function CartPage() {
         discount,
         finalAmount,
         couponCode: appliedCoupon?.code,
+        customerName: user?.name,
+        customerPhone: user?.phone,
+        customerAddress: user?.address,
       };
       sessionStorage.setItem("pendingOrder", JSON.stringify(pendingOrder));
       clearCart();

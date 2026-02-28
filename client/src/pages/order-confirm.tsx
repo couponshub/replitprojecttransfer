@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   CheckCircle, MessageCircle, CreditCard, Home, Phone,
   Copy, Check, QrCode, X, Loader2, IndianRupee, ShieldCheck,
-  Upload, ImageIcon, Send
+  Upload, ImageIcon, Send, MapPin, User
 } from "lucide-react";
 
 interface OrderData {
@@ -23,6 +23,9 @@ interface OrderData {
   discount: number;
   finalAmount: number;
   couponCode?: string;
+  customerName?: string;
+  customerPhone?: string;
+  customerAddress?: string;
 }
 
 declare global { interface Window { Razorpay: any; } }
@@ -54,13 +57,19 @@ export default function OrderConfirmPage() {
   const buildWhatsAppMessage = () => {
     const lines = [
       `🛍️ *New Order from CouponsHub X*`, ``,
-      `*Shop:* ${order.shopName}`, ``,
+      `*Shop:* ${order.shopName}`,
+      order.orderId ? `*Order ID:* #${order.orderId.slice(0, 8).toUpperCase()}` : "",
+      ``,
+      `*Customer Details:*`,
+      order.customerName ? `• Name: ${order.customerName}` : "",
+      order.customerPhone ? `• Phone: +91${order.customerPhone}` : "",
+      order.customerAddress ? `• Address: ${order.customerAddress}` : "",
+      ``,
       `*Items:*`,
       ...order.items.map(i => i.isFreeItem
         ? `• ${i.name} ×${i.quantity} — FREE 🎁`
         : `• ${i.name} ×${i.quantity} — ₹${(i.price * i.quantity).toLocaleString()}`
       ), ``,
-      `*Subtotal:* ₹${order.subtotal.toLocaleString()}`,
       order.discount > 0 ? `*Discount (${order.couponCode || "coupon"}):* -₹${order.discount.toFixed(0)}` : "",
       `*Total:* ₹${order.finalAmount.toLocaleString()}`, ``,
       `Please confirm my order. Thank you! 🙏`,
@@ -113,6 +122,11 @@ export default function OrderConfirmPage() {
         `💳 *Payment Confirmation — CouponsHub X*`, ``,
         `*Shop:* ${order.shopName}`,
         order.orderId ? `*Order ID:* #${order.orderId.slice(0, 8).toUpperCase()}` : "",
+        ``,
+        `*Customer:*`,
+        order.customerName ? `• Name: ${order.customerName}` : "",
+        order.customerPhone ? `• Phone: +91${order.customerPhone}` : "",
+        order.customerAddress ? `• Address: ${order.customerAddress}` : "",
         ``,
         `*Order Items:*`,
         ...order.items.map(i => i.isFreeItem
@@ -278,6 +292,35 @@ export default function OrderConfirmPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Customer Info */}
+        {(order.customerName || order.customerPhone || order.customerAddress) && (
+          <Card className="rounded-2xl border-0 shadow-md mb-4">
+            <CardContent className="p-5">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Customer Details</h3>
+              <div className="flex flex-col gap-2">
+                {order.customerName && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <User className="w-4 h-4 text-blue-500 shrink-0" />
+                    <span className="text-gray-700 dark:text-gray-300">{order.customerName}</span>
+                  </div>
+                )}
+                {order.customerPhone && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Phone className="w-4 h-4 text-green-500 shrink-0" />
+                    <span className="text-gray-700 dark:text-gray-300">+91 {order.customerPhone}</span>
+                  </div>
+                )}
+                {order.customerAddress && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <MapPin className="w-4 h-4 text-violet-500 shrink-0" />
+                    <span className="text-gray-700 dark:text-gray-300">{order.customerAddress}</span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* QR/UPI Panel */}
         {showQrPanel && hasQrPayment && (

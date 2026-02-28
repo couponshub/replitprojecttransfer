@@ -974,7 +974,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/auth/me", authMiddleware, async (req, res) => {
     const user = await storage.getUser((req as any).user.id);
     if (!user) return res.status(404).json({ error: "User not found" });
-    res.json({ id: user.id, name: user.name, email: user.email, role: user.role });
+    res.json({ id: user.id, name: user.name, email: user.email, phone: user.phone, address: user.address, role: user.role });
+  });
+
+  app.patch("/api/users/me", authMiddleware, async (req, res) => {
+    try {
+      const { name, phone, address } = req.body;
+      const data: any = {};
+      if (name !== undefined) data.name = name;
+      if (phone !== undefined) data.phone = phone || null;
+      if (address !== undefined) data.address = address || null;
+      const updated = await storage.updateUser((req as any).user.id, data);
+      if (!updated) return res.status(404).json({ error: "User not found" });
+      res.json({ id: updated.id, name: updated.name, email: updated.email, phone: updated.phone, address: updated.address, role: updated.role });
+    } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
 
   // Categories

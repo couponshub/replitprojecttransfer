@@ -7,6 +7,7 @@ interface AuthUser {
   name: string;
   email: string;
   phone?: string;
+  address?: string;
   role: "admin" | "user";
 }
 
@@ -17,6 +18,7 @@ interface AuthContextType {
   login: (credentials: { email?: string; phone?: string; password: string }) => Promise<AuthUser>;
   register: (data: { name: string; email: string; phone?: string; password: string }) => Promise<AuthUser>;
   logout: () => Promise<void>;
+  updateProfile: (data: { name?: string; phone?: string; address?: string }) => Promise<AuthUser>;
   isAdmin: boolean;
   isAuthenticated: boolean;
 }
@@ -86,10 +88,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.clear();
   };
 
+  const updateProfile = async (data: { name?: string; phone?: string; address?: string }): Promise<AuthUser> => {
+    const storedToken = localStorage.getItem("coupons_hub_token");
+    const res = await fetch("/api/users/me", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${storedToken}` },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Update failed");
+    }
+    const updated = await res.json();
+    setUser(updated);
+    return updated;
+  };
+
   return (
     <AuthContext.Provider value={{
       user, token, loading,
-      login, register, logout,
+      login, register, logout, updateProfile,
       isAdmin: user?.role === "admin",
       isAuthenticated: !!user,
     }}>
