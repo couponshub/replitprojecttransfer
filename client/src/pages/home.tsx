@@ -1227,8 +1227,15 @@ function NearbyMapPanel({
         <div style="font-family:sans-serif;min-width:160px;">
           <b style="font-size:13px;">${shop.name}</b><br>
           <span style="font-size:11px;color:#666;">${shop.address}</span><br>
-          ${hasActiveCoupon ? `<div style="margin-top:6px;padding:4px 8px;background:#fef3c7;border-radius:6px;font-weight:bold;color:#92400e;font-size:11px;">
-            ${shopCoupons.map(c => `🏷️ ${c.code} · ${c.type === "percentage" ? c.value + "% OFF" : c.type === "flat" ? "₹" + c.value + " OFF" : "FREE ITEM"}`).join("<br>")}
+          ${hasActiveCoupon ? `<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px;">
+            ${shopCoupons.map(c => {
+              const offerLabel = c.type === "percentage" ? c.value + "% OFF" : c.type === "flat" ? "₹" + c.value + " OFF" : "FREE ITEM";
+              const payload = encodeURIComponent(JSON.stringify({ id: c.id, code: c.code, type: c.type, value: c.value, description: c.description || "", min_order_amount: c.min_order_amount, expiry_date: c.expiry_date, shopName: shop.name }));
+              return `<div onclick="window.__showMapCoupon('${payload}')" style="padding:5px 8px;background:#fef3c7;border-radius:6px;font-weight:bold;color:#92400e;font-size:11px;cursor:pointer;border:1.5px solid #f59e0b;display:flex;align-items:center;justify-content:space-between;gap:6px;">
+                <span>🏷️ ${c.code} · ${offerLabel}</span>
+                <span style="font-size:10px;color:#b45309;white-space:nowrap;">View →</span>
+              </div>`;
+            }).join("")}
           </div>` : ""}
           <div style="margin-top:6px;font-size:11px;color:#3b82f6;font-weight:bold;cursor:pointer;" onclick="window.open('${shop.map_link}','_blank')">📍 Open in Maps →</div>
         </div>`;
@@ -1240,6 +1247,14 @@ function NearbyMapPanel({
       shopMarkersRef.current.push(m);
     });
   }, [mappableShops, coupons]);
+
+  // Expose global handler for map popup coupon clicks
+  useEffect(() => {
+    (window as any).__showMapCoupon = (payload: string) => {
+      try { setSelectedMapCoupon(JSON.parse(decodeURIComponent(payload))); } catch {}
+    };
+    return () => { delete (window as any).__showMapCoupon; };
+  }, []);
 
   useEffect(() => {
     if (!isOpen) {
@@ -1604,6 +1619,7 @@ export default function Home() {
   const [nearbyMode, setNearbyMode] = useState(false);
   const [nearbyPos, setNearbyPos] = useState<{ lat: number; lng: number } | null>(null);
   const [nearbyLoading, setNearbyLoading] = useState(false);
+  const [selectedMapCoupon, setSelectedMapCoupon] = useState<any>(null);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -2069,6 +2085,74 @@ export default function Home() {
           );
         })()}
       </div>
+
+      {/* Map Coupon Detail Bottom Sheet */}
+      {selectedMapCoupon && (
+        <div className="fixed inset-0 z-[9999] flex items-end justify-center" onClick={() => setSelectedMapCoupon(null)}>
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div
+            className="relative w-full max-w-lg bg-white dark:bg-gray-900 rounded-t-3xl shadow-2xl p-6 pb-10"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto mb-5" />
+            <p className="text-xs font-semibold text-blue-500 uppercase tracking-wider mb-1">{selectedMapCoupon.shopName}</p>
+            <div className="flex items-center gap-3 mb-4">
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-lg ${
+                selectedMapCoupon.type === "percentage" ? "bg-gradient-to-br from-blue-500 to-violet-600" :
+                selectedMapCoupon.type === "flat" ? "bg-gradient-to-br from-emerald-500 to-teal-600" :
+                "bg-gradient-to-br from-amber-500 to-orange-600"
+              }`}>
+                {selectedMapCoupon.type === "percentage" ? "%" : selectedMapCoupon.type === "flat" ? "₹" : "🎁"}
+              </div>
+              <div>
+                <h2 className="text-2xl font-black text-gray-900 dark:text-white">
+                  {selectedMapCoupon.type === "percentage"
+                    ? `${selectedMapCoupon.value}% OFF`
+                    : selectedMapCoupon.type === "flat"
+                      ? `₹${selectedMapCoupon.value} OFF`
+                      : "FREE ITEM"}
+                </h2>
+                <p className="text-xs text-muted-foreground capitalize">{selectedMapCoupon.type.replace("_", " ")} coupon</p>
+              </div>
+            </div>
+            <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 rounded-2xl px-4 py-3 mb-4">
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Coupon Code</p>
+                <code className="text-lg font-black text-gray-900 dark:text-white tracking-widest">{selectedMapCoupon.code}</code>
+              </div>
+              <button
+                onClick={() => navigator.clipboard.writeText(selectedMapCoupon.code)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-blue-500 text-white rounded-xl text-xs font-bold hover:bg-blue-600 transition-colors"
+                data-testid="button-map-coupon-copy"
+              >
+                Copy
+              </button>
+            </div>
+            <div className="flex flex-col gap-2 mb-5">
+              {selectedMapCoupon.description && (
+                <p className="text-sm text-gray-600 dark:text-gray-400">{selectedMapCoupon.description}</p>
+              )}
+              {selectedMapCoupon.min_order_amount && (
+                <div className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 rounded-xl px-3 py-2">
+                  Min. order ₹{Number(selectedMapCoupon.min_order_amount).toLocaleString()}
+                </div>
+              )}
+              {selectedMapCoupon.expiry_date && (
+                <div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 rounded-xl px-3 py-2">
+                  Expires {new Date(selectedMapCoupon.expiry_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => setSelectedMapCoupon(null)}
+              className="w-full py-3 rounded-2xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-semibold text-sm hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              data-testid="button-map-coupon-close"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
