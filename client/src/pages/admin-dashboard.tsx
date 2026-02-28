@@ -84,6 +84,13 @@ export default function AdminDashboard() {
   const [imgUploading, setImgUploading] = useState<Record<string, boolean>>({});
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   const [userForm, setUserForm] = useState({ name: "", email: "", phone: "", password: "" });
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  const [bulkShopId, setBulkShopId] = useState("");
+  const [bulkShopSearch, setBulkShopSearch] = useState("");
+  const [bulkMenuText, setBulkMenuText] = useState("");
+  const [parsedItems, setParsedItems] = useState<{ name: string; price: string; category: string; type: string }[]>([]);
+  const [bulkParsed, setBulkParsed] = useState(false);
+  const [bulkSaving, setBulkSaving] = useState(false);
 
   useEffect(() => {
     if (!dialogOpen || activeTab !== "shops") return;
@@ -157,6 +164,35 @@ export default function AdminDashboard() {
   const openCreate = (defaults: any = {}) => { setEditItem(null); setFormData(defaults); setDialogOpen(true); };
   const openEdit = (item: any) => { setEditItem(item); setFormData({ ...item }); setDialogOpen(true); };
   const setForm = (key: string, value: any) => setFormData((f: any) => ({ ...f, [key]: value }));
+
+  const parseMenuText = (text: string) => {
+    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+    const items: { name: string; price: string; category: string; type: string }[] = [];
+    let currentCategory = "";
+    const priceRegex = /₹\s*(\d+(?:\.\d+)?)|Rs\.?\s*(\d+(?:\.\d+)?)|(\d+(?:\.\d+)?)\s*(?:₹|Rs|INR|only|\/-)?\s*$/i;
+    for (const line of lines) {
+      const cleaned = line.replace(/^[-•*►▸→·]+\s*/, "").trim();
+      if (!cleaned) continue;
+      const priceMatch = cleaned.match(priceRegex);
+      if (!priceMatch) {
+        const noDigit = cleaned.replace(/\d/g, "").trim();
+        if (noDigit.length > 2 && cleaned.length < 60) {
+          currentCategory = cleaned.replace(/[:：-]+$/, "").trim();
+        }
+        continue;
+      }
+      const price = priceMatch[1] || priceMatch[2] || priceMatch[3] || "0";
+      let name = cleaned
+        .replace(/₹\s*\d+(?:\.\d+)?/g, "")
+        .replace(/Rs\.?\s*\d+(?:\.\d+)?/gi, "")
+        .replace(/\d+(?:\.\d+)?\s*(?:only|INR|\/-)?$/i, "")
+        .replace(/[-–—.…,|]+$/, "")
+        .trim();
+      if (name.length < 2) continue;
+      items.push({ name, price, category: currentCategory, type: "food" });
+    }
+    return items;
+  };
 
   const uploadImage = async (file: File, onUrl: (url: string) => void, key = "default") => {
     setImgUploading(s => ({ ...s, [key]: true }));
@@ -1297,9 +1333,14 @@ export default function AdminDashboard() {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button onClick={() => openCreate({ type: "product" })} size="sm" className="rounded-xl gap-2 bg-gradient-to-r from-blue-500 to-violet-600 shadow-lg shadow-blue-500/25 shrink-0" data-testid="button-create-product">
-                  <Plus className="w-4 h-4" /> Add
-                </Button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button onClick={() => openCreate({ type: "product" })} size="sm" className="rounded-xl gap-2 bg-gradient-to-r from-blue-500 to-violet-600 shadow-lg shadow-blue-500/25" data-testid="button-create-product">
+                    <Plus className="w-4 h-4" /> Add Item
+                  </Button>
+                  <Button onClick={() => { setBulkDialogOpen(true); setBulkParsed(false); setBulkMenuText(""); setParsedItems([]); setBulkShopId(filterShopId || ""); }} size="sm" variant="outline" className="rounded-xl gap-2 border-violet-300 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950/30" data-testid="button-bulk-upload-text">
+                    <Upload className="w-4 h-4" /> Upload Text
+                  </Button>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground font-medium">Sort:</span>
@@ -1349,6 +1390,133 @@ export default function AdminDashboard() {
                   </div>
                 </CardContent>
               </Card>
+              {/* Bulk Upload from Text Dialog */}
+              <Dialog open={bulkDialogOpen} onOpenChange={v => { setBulkDialogOpen(v); if (!v) { setBulkParsed(false); setParsedItems([]); setBulkMenuText(""); } }}>
+                <DialogContent className="rounded-2xl max-w-2xl max-h-[92vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                      <Upload className="w-5 h-5 text-violet-500" /> Bulk Upload Products from Text
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="flex flex-col gap-4 pb-2">
+                    {/* Shop Select */}
+                    <div>
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Select Shop</Label>
+                      <div className="relative mb-1.5">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                        <Input value={bulkShopSearch} onChange={e => setBulkShopSearch(e.target.value)} placeholder="Search shop..." className="pl-8 rounded-xl h-9 text-sm" />
+                      </div>
+                      <Select value={bulkShopId} onValueChange={setBulkShopId}>
+                        <SelectTrigger className="rounded-xl" data-testid="select-bulk-shop"><SelectValue placeholder="Choose shop..." /></SelectTrigger>
+                        <SelectContent>
+                          {shops.filter(s => !bulkShopSearch || s.name.toLowerCase().includes(bulkShopSearch.toLowerCase())).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Instructions */}
+                    <div className="bg-blue-50 dark:bg-blue-950/30 rounded-xl p-3 text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                      <p className="font-semibold">Menu text paste చేయండి:</p>
+                      <p>• Category name (price లేకుండా) → ఆ తర్వాత items ఆ category లో వెళతాయి</p>
+                      <p>• Item name + price (₹120 లేదా 120 format) → product గా add అవుతుంది</p>
+                      <p>• Example: <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">Burger ₹120</code> లేదా <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">Margherita Pizza - 180</code></p>
+                    </div>
+
+                    {/* Text Area */}
+                    <div>
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 block">Menu Text</Label>
+                      <Textarea
+                        value={bulkMenuText}
+                        onChange={e => { setBulkMenuText(e.target.value); setBulkParsed(false); }}
+                        placeholder={"Paste menu text here...\n\nExample:\nBurgers\nAloo Tikki Burger ₹90\nPaneer Steak Burger ₹150\n\nPizzas\nMargherita Pizza ₹180\nDouble Cheese Pizza ₹250"}
+                        className="rounded-xl min-h-[160px] font-mono text-xs resize-y"
+                        data-testid="textarea-bulk-menu"
+                      />
+                    </div>
+
+                    {/* Parse Button */}
+                    {!bulkParsed && (
+                      <Button
+                        onClick={() => {
+                          if (!bulkMenuText.trim()) { toast({ title: "Menu text paste చేయండి", variant: "destructive" }); return; }
+                          const items = parseMenuText(bulkMenuText);
+                          if (items.length === 0) { toast({ title: "Products parse కాలేదు", description: "₹ లేదా price తో menu text paste చేయండి", variant: "destructive" }); return; }
+                          setParsedItems(items);
+                          setBulkParsed(true);
+                        }}
+                        className="rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 gap-2"
+                        data-testid="button-parse-menu"
+                      >
+                        <RefreshCw className="w-4 h-4" /> Analyse & Preview ({bulkMenuText ? bulkMenuText.split("\n").filter(Boolean).length : 0} lines)
+                      </Button>
+                    )}
+
+                    {/* Parsed Preview */}
+                    {bulkParsed && parsedItems.length > 0 && (
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{parsedItems.length} products found — edit చేయవచ్చు:</p>
+                          <button onClick={() => { setBulkParsed(false); }} className="text-xs text-blue-500 hover:underline">Re-parse</button>
+                        </div>
+                        <div className="border rounded-xl overflow-hidden">
+                          <div className="grid grid-cols-[2fr_1fr_1.5fr_auto] text-[11px] font-semibold text-muted-foreground bg-gray-50 dark:bg-gray-800 px-3 py-2 gap-2">
+                            <span>Product Name</span><span>Price (₹)</span><span>Category</span><span></span>
+                          </div>
+                          <div className="divide-y divide-gray-100 dark:divide-gray-800 max-h-[280px] overflow-y-auto">
+                            {parsedItems.map((item, i) => (
+                              <div key={i} className="grid grid-cols-[2fr_1fr_1.5fr_auto] gap-2 px-3 py-2 items-center" data-testid={`row-parsed-${i}`}>
+                                <Input value={item.name} onChange={e => setParsedItems(prev => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} className="h-7 text-xs rounded-lg px-2" data-testid={`input-parsed-name-${i}`} />
+                                <Input value={item.price} onChange={e => setParsedItems(prev => prev.map((x, j) => j === i ? { ...x, price: e.target.value } : x))} className="h-7 text-xs rounded-lg px-2" data-testid={`input-parsed-price-${i}`} />
+                                <Input value={item.category} onChange={e => setParsedItems(prev => prev.map((x, j) => j === i ? { ...x, category: e.target.value } : x))} placeholder="Category" className="h-7 text-xs rounded-lg px-2" data-testid={`input-parsed-category-${i}`} />
+                                <button onClick={() => setParsedItems(prev => prev.filter((_, j) => j !== i))} className="text-red-400 hover:text-red-600 p-1" data-testid={`button-remove-parsed-${i}`}><X className="w-3.5 h-3.5" /></button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex gap-2 pt-1">
+                          <Button
+                            disabled={!bulkShopId || bulkSaving}
+                            onClick={async () => {
+                              if (!bulkShopId) { toast({ title: "Shop select చేయండి", variant: "destructive" }); return; }
+                              const validItems = parsedItems.filter(i => i.name.trim());
+                              if (validItems.length === 0) { toast({ title: "Minimum 1 product ఉండాలి", variant: "destructive" }); return; }
+                              setBulkSaving(true);
+                              try {
+                                const token = localStorage.getItem("coupons_hub_token");
+                                const res = await fetch("/api/products/bulk", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                                  body: JSON.stringify({ shop_id: bulkShopId, items: validItems.map(i => ({ name: i.name, price: parseFloat(i.price) || 0, sub_category: i.category, type: i.type })) }),
+                                });
+                                const data = await res.json();
+                                if (!res.ok) throw new Error(data.error || "Save failed");
+                                queryClient.invalidateQueries({ queryKey: ["/api/products"] });
+                                queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
+                                toast({ title: `✅ ${data.count} products saved!`, description: "Products tab లో కనిపిస్తాయి. Details తర్వాత edit చేయవచ్చు." });
+                                setBulkDialogOpen(false);
+                                setBulkParsed(false);
+                                setParsedItems([]);
+                                setBulkMenuText("");
+                              } catch (e: any) {
+                                toast({ title: "Save failed", description: e.message, variant: "destructive" });
+                              } finally {
+                                setBulkSaving(false);
+                              }
+                            }}
+                            className="flex-1 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 gap-2"
+                            data-testid="button-save-bulk-products"
+                          >
+                            {bulkSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                            Save {parsedItems.length} Products
+                          </Button>
+                          <Button variant="outline" onClick={() => setBulkDialogOpen(false)} className="rounded-xl">Cancel</Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
+
               <Dialog open={dialogOpen && activeTab === "products"} onOpenChange={setDialogOpen}>
                 <DialogContent className="rounded-2xl max-w-lg max-h-[90vh] overflow-y-auto">
                   <DialogHeader>

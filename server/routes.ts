@@ -1098,6 +1098,29 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
 
+  app.post("/api/products/bulk", adminMiddleware, async (req, res) => {
+    try {
+      const { shop_id, items } = req.body;
+      if (!shop_id || !Array.isArray(items) || items.length === 0)
+        return res.status(400).json({ error: "shop_id and items[] required" });
+      const created: any[] = [];
+      for (const item of items) {
+        if (!item.name || item.name.trim() === "") continue;
+        const product = await storage.createProduct({
+          shop_id,
+          name: item.name.trim(),
+          description: item.description || "",
+          price: item.price ? String(item.price) : "0",
+          type: item.type || "food",
+          sub_category: item.sub_category || item.category || "",
+          is_active: true,
+        } as any);
+        created.push(product);
+      }
+      res.json({ count: created.length, products: created });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
   app.put("/api/products/:id", adminMiddleware, async (req, res) => {
     try {
       const updated = await storage.updateProduct(req.params.id, sanitizeBody(req.body));
