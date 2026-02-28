@@ -17,7 +17,7 @@ import {
   Plus, Edit, Trash2, Crown, LogOut, ChevronRight, Users, TrendingUp,
   Zap, Star, Check, X, Menu, Award, Flame, UserCheck, Phone, Mail,
   Globe, MapPin, Wifi, WifiOff, Search, Image, Link, ExternalLink, Upload, Loader2, Eye, EyeOff,
-  Download, RefreshCw
+  Download, RefreshCw, ArrowUpAZ, ArrowDownAZ
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import type { Category, Shop, Product, Coupon, Order, User } from "@shared/schema";
@@ -72,6 +72,12 @@ export default function AdminDashboard() {
   const [couponProdSearch, setCouponProdSearch] = useState("");
   const [productSearch, setProductSearch] = useState("");
   const [couponSearch, setCouponSearch] = useState("");
+  const [shopSort, setShopSort] = useState<"az" | "za" | "none">("none");
+  const [catSort, setCatSort] = useState<"az" | "za" | "none">("none");
+  const [productSort, setProductSort] = useState<"az" | "za" | "none">("none");
+  const [couponSort, setCouponSort] = useState<"az" | "za" | "none">("none");
+  const [prodShopFilter, setProdShopFilter] = useState("");
+  const [couponShopFilter, setCouponShopFilter] = useState("");
   const [productImageUrls, setProductImageUrls] = useState<string[]>([""]);
   const [shopBanners, setShopBanners] = useState<string[]>([""]);
   const [qrUploading, setQrUploading] = useState(false);
@@ -238,17 +244,22 @@ export default function AdminDashboard() {
     saveMutation.mutate({ type, data, id: editItem?.id });
   };
 
-  const filteredProducts = products
+  const applySortAZ = <T extends { name: string }>(arr: T[], sort: "az" | "za" | "none") => {
+    if (sort === "az") return [...arr].sort((a, b) => a.name.localeCompare(b.name));
+    if (sort === "za") return [...arr].sort((a, b) => b.name.localeCompare(a.name));
+    return arr;
+  };
+  const filteredProducts = applySortAZ(products
     .filter(p => !filterShopId || p.shop_id === filterShopId)
-    .filter(p => !productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase()) || p.shop?.name?.toLowerCase().includes(productSearch.toLowerCase()));
-  const filteredCoupons = coupons.filter(c =>
+    .filter(p => !productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase()) || p.shop?.name?.toLowerCase().includes(productSearch.toLowerCase())), productSort);
+  const filteredCoupons = applySortAZ(coupons.filter(c =>
     !couponSearch ||
     c.code.toLowerCase().includes(couponSearch.toLowerCase()) ||
     c.shop?.name?.toLowerCase().includes(couponSearch.toLowerCase())
-  );
-  const filteredShops = shops
+  ).map(c => ({ ...c, name: c.code })), couponSort).map(c => ({ ...c }));
+  const filteredShops = applySortAZ(shops
     .filter(s => !filterCategoryId || s.category_id === filterCategoryId)
-    .filter(s => !shopSearch || s.name.toLowerCase().includes(shopSearch.toLowerCase()));
+    .filter(s => !shopSearch || s.name.toLowerCase().includes(shopSearch.toLowerCase())), shopSort);
 
   const sections = ["Main", "Manage", "People", "Insights"];
 
@@ -745,15 +756,24 @@ export default function AdminDashboard() {
 
           {activeTab === "categories" && (
             <div className="flex flex-col gap-4">
-              <div className="flex justify-end">
-                <Button onClick={() => openCreate()} size="sm" className="rounded-xl gap-2 bg-gradient-to-r from-blue-500 to-violet-600 shadow-lg shadow-blue-500/25" data-testid="button-create-category">
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="relative flex-1 min-w-[160px] max-w-xs">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                  <Input value={catSearch} onChange={e => setCatSearch(e.target.value)} placeholder="Search categories..." className="pl-8 rounded-xl h-9 text-sm" data-testid="input-category-search" />
+                </div>
+                <Button onClick={() => openCreate()} size="sm" className="rounded-xl gap-2 bg-gradient-to-r from-blue-500 to-violet-600 shadow-lg shadow-blue-500/25 shrink-0" data-testid="button-create-category">
                   <Plus className="w-4 h-4" /> Add Category
                 </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground font-medium">Sort:</span>
+                <button onClick={() => setCatSort(catSort === "az" ? "none" : "az")} className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${catSort === "az" ? "bg-blue-600 text-white border-blue-600" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-400"}`} data-testid="button-cat-sort-az"><ArrowUpAZ className="w-3 h-3" /> A→Z</button>
+                <button onClick={() => setCatSort(catSort === "za" ? "none" : "za")} className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${catSort === "za" ? "bg-violet-600 text-white border-violet-600" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-violet-400"}`} data-testid="button-cat-sort-za"><ArrowDownAZ className="w-3 h-3" /> Z→A</button>
               </div>
               <Card className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900">
                 <CardContent className="p-0">
                   <div className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800">
-                    {categories.map(cat => (
+                    {applySortAZ(categories.filter(c => !catSearch || c.name.toLowerCase().includes(catSearch.toLowerCase())), catSort).map(cat => (
                       <div key={cat.id} className="flex items-center justify-between px-5 py-4 gap-4 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors" data-testid={`row-category-${cat.id}`}>
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-md">
@@ -779,7 +799,15 @@ export default function AdminDashboard() {
                   <DialogHeader><DialogTitle>{editItem ? "Edit Category" : "Add Category"}</DialogTitle></DialogHeader>
                   <div className="flex flex-col gap-4">
                     <div><Label>Name</Label><Input value={formData.name || ""} onChange={e => setForm("name", e.target.value)} className="mt-1.5 rounded-xl" data-testid="input-category-name" /></div>
-                    <div><Label>Image URL</Label><Input value={formData.image || ""} onChange={e => setForm("image", e.target.value)} className="mt-1.5 rounded-xl" /></div>
+                    <div><Label>Icon Image URL</Label><Input value={formData.image || ""} onChange={e => setForm("image", e.target.value)} className="mt-1.5 rounded-xl" placeholder="https://... (small square icon)" /></div>
+                    <div>
+                      <Label>Banner Image URL</Label>
+                      <Input value={(formData as any).banner || ""} onChange={e => setForm("banner", e.target.value)} className="mt-1.5 rounded-xl" placeholder="https://... (wide banner shown on category page)" data-testid="input-category-banner" />
+                      <p className="text-[11px] text-muted-foreground mt-1">Category page header lo show avutuundi. Recommended: 1200×400px wide image</p>
+                      {(formData as any).banner && (
+                        <img src={(formData as any).banner} alt="Banner preview" className="mt-2 w-full h-20 object-cover rounded-xl border" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                      )}
+                    </div>
                     <Button onClick={() => handleSave("categories")} disabled={saveMutation.isPending} className="rounded-xl bg-gradient-to-r from-blue-500 to-violet-600" data-testid="button-save-category">
                       {saveMutation.isPending ? "Saving..." : "Save"}
                     </Button>
@@ -805,6 +833,12 @@ export default function AdminDashboard() {
                 <Button onClick={() => openCreate({ subscription_active: true, is_premium: false, featured: false })} className="rounded-xl gap-2 bg-gradient-to-r from-blue-500 to-violet-600 shadow-lg shadow-blue-500/25 shrink-0" data-testid="button-create-shop">
                   <Plus className="w-4 h-4" /> Add Shop
                 </Button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground font-medium">Sort:</span>
+                <button onClick={() => setShopSort(shopSort === "az" ? "none" : "az")} className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${shopSort === "az" ? "bg-blue-600 text-white border-blue-600" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-400"}`} data-testid="button-shop-sort-az"><ArrowUpAZ className="w-3 h-3" /> A→Z</button>
+                <button onClick={() => setShopSort(shopSort === "za" ? "none" : "za")} className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${shopSort === "za" ? "bg-violet-600 text-white border-violet-600" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-violet-400"}`} data-testid="button-shop-sort-za"><ArrowDownAZ className="w-3 h-3" /> Z→A</button>
               </div>
 
               <div className="flex gap-2 flex-wrap">
@@ -1216,6 +1250,11 @@ export default function AdminDashboard() {
                   <Plus className="w-4 h-4" /> Add
                 </Button>
               </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground font-medium">Sort:</span>
+                <button onClick={() => setProductSort(productSort === "az" ? "none" : "az")} className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${productSort === "az" ? "bg-blue-600 text-white border-blue-600" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-400"}`} data-testid="button-product-sort-az"><ArrowUpAZ className="w-3 h-3" /> A→Z</button>
+                <button onClick={() => setProductSort(productSort === "za" ? "none" : "za")} className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${productSort === "za" ? "bg-violet-600 text-white border-violet-600" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-violet-400"}`} data-testid="button-product-sort-za"><ArrowDownAZ className="w-3 h-3" /> Z→A</button>
+              </div>
               <Card className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900">
                 <CardContent className="p-0">
                   <div className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800">
@@ -1365,8 +1404,21 @@ export default function AdminDashboard() {
                     <div>
                       <Label className="text-xs font-semibold">Shop</Label>
                       <Select value={formData.shop_id || ""} onValueChange={v => setForm("shop_id", v)}>
-                        <SelectTrigger className="mt-1.5 rounded-xl"><SelectValue placeholder="Select shop" /></SelectTrigger>
-                        <SelectContent>{shops.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                        <SelectTrigger className="mt-1.5 rounded-xl" data-testid="select-product-shop"><SelectValue placeholder="Select shop" /></SelectTrigger>
+                        <SelectContent>
+                          <div className="p-2 border-b border-gray-100 dark:border-gray-800">
+                            <input
+                              placeholder="Search shops..."
+                              value={prodShopFilter}
+                              onChange={e => setProdShopFilter(e.target.value)}
+                              onKeyDown={e => e.stopPropagation()}
+                              className="w-full px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 outline-none focus:ring-2 focus:ring-blue-500/30"
+                              data-testid="input-prod-shop-search"
+                            />
+                          </div>
+                          {shops.filter(s => !prodShopFilter || s.name.toLowerCase().includes(prodShopFilter.toLowerCase())).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                          {shops.filter(s => !prodShopFilter || s.name.toLowerCase().includes(prodShopFilter.toLowerCase())).length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">No shops found</div>}
+                        </SelectContent>
                       </Select>
                     </div>
 
@@ -1439,6 +1491,11 @@ export default function AdminDashboard() {
                 <Button onClick={() => openCreate({ is_active: true, type: "percentage" })} size="sm" className="rounded-xl gap-2 bg-gradient-to-r from-blue-500 to-violet-600 shadow-lg shadow-blue-500/25 shrink-0" data-testid="button-create-coupon">
                   <Plus className="w-4 h-4" /> Add Coupon
                 </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground font-medium">Sort:</span>
+                <button onClick={() => setCouponSort(couponSort === "az" ? "none" : "az")} className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${couponSort === "az" ? "bg-blue-600 text-white border-blue-600" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-400"}`} data-testid="button-coupon-sort-az"><ArrowUpAZ className="w-3 h-3" /> A→Z</button>
+                <button onClick={() => setCouponSort(couponSort === "za" ? "none" : "za")} className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${couponSort === "za" ? "bg-violet-600 text-white border-violet-600" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-violet-400"}`} data-testid="button-coupon-sort-za"><ArrowDownAZ className="w-3 h-3" /> Z→A</button>
               </div>
               <Card className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900">
                 <CardContent className="p-0">
@@ -1542,9 +1599,22 @@ export default function AdminDashboard() {
                       </div>
                       <div>
                         <Label className="text-xs font-semibold">Shop</Label>
-                        <Select value={formData.shop_id || ""} onValueChange={v => { setForm("shop_id", v); setBundleItems([]); setCouponProdSearch(""); }}>
-                          <SelectTrigger className="mt-1.5 rounded-xl"><SelectValue placeholder="Select shop" /></SelectTrigger>
-                          <SelectContent>{shops.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                        <Select value={formData.shop_id || ""} onValueChange={v => { setForm("shop_id", v); setBundleItems([]); setCouponProdSearch(""); setCouponShopFilter(""); }}>
+                          <SelectTrigger className="mt-1.5 rounded-xl" data-testid="select-coupon-shop"><SelectValue placeholder="Select shop" /></SelectTrigger>
+                          <SelectContent>
+                            <div className="p-2 border-b border-gray-100 dark:border-gray-800">
+                              <input
+                                placeholder="Search shops..."
+                                value={couponShopFilter}
+                                onChange={e => setCouponShopFilter(e.target.value)}
+                                onKeyDown={e => e.stopPropagation()}
+                                className="w-full px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 outline-none focus:ring-2 focus:ring-blue-500/30"
+                                data-testid="input-coupon-shop-search"
+                              />
+                            </div>
+                            {shops.filter(s => !couponShopFilter || s.name.toLowerCase().includes(couponShopFilter.toLowerCase())).map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                            {shops.filter(s => !couponShopFilter || s.name.toLowerCase().includes(couponShopFilter.toLowerCase())).length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">No shops found</div>}
+                          </SelectContent>
                         </Select>
                       </div>
                     </div>

@@ -21,6 +21,7 @@ export const categories = pgTable("categories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
   image: text("image"),
+  banner: text("banner"),
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });
 

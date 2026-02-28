@@ -1,16 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { useParams, useLocation, Link } from "wouter";
+import { useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronRight, ArrowLeft, Crown, MapPin, Star } from "lucide-react";
+import { ChevronRight, ArrowLeft, Crown, MapPin, ArrowUpAZ, ArrowDownAZ } from "lucide-react";
 import type { Category, Shop } from "@shared/schema";
 
 export default function CategoryPage() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
+  const [sortAZ, setSortAZ] = useState<"az" | "za" | "none">("none");
 
   const { data: allCategories = [] } = useQuery<Category[]>({
     queryKey: ["/api/categories"],
@@ -22,10 +24,19 @@ export default function CategoryPage() {
     queryKey: ["/api/shops"],
   });
 
-  const shops = allShopsData.filter(s => s.category_id === id);
+  const rawShops = allShopsData.filter(s => s.category_id === id);
 
+  const sortShops = (arr: typeof rawShops) => {
+    if (sortAZ === "az") return [...arr].sort((a, b) => a.name.localeCompare(b.name));
+    if (sortAZ === "za") return [...arr].sort((a, b) => b.name.localeCompare(a.name));
+    return arr;
+  };
+
+  const shops = sortShops(rawShops);
   const premiumShops = shops.filter(s => s.is_premium);
   const regularShops = shops.filter(s => !s.is_premium);
+
+  const hasBanner = !!(categoryData as any)?.banner;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -35,14 +46,51 @@ export default function CategoryPage() {
           <ArrowLeft className="w-4 h-4 mr-1" /> Back to Home
         </Button>
 
-        <div className="bg-gradient-to-r from-blue-600 to-violet-600 rounded-3xl p-8 mb-8 text-white relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-          <div className="relative">
-            <p className="text-white/70 text-sm mb-1">Category</p>
-            <h1 className="text-3xl font-bold mb-2">{categoryData?.name || "Category"}</h1>
-            <p className="text-white/80">{shops.length} shops available</p>
+        {hasBanner ? (
+          <div className="rounded-3xl mb-8 text-white relative overflow-hidden h-40 sm:h-52 shadow-xl">
+            <img
+              src={(categoryData as any).banner}
+              alt={categoryData?.name}
+              className="absolute inset-0 w-full h-full object-cover"
+              onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />
+            <div className="relative h-full flex flex-col justify-end p-8">
+              <p className="text-white/70 text-sm mb-1">Category</p>
+              <h1 className="text-3xl font-bold mb-1">{categoryData?.name || "Category"}</h1>
+              <p className="text-white/80 text-sm">{rawShops.length} shops available</p>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="bg-gradient-to-r from-blue-600 to-violet-600 rounded-3xl p-8 mb-8 text-white relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+            <div className="relative">
+              <p className="text-white/70 text-sm mb-1">Category</p>
+              <h1 className="text-3xl font-bold mb-2">{categoryData?.name || "Category"}</h1>
+              <p className="text-white/80">{rawShops.length} shops available</p>
+            </div>
+          </div>
+        )}
+
+        {rawShops.length > 0 && (
+          <div className="flex items-center gap-2 mb-5">
+            <span className="text-sm text-muted-foreground font-medium">Sort:</span>
+            <button
+              onClick={() => setSortAZ(sortAZ === "az" ? "none" : "az")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${sortAZ === "az" ? "bg-blue-600 text-white border-blue-600" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-400"}`}
+              data-testid="button-sort-az"
+            >
+              <ArrowUpAZ className="w-3.5 h-3.5" /> A → Z
+            </button>
+            <button
+              onClick={() => setSortAZ(sortAZ === "za" ? "none" : "za")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${sortAZ === "za" ? "bg-violet-600 text-white border-violet-600" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-violet-400"}`}
+              data-testid="button-sort-za"
+            >
+              <ArrowDownAZ className="w-3.5 h-3.5" /> Z → A
+            </button>
+          </div>
+        )}
 
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
@@ -91,9 +139,13 @@ function ShopListCard({ shop }: { shop: Shop & { category?: Category } }) {
       data-testid={`card-shop-${shop.id}`}
     >
       <div className="h-32 rounded-t-2xl relative overflow-hidden bg-gradient-to-br from-blue-500/30 to-violet-600/30">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-violet-600 opacity-50" />
+        {shop.banner_image ? (
+          <img src={shop.banner_image} alt={shop.name} className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-violet-600 opacity-50" />
+        )}
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-5xl">{shop.name[0]}</span>
+          <span className="text-5xl font-bold text-white drop-shadow-md">{shop.name[0]}</span>
         </div>
         {shop.is_premium && (
           <div className="absolute top-2 right-2">
