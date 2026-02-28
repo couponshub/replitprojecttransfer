@@ -81,6 +81,7 @@ export default function AdminDashboard() {
   const [productImageUrls, setProductImageUrls] = useState<string[]>([""]);
   const [shopBanners, setShopBanners] = useState<string[]>([""]);
   const [qrUploading, setQrUploading] = useState(false);
+  const [imgUploading, setImgUploading] = useState<Record<string, boolean>>({});
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   const [userForm, setUserForm] = useState({ name: "", email: "", phone: "", password: "" });
 
@@ -156,6 +157,37 @@ export default function AdminDashboard() {
   const openCreate = (defaults: any = {}) => { setEditItem(null); setFormData(defaults); setDialogOpen(true); };
   const openEdit = (item: any) => { setEditItem(item); setFormData({ ...item }); setDialogOpen(true); };
   const setForm = (key: string, value: any) => setFormData((f: any) => ({ ...f, [key]: value }));
+
+  const uploadImage = async (file: File, onUrl: (url: string) => void, key = "default") => {
+    setImgUploading(s => ({ ...s, [key]: true }));
+    try {
+      const token = localStorage.getItem("coupons_hub_token");
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
+      const data = await res.json();
+      if (data.url) {
+        onUrl(data.url);
+        toast({ title: "Image uploaded!", description: data.provider === "supabase" ? "Supabase Storage లో save అయింది ✓" : "Locally saved ✓" });
+      } else if (data.error === "supabase_bucket_missing") {
+        toast({ title: "Supabase bucket missing", description: "Supabase Dashboard → Storage → New Bucket → 'images' (Public) create చేయండి", variant: "destructive" });
+      } else {
+        toast({ title: "Upload failed", description: data.error || "Unknown error", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Upload failed", description: "Network error", variant: "destructive" });
+    } finally {
+      setImgUploading(s => ({ ...s, [key]: false }));
+    }
+  };
+
+  const UploadBtn = ({ fieldKey, onUrl, label = "Upload" }: { fieldKey: string; onUrl: (url: string) => void; label?: string }) => (
+    <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-blue-300 dark:border-blue-700 cursor-pointer text-xs font-semibold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-all shrink-0 ${imgUploading[fieldKey] ? "opacity-60 pointer-events-none" : ""}`} title="Upload image to Supabase Storage">
+      {imgUploading[fieldKey] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+      {imgUploading[fieldKey] ? "Uploading..." : label}
+      <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(f, onUrl, fieldKey); e.target.value = ""; }} />
+    </label>
+  );
 
   const handleQrUpload = async (file: File) => {
     setQrUploading(true);
@@ -799,11 +831,21 @@ export default function AdminDashboard() {
                   <DialogHeader><DialogTitle>{editItem ? "Edit Category" : "Add Category"}</DialogTitle></DialogHeader>
                   <div className="flex flex-col gap-4">
                     <div><Label>Name</Label><Input value={formData.name || ""} onChange={e => setForm("name", e.target.value)} className="mt-1.5 rounded-xl" data-testid="input-category-name" /></div>
-                    <div><Label>Icon Image URL</Label><Input value={formData.image || ""} onChange={e => setForm("image", e.target.value)} className="mt-1.5 rounded-xl" placeholder="https://... (small square icon)" /></div>
                     <div>
-                      <Label>Banner Image URL</Label>
-                      <Input value={(formData as any).banner || ""} onChange={e => setForm("banner", e.target.value)} className="mt-1.5 rounded-xl" placeholder="https://... (wide banner shown on category page)" data-testid="input-category-banner" />
-                      <p className="text-[11px] text-muted-foreground mt-1">Category page header lo show avutuundi. Recommended: 1200×400px wide image</p>
+                      <Label>Icon Image</Label>
+                      <div className="flex gap-2 mt-1.5">
+                        <Input value={formData.image || ""} onChange={e => setForm("image", e.target.value)} className="rounded-xl flex-1" placeholder="https://... or upload ↑" />
+                        <UploadBtn fieldKey="cat-icon" onUrl={url => setForm("image", url)} />
+                      </div>
+                      {formData.image && <img src={formData.image} alt="Icon preview" className="mt-2 w-12 h-12 object-cover rounded-xl border" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />}
+                    </div>
+                    <div>
+                      <Label>Banner Image</Label>
+                      <div className="flex gap-2 mt-1.5">
+                        <Input value={(formData as any).banner || ""} onChange={e => setForm("banner", e.target.value)} className="rounded-xl flex-1" placeholder="https://... (wide 1200×400px) or upload ↑" data-testid="input-category-banner" />
+                        <UploadBtn fieldKey="cat-banner" onUrl={url => setForm("banner", url)} />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-1">Category page header lo show avutuundi</p>
                       {(formData as any).banner && (
                         <img src={(formData as any).banner} alt="Banner preview" className="mt-2 w-full h-20 object-cover rounded-xl border" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
                       )}
@@ -1152,12 +1194,20 @@ export default function AdminDashboard() {
                     <div className="flex flex-col gap-4">
                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Media</p>
                       <div>
-                        <Label className="text-sm flex items-center gap-1.5"><Image className="w-3.5 h-3.5" /> Logo URL</Label>
-                        <Input value={formData.logo || ""} onChange={e => setForm("logo", e.target.value)} className="mt-1.5 rounded-xl" placeholder="https://..." data-testid="input-shop-logo" />
+                        <Label className="text-sm flex items-center gap-1.5"><Image className="w-3.5 h-3.5" /> Logo</Label>
+                        <div className="flex gap-2 mt-1.5">
+                          <Input value={formData.logo || ""} onChange={e => setForm("logo", e.target.value)} className="rounded-xl flex-1" placeholder="https://..." data-testid="input-shop-logo" />
+                          <UploadBtn fieldKey="shop-logo" onUrl={url => setForm("logo", url)} />
+                        </div>
+                        {formData.logo && <img src={formData.logo} alt="Logo preview" className="mt-2 w-12 h-12 object-cover rounded-xl border" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />}
                       </div>
                       <div>
-                        <Label className="text-sm flex items-center gap-1.5"><Image className="w-3.5 h-3.5" /> Main Banner URL</Label>
-                        <Input value={formData.banner_image || ""} onChange={e => setForm("banner_image", e.target.value)} className="mt-1.5 rounded-xl" placeholder="https://..." data-testid="input-shop-banner" />
+                        <Label className="text-sm flex items-center gap-1.5"><Image className="w-3.5 h-3.5" /> Main Banner</Label>
+                        <div className="flex gap-2 mt-1.5">
+                          <Input value={formData.banner_image || ""} onChange={e => setForm("banner_image", e.target.value)} className="rounded-xl flex-1" placeholder="https://..." data-testid="input-shop-banner" />
+                          <UploadBtn fieldKey="shop-banner" onUrl={url => setForm("banner_image", url)} />
+                        </div>
+                        {formData.banner_image && <img src={formData.banner_image} alt="Banner preview" className="mt-2 w-full h-16 object-cover rounded-xl border" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />}
                       </div>
                       <div>
                         <div className="flex items-center justify-between mb-1.5">
@@ -1171,6 +1221,7 @@ export default function AdminDashboard() {
                                 <Image className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                                 <Input value={url} onChange={e => setShopBanners(b => b.map((v, i) => i === idx ? e.target.value : v))} className="rounded-xl pl-8 text-sm" placeholder="https://banner-url.jpg" data-testid={`input-banner-url-${idx}`} />
                               </div>
+                              <UploadBtn fieldKey={`shop-xbanner-${idx}`} onUrl={url2 => setShopBanners(b => b.map((v, i) => i === idx ? url2 : v))} label="" />
                               {shopBanners.length > 1 && (
                                 <button type="button" onClick={() => setShopBanners(b => b.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600 p-1 rounded-lg" data-testid={`button-remove-banner-${idx}`}>
                                   <X className="w-4 h-4" />
@@ -1425,7 +1476,7 @@ export default function AdminDashboard() {
                     {/* Image URLs — multiple */}
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
-                        <Label className="text-xs font-semibold">Image URLs</Label>
+                        <Label className="text-xs font-semibold">Images</Label>
                         <button type="button" onClick={() => setProductImageUrls(u => [...u, ""])} className="text-[11px] text-blue-600 font-semibold px-2 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/20" data-testid="button-add-image-url">+ Add URL</button>
                       </div>
                       <div className="flex flex-col gap-2">
@@ -1437,10 +1488,11 @@ export default function AdminDashboard() {
                                 value={url}
                                 onChange={e => setProductImageUrls(u => u.map((v, i) => i === idx ? e.target.value : v))}
                                 className="rounded-xl pl-8 text-sm"
-                                placeholder="https://example.com/image.jpg"
+                                placeholder="https://example.com/image.jpg or upload ↑"
                                 data-testid={`input-image-url-${idx}`}
                               />
                             </div>
+                            <UploadBtn fieldKey={`prod-img-${idx}`} onUrl={url2 => setProductImageUrls(u => u.map((v, i) => i === idx ? url2 : v))} label="" />
                             {productImageUrls.length > 1 && (
                               <button type="button" onClick={() => setProductImageUrls(u => u.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600 p-1 rounded-lg" data-testid={`button-remove-image-${idx}`}>
                                 <X className="w-4 h-4" />

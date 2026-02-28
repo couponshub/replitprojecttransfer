@@ -6,6 +6,12 @@ import jwt from "jsonwebtoken";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = (process.env.SUPABASE_URL && process.env.SUPABASE_ANON_KEY)
+  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
+  : null;
+const SUPABASE_BUCKET = "images";
 import { insertUserSchema, insertCategorySchema, insertShopSchema, insertProductSchema, insertCouponSchema, users, categories, shops, products, coupons, orders, orderItems, vendors, offlineCoupons } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 
@@ -30,6 +36,16 @@ function generateToken(payload: JwtPayload) {
 
 const uploadsDir = path.join(process.cwd(), "public", "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+const memUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) cb(null, true);
+    else cb(new Error("Only image files allowed"));
+  },
+});
+
 const upload = multer({
   storage: multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, uploadsDir),
@@ -968,11 +984,32 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ success: true });
   });
 
-  // File upload
-  app.post("/api/upload", adminMiddleware, upload.single("file"), (req: any, res) => {
+  // File upload → Supabase Storage
+  app.post("/api/upload", adminMiddleware, memUpload.single("file"), async (req: any, res) => {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-    const url = `/uploads/${req.file.filename}`;
-    res.json({ url });
+    try {
+      if (supabase) {
+        const ext = req.file.originalname.split(".").pop()?.toLowerCase() || "jpg";
+        const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error } = await supabase.storage
+          .from(SUPABASE_BUCKET)
+          .upload(fileName, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
+        if (error) {
+          if (error.message?.includes("Bucket not found") || error.message?.includes("bucket")) {
+            return res.status(400).json({ error: "supabase_bucket_missing", message: "Please create a public bucket named 'images' in your Supabase Storage dashboard." });
+          }
+          throw new Error(error.message);
+        }
+        const { data: urlData } = supabase.storage.from(SUPABASE_BUCKET).getPublicUrl(fileName);
+        return res.json({ url: urlData.publicUrl, provider: "supabase" });
+      } else {
+        const localName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.]/g, "_")}`;
+        fs.writeFileSync(path.join(uploadsDir, localName), req.file.buffer);
+        return res.json({ url: `/uploads/${localName}`, provider: "local" });
+      }
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message || "Upload failed" });
+    }
   });
 
   // Shops
