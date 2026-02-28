@@ -1507,16 +1507,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/vendor/coupons", vendorMiddleware, async (req, res) => {
     try {
       const shopId = (req as any).vendor.shop_id;
-      const body = { ...req.body, shop_id: shopId };
+      const { coupon_products: cpItems, ...rest } = req.body;
+      const body = { ...rest, shop_id: shopId };
       if (body.expiry_date) body.expiry_date = new Date(body.expiry_date);
       const coupon = await storage.createCoupon(body);
+      if (cpItems && Array.isArray(cpItems) && cpItems.length > 0) {
+        await storage.setCouponProducts(coupon.id, cpItems);
+      }
       res.json(coupon);
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
 
   app.patch("/api/vendor/coupons/:id", vendorMiddleware, async (req, res) => {
     try {
+      const { coupon_products: cpItems } = req.body;
       const updated = await storage.updateCoupon(req.params.id, sanitizeBody(req.body, ["shop_id"]));
+      if (!updated) return res.status(404).json({ error: "Not found" });
+      if (cpItems !== undefined) {
+        await storage.setCouponProducts(req.params.id, Array.isArray(cpItems) ? cpItems : []);
+      }
       res.json(updated);
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });

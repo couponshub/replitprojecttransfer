@@ -123,12 +123,18 @@ export default function VendorDashboard() {
   const [editCoupon, setEditCoupon] = useState<any>(null);
   const [couponForm, setCouponForm] = useState<any>({ code: "", type: "percentage", value: "", is_active: true, featured: false, free_item_product_id: null, free_item_qty: 1, min_order_amount: null, expiry_date: "" });
   const [couponProdSearch, setCouponProdSearch] = useState("");
+  const [bundleItems, setBundleItems] = useState<{ product_id: string; name: string; custom_price: string; quantity: number }[]>([]);
+
+  const resetCouponDialog = () => { setCouponDialog(false); setEditCoupon(null); setCouponForm({ code: "", type: "percentage", value: "", is_active: true, featured: false, free_item_product_id: null, free_item_qty: 1, min_order_amount: null, expiry_date: "" }); setCouponProdSearch(""); setBundleItems([]); };
 
   const saveCouponMutation = useMutation({
-    mutationFn: (data: any) => editCoupon
-      ? vendorFetch(`/api/vendor/coupons/${editCoupon.id}`, { method: "PATCH", body: JSON.stringify(data) })
-      : vendorFetch("/api/vendor/coupons", { method: "POST", body: JSON.stringify(data) }),
-    onSuccess: () => { toast({ title: editCoupon ? "Coupon updated!" : "Coupon added!" }); setCouponDialog(false); setEditCoupon(null); setCouponForm({ code: "", type: "percentage", value: "", is_active: true, featured: false, free_item_product_id: null, free_item_qty: 1, min_order_amount: null, expiry_date: "" }); setCouponProdSearch(""); refetchCoupons(); },
+    mutationFn: (data: any) => {
+      const payload = { ...data, coupon_products: bundleItems.map(i => ({ product_id: i.product_id, custom_price: i.custom_price, quantity: i.quantity || 1 })) };
+      return editCoupon
+        ? vendorFetch(`/api/vendor/coupons/${editCoupon.id}`, { method: "PATCH", body: JSON.stringify(payload) })
+        : vendorFetch("/api/vendor/coupons", { method: "POST", body: JSON.stringify(payload) });
+    },
+    onSuccess: () => { toast({ title: editCoupon ? "Coupon updated!" : "Coupon added!" }); resetCouponDialog(); refetchCoupons(); },
     onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
   });
 
@@ -636,7 +642,7 @@ export default function VendorDashboard() {
                   <h1 className="text-xl font-bold text-gray-900 dark:text-white">Coupons</h1>
                   <p className="text-sm text-muted-foreground">{coupons.length} coupon{coupons.length !== 1 ? "s" : ""}</p>
                 </div>
-                <Button size="sm" onClick={() => { setEditCoupon(null); setCouponForm({ code: "", type: "percentage", value: "", is_active: true, featured: false, free_item_product_id: null, expiry_date: "" }); setCouponProdSearch(""); setCouponDialog(true); }} className="rounded-xl gap-2 bg-gradient-to-r from-pink-500 to-rose-600 border-0" data-testid="button-add-coupon">
+                <Button size="sm" onClick={() => { resetCouponDialog(); setCouponDialog(true); }} className="rounded-xl gap-2 bg-gradient-to-r from-pink-500 to-rose-600 border-0" data-testid="button-add-coupon">
                   <Plus className="w-3.5 h-3.5" /> Add
                 </Button>
               </div>
@@ -679,7 +685,7 @@ export default function VendorDashboard() {
                           </p>
                         </div>
                         <div className="flex gap-1 shrink-0">
-                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => { setEditCoupon(coupon); setCouponForm({ code: coupon.code, type: coupon.type, value: coupon.value, is_active: coupon.is_active, featured: coupon.featured || false, free_item_product_id: coupon.free_item_product_id || null, free_item_qty: coupon.free_item_qty || 1, min_order_amount: coupon.min_order_amount || null, expiry_date: coupon.expiry_date ? new Date(coupon.expiry_date).toISOString().split("T")[0] : "" }); setCouponProdSearch(""); setCouponDialog(true); }} data-testid={`button-edit-coupon-${coupon.id}`}>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => { resetCouponDialog(); setEditCoupon(coupon); setCouponForm({ code: coupon.code, type: coupon.type, value: coupon.value, is_active: coupon.is_active, featured: coupon.featured || false, free_item_product_id: coupon.free_item_product_id || null, free_item_qty: coupon.free_item_qty || 1, min_order_amount: coupon.min_order_amount || null, expiry_date: coupon.expiry_date ? new Date(coupon.expiry_date).toISOString().split("T")[0] : "" }); if (coupon.coupon_products && Array.isArray(coupon.coupon_products)) { setBundleItems(coupon.coupon_products.map((cp: any) => ({ product_id: cp.product_id || cp.id, name: cp.name || "", custom_price: cp.custom_price || "", quantity: cp.quantity || 1 }))); } setCouponDialog(true); }} data-testid={`button-edit-coupon-${coupon.id}`}>
                             <Edit className="w-3 h-3" />
                           </Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => deleteCouponMutation.mutate(coupon.id)} data-testid={`button-delete-coupon-${coupon.id}`}>
@@ -692,7 +698,7 @@ export default function VendorDashboard() {
                 </div>
               )}
 
-              <Dialog open={couponDialog} onOpenChange={v => { setCouponDialog(v); if (!v) { setEditCoupon(null); setCouponForm({ code: "", type: "percentage", value: "", is_active: true, featured: false, free_item_product_id: null, free_item_qty: 1, min_order_amount: null, expiry_date: "" }); setCouponProdSearch(""); } }}>
+              <Dialog open={couponDialog} onOpenChange={v => { if (!v) resetCouponDialog(); else setCouponDialog(true); }}>
                 <DialogContent className="rounded-2xl max-w-lg max-h-[90vh] overflow-y-auto">
                   <DialogHeader><DialogTitle className="text-lg font-bold">{editCoupon ? "Edit Coupon" : "Add Coupon"}</DialogTitle></DialogHeader>
                   <div className="flex flex-col gap-5 pb-2">
@@ -823,6 +829,44 @@ export default function VendorDashboard() {
                           data-testid="toggle-coupon-featured">
                           <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${couponForm.featured ? "translate-x-[22px]" : "translate-x-0.5"}`} />
                         </button>
+                      </div>
+                    </div>
+
+                    {/* Attach Products / Services */}
+                    <div className="flex flex-col gap-3 p-3 rounded-xl border border-dashed border-violet-300 dark:border-violet-700 bg-violet-50/50 dark:bg-violet-950/20">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-violet-700 dark:text-violet-400">📦 Attach Products / Services</Label>
+                        <span className="text-[10px] text-muted-foreground">{bundleItems.length} added</span>
+                      </div>
+                      <Input placeholder="Search your products..." value={couponProdSearch} onChange={e => setCouponProdSearch(e.target.value)} className="rounded-xl h-8 text-xs" data-testid="input-bundle-search" />
+                      <div className="flex flex-col gap-1.5 max-h-36 overflow-y-auto pr-1">
+                        {(products as any[])
+                          .filter(p => !couponProdSearch || p.name.toLowerCase().includes(couponProdSearch.toLowerCase()))
+                          .map(p => {
+                            const existingIdx = bundleItems.findIndex(b => b.product_id === p.id);
+                            const inBundle = existingIdx !== -1;
+                            return (
+                              <div key={p.id} className={`flex items-center gap-2 p-2 rounded-xl border-2 transition-all ${inBundle ? "border-violet-400 bg-violet-50 dark:bg-violet-950/30" : "border-gray-200 dark:border-gray-700"}`} data-testid={`bundle-item-${p.id}`}>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-semibold text-gray-900 dark:text-white truncate">{p.name}</p>
+                                  <p className="text-[10px] text-muted-foreground">₹{Number(p.price).toLocaleString()}</p>
+                                </div>
+                                {inBundle && (
+                                  <div className="flex items-center gap-1">
+                                    <button type="button" onClick={() => { const n = [...bundleItems]; n[existingIdx].quantity = Math.max(1, (n[existingIdx].quantity || 1) - 1); setBundleItems(n); }} className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600 text-xs flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800" data-testid={`bundle-qty-dec-${p.id}`}>-</button>
+                                    <span className="text-xs font-bold w-4 text-center">{bundleItems[existingIdx].quantity || 1}</span>
+                                    <button type="button" onClick={() => { const n = [...bundleItems]; n[existingIdx].quantity = (n[existingIdx].quantity || 1) + 1; setBundleItems(n); }} className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600 text-xs flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800" data-testid={`bundle-qty-inc-${p.id}`}>+</button>
+                                    <input type="number" placeholder="₹ custom" value={bundleItems[existingIdx].custom_price} onChange={e => { const n = [...bundleItems]; n[existingIdx].custom_price = e.target.value; setBundleItems(n); }} className="w-20 text-xs px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900" data-testid={`bundle-price-${p.id}`} />
+                                    <button type="button" onClick={() => setBundleItems(bundleItems.filter((_, i) => i !== existingIdx))} className="w-6 h-6 rounded border border-red-200 text-red-500 text-xs flex items-center justify-center hover:bg-red-50" data-testid={`bundle-remove-${p.id}`}>×</button>
+                                  </div>
+                                )}
+                                {!inBundle && (
+                                  <button type="button" onClick={() => setBundleItems([...bundleItems, { product_id: p.id, name: p.name, custom_price: "", quantity: 1 }])} className="text-[10px] px-2 py-1 rounded-lg border border-violet-400 text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/30 font-semibold" data-testid={`bundle-add-${p.id}`}>+ Add</button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        {(products as any[]).length === 0 && <p className="text-xs text-muted-foreground text-center py-3">No products found. Add products first.</p>}
                       </div>
                     </div>
 

@@ -78,6 +78,8 @@ export default function AdminDashboard() {
   const [couponSort, setCouponSort] = useState<"az" | "za" | "none">("none");
   const [prodShopFilter, setProdShopFilter] = useState("");
   const [couponShopFilter, setCouponShopFilter] = useState("");
+  const [freeItemShopId, setFreeItemShopId] = useState("");
+  const [freeItemShopSearch, setFreeItemShopSearch] = useState("");
   const [userSearch, setUserSearch] = useState("");
   const [vendorSearch, setVendorSearch] = useState("");
   const [orderSearch, setOrderSearch] = useState("");
@@ -165,8 +167,8 @@ export default function AdminDashboard() {
     onError: (err: any) => toast({ title: err.message, variant: "destructive" }),
   });
 
-  const openCreate = (defaults: any = {}) => { setEditItem(null); setFormData(defaults); setDialogOpen(true); };
-  const openEdit = (item: any) => { setEditItem(item); setFormData({ ...item }); setDialogOpen(true); };
+  const openCreate = (defaults: any = {}) => { setEditItem(null); setFormData(defaults); setDialogOpen(true); setFreeItemShopId(""); setFreeItemShopSearch(""); };
+  const openEdit = (item: any) => { setEditItem(item); setFormData({ ...item }); setDialogOpen(true); setFreeItemShopId(""); setFreeItemShopSearch(""); };
   const setForm = (key: string, value: any) => setFormData((f: any) => ({ ...f, [key]: value }));
 
   const parseMenuText = (text: string) => {
@@ -1925,14 +1927,41 @@ export default function AdminDashboard() {
                     {formData.type === "free_item" && (
                       <div className="flex flex-col gap-3">
                         <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Select Free Item</Label>
-                        {!formData.shop_id ? (
-                          <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 rounded-lg px-3 py-2">Select a shop first</p>
+                        {/* Shop filter — search any shop to pick free item from */}
+                        <div className="flex flex-col gap-1.5">
+                          <Label className="text-[10px] text-muted-foreground">Filter by Shop</Label>
+                          <div className="relative">
+                            <input
+                              placeholder="Search shop name..."
+                              value={freeItemShopSearch}
+                              onChange={e => { setFreeItemShopSearch(e.target.value); setFreeItemShopId(""); }}
+                              className="w-full px-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 outline-none focus:ring-2 focus:ring-emerald-500/30"
+                              data-testid="input-free-item-shop-search"
+                            />
+                          </div>
+                          {freeItemShopSearch && (
+                            <div className="flex flex-col gap-0.5 max-h-24 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                              {shops.filter(s => s.name.toLowerCase().includes(freeItemShopSearch.toLowerCase())).slice(0, 8).map(s => (
+                                <button key={s.id} type="button"
+                                  onClick={() => { setFreeItemShopId(s.id); setFreeItemShopSearch(s.name); }}
+                                  className={`text-left px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${freeItemShopId === s.id ? "text-emerald-600 font-semibold" : "text-gray-700 dark:text-gray-300"}`}
+                                  data-testid={`free-item-shop-${s.id}`}
+                                >
+                                  {s.name}
+                                </button>
+                              ))}
+                              {shops.filter(s => s.name.toLowerCase().includes(freeItemShopSearch.toLowerCase())).length === 0 && <p className="text-xs text-muted-foreground px-3 py-2">No shops found</p>}
+                            </div>
+                          )}
+                        </div>
+                        {!(freeItemShopId || formData.shop_id) ? (
+                          <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 rounded-lg px-3 py-2">Select a shop above to see products</p>
                         ) : (
                           <>
                             <Input placeholder="Search products..." value={couponProdSearch} onChange={e => setCouponProdSearch(e.target.value)} className="rounded-xl h-8 text-xs" data-testid="input-free-product-search" />
                             <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto pr-1">
                               {products
-                                .filter(p => p.shop_id === formData.shop_id && (!couponProdSearch || p.name.toLowerCase().includes(couponProdSearch.toLowerCase())))
+                                .filter(p => p.shop_id === (freeItemShopId || formData.shop_id) && (!couponProdSearch || p.name.toLowerCase().includes(couponProdSearch.toLowerCase())))
                                 .map(p => {
                                   const selected = formData.free_item_product_id === p.id;
                                   return (
@@ -1946,7 +1975,7 @@ export default function AdminDashboard() {
                                     </button>
                                   );
                                 })}
-                              {products.filter(p => p.shop_id === formData.shop_id).length === 0 && <p className="text-xs text-muted-foreground text-center py-3">No products in this shop</p>}
+                              {products.filter(p => p.shop_id === (freeItemShopId || formData.shop_id)).length === 0 && <p className="text-xs text-muted-foreground text-center py-3">No products in this shop</p>}
                             </div>
                             {/* Quantity + Min order amount — shown when a product is selected */}
                             {formData.free_item_product_id && (
