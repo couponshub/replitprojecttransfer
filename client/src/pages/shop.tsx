@@ -450,7 +450,17 @@ export default function ShopPage() {
                           )
                         )}
                         {isService && (
-                          <Button size="sm" variant="outline" onClick={() => shop.whatsapp_number && window.open(`https://wa.me/${shop.whatsapp_number.replace(/\D/g, "")}`, "_blank")} className="rounded-xl h-8 px-3 text-xs border-blue-200 text-blue-600" data-testid={`button-enquire-${product.id}`}>Enquire</Button>
+                          shopHours && !shopOpen ? (
+                            <Button size="sm" disabled className="rounded-xl h-8 px-3 text-xs opacity-50" data-testid={`button-add-cart-${product.id}`}>Closed</Button>
+                          ) : qty > 0 ? (
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => updateQuantity(product.id, qty - 1)} className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center" data-testid={`button-decrease-${product.id}`}><Minus className="w-3 h-3" /></button>
+                              <span className="text-sm font-medium w-4 text-center">{qty}</span>
+                              <button onClick={() => handleAddToCart(product)} className="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center" data-testid={`button-increase-${product.id}`}><Plus className="w-3 h-3" /></button>
+                            </div>
+                          ) : (
+                            <Button size="sm" onClick={() => handleAddToCart(product)} className="rounded-xl h-8 px-3 text-xs bg-blue-500 hover:bg-blue-600" data-testid={`button-add-cart-${product.id}`}>Add</Button>
+                          )
                         )}
                       </div>
                     </CardContent>

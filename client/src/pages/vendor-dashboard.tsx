@@ -159,6 +159,27 @@ export default function VendorDashboard() {
   const [ocBannerFile, setOCBannerFile] = useState<File | null>(null);
   const [ocBannerPreview, setOCBannerPreview] = useState<string | null>(null);
 
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [bannerUploading, setBannerUploading] = useState(false);
+  const [prodImgUploading, setProdImgUploading] = useState(false);
+
+  const vendorUploadImage = async (file: File, setter: (url: string) => void, setUploading: (v: boolean) => void) => {
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      if (!res.ok) throw new Error("Upload failed");
+      const { url } = await res.json();
+      setter(url);
+      toast({ title: "Image uploaded!" });
+    } catch (e: any) {
+      toast({ title: e.message || "Upload failed", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const { data: selectedCodes = [], isLoading: codesLoading } = useQuery<any[]>({
     queryKey: ["/api/vendor/offline-coupons", selectedOCId, "codes"],
     queryFn: () => vendorFetch(`/api/vendor/offline-coupons/${selectedOCId}/codes`),
@@ -366,12 +387,28 @@ export default function VendorDashboard() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <Label className="text-sm">Logo URL</Label>
-                            <Input value={shopForm.logo || ""} onChange={e => setShopForm((f: any) => ({ ...f, logo: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="https://..." />
+                            <div className="flex gap-2 mt-1.5">
+                              <Input value={shopForm.logo || ""} onChange={e => setShopForm((f: any) => ({ ...f, logo: e.target.value }))} className="rounded-xl flex-1" placeholder="https://..." data-testid="input-vendor-logo" />
+                              <label className="cursor-pointer">
+                                <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) vendorUploadImage(f, (url) => setShopForm((sf: any) => ({ ...sf, logo: url })), setLogoUploading); }} data-testid="input-vendor-logo-file" />
+                                <Button type="button" variant="outline" size="sm" className="rounded-xl h-10 px-3 shrink-0" disabled={logoUploading} data-testid="button-upload-logo">
+                                  {logoUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                                </Button>
+                              </label>
+                            </div>
                             {shopForm.logo && <img src={shopForm.logo} alt="Logo preview" className="mt-2 w-12 h-12 rounded-xl object-cover" />}
                           </div>
                           <div>
                             <Label className="text-sm">Banner Image URL</Label>
-                            <Input value={shopForm.banner_image || ""} onChange={e => setShopForm((f: any) => ({ ...f, banner_image: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="https://..." />
+                            <div className="flex gap-2 mt-1.5">
+                              <Input value={shopForm.banner_image || ""} onChange={e => setShopForm((f: any) => ({ ...f, banner_image: e.target.value }))} className="rounded-xl flex-1" placeholder="https://..." data-testid="input-vendor-banner" />
+                              <label className="cursor-pointer">
+                                <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) vendorUploadImage(f, (url) => setShopForm((sf: any) => ({ ...sf, banner_image: url })), setBannerUploading); }} data-testid="input-vendor-banner-file" />
+                                <Button type="button" variant="outline" size="sm" className="rounded-xl h-10 px-3 shrink-0" disabled={bannerUploading} data-testid="button-upload-banner">
+                                  {bannerUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                                </Button>
+                              </label>
+                            </div>
                             {shopForm.banner_image && <img src={shopForm.banner_image} alt="Banner preview" className="mt-2 w-full h-16 rounded-xl object-cover" />}
                           </div>
                         </div>
@@ -467,7 +504,7 @@ export default function VendorDashboard() {
                           <Badge className="bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-0 text-[10px]">{prod.type}</Badge>
                           {prod.sub_category && <Badge className="bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 border-0 text-[10px]">{prod.sub_category}</Badge>}
                           <div className="ml-auto flex gap-1">
-                            <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => { setEditProd(prod); setProdForm({ name: prod.name, price: prod.price, description: prod.description || "", type: prod.type || "product", sub_category: prod.sub_category || "" }); setProdDialog(true); }} data-testid={`button-edit-product-${prod.id}`}>
+                            <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => { setEditProd(prod); setProdForm({ name: prod.name, price: prod.price, description: prod.description || "", type: prod.type || "product", sub_category: prod.sub_category || "", image: prod.image || "" }); setProdDialog(true); }} data-testid={`button-edit-product-${prod.id}`}>
                               <Edit className="w-3 h-3" />
                             </Button>
                             <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => deleteProdMutation.mutate(prod.id)} data-testid={`button-delete-product-${prod.id}`}>
@@ -488,6 +525,19 @@ export default function VendorDashboard() {
                     <div><Label className="text-sm">Name *</Label><Input value={prodForm.name} onChange={e => setProdForm((f: any) => ({ ...f, name: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="Product name" data-testid="input-prod-name" /></div>
                     <div><Label className="text-sm">Price (₹) *</Label><Input type="number" value={prodForm.price} onChange={e => setProdForm((f: any) => ({ ...f, price: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="e.g. 299" data-testid="input-prod-price" /></div>
                     <div><Label className="text-sm">Description</Label><Textarea value={prodForm.description} onChange={e => setProdForm((f: any) => ({ ...f, description: e.target.value }))} className="mt-1.5 rounded-xl resize-none" rows={2} /></div>
+                    <div>
+                      <Label className="text-sm">Image</Label>
+                      <div className="flex gap-2 mt-1.5">
+                        <Input value={prodForm.image || ""} onChange={e => setProdForm((f: any) => ({ ...f, image: e.target.value }))} className="rounded-xl flex-1" placeholder="https://... or upload →" data-testid="input-prod-image" />
+                        <label className="cursor-pointer">
+                          <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) vendorUploadImage(f, (url) => setProdForm((pf: any) => ({ ...pf, image: url })), setProdImgUploading); }} data-testid="input-prod-image-file" />
+                          <Button type="button" variant="outline" size="sm" className="rounded-xl h-10 px-3 shrink-0" disabled={prodImgUploading} data-testid="button-upload-prod-image">
+                            {prodImgUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                          </Button>
+                        </label>
+                      </div>
+                      {prodForm.image && <img src={prodForm.image} alt="Preview" className="mt-2 w-16 h-16 rounded-xl object-cover" onError={e => { (e.target as any).style.display = "none"; }} />}
+                    </div>
                     <div>
                       <Label className="text-sm">Type</Label>
                       <Select value={prodForm.type} onValueChange={v => setProdForm((f: any) => ({ ...f, type: v }))}>

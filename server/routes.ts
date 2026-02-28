@@ -1180,13 +1180,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       // Attached products (optional, any coupon type)
       const cpItems = await storage.getCouponProducts(coupon.id);
       if (cpItems.length > 0) {
-        items_to_add = cpItems.map(cp => ({
-          id: cp.product?.id || cp.product_id || "",
-          name: cp.product?.name || "Product",
-          price: parseFloat(cp.custom_price),
-          shop_id: cp.product?.shop_id || coupon.shop_id || "",
-          shopName,
-        }));
+        for (const cp of cpItems) {
+          const qty = Math.max(1, parseInt(String((cp as any).quantity || "1")));
+          for (let q = 0; q < qty; q++) {
+            items_to_add.push({
+              id: cp.product?.id || cp.product_id || "",
+              name: cp.product?.name || "Product",
+              price: parseFloat(cp.custom_price),
+              shop_id: cp.product?.shop_id || coupon.shop_id || "",
+              shopName,
+            });
+          }
+        }
       }
 
       // Free item — added free_item_qty times for free_item type

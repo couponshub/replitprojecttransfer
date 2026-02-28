@@ -89,6 +89,7 @@ export const couponProducts = pgTable("coupon_products", {
   coupon_id: varchar("coupon_id").references(() => coupons.id),
   product_id: varchar("product_id").references(() => products.id),
   custom_price: numeric("custom_price", { precision: 10, scale: 2 }).notNull(),
+  quantity: integer("quantity").notNull().default(1),
 });
 
 export const orders = pgTable("orders", {

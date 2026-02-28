@@ -14,7 +14,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import {
   ShoppingCart, Trash2, Plus, Minus, Tag, CheckCircle, ArrowLeft,
-  Gift, Package, Sparkles, ChevronDown, Percent, Zap, AlertCircle, X
+  Gift, Package, Sparkles, ChevronDown, Percent, Zap, AlertCircle, X, Phone, User
 } from "lucide-react";
 import type { Coupon, Shop } from "@shared/schema";
 
@@ -210,7 +210,7 @@ function AvailableCouponsPanel({ shopId, cartTotal, appliedCode, onApply }: Avai
 export default function CartPage() {
   const [, navigate] = useLocation();
   const { items, removeItem, updateQuantity, clearCart, total, shopId, addItems } = useCart();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { toast } = useToast();
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<{
@@ -529,6 +529,38 @@ export default function CartPage() {
                 )}
               </div>
             </div>
+
+            {/* ── Contact Info ── */}
+            {user && (
+              <Card className="rounded-2xl border-0 shadow-md" data-testid="card-contact-info">
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-sm">
+                      <User className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <h3 className="font-semibold text-gray-900 dark:text-white text-sm">Order For</h3>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <User className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-sm font-medium text-gray-800 dark:text-gray-200" data-testid="text-order-name">{user.name}</span>
+                    </div>
+                    {user.phone && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-sm text-gray-700 dark:text-gray-300" data-testid="text-order-phone">+91 {user.phone}</span>
+                      </div>
+                    )}
+                    {user.email && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground ml-0.5">✉</span>
+                        <span className="text-sm text-gray-700 dark:text-gray-300 truncate" data-testid="text-order-email">{user.email}</span>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* ── Order Summary ── */}
             <Card className="rounded-2xl border-0 shadow-md">

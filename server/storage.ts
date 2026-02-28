@@ -283,13 +283,14 @@ export class PgStorage implements IStorage {
     return result.map(r => ({ ...r.coupon_products, product: r.products || undefined }));
   }
 
-  async setCouponProducts(couponId: string, items: { product_id: string; custom_price: string }[]): Promise<void> {
+  async setCouponProducts(couponId: string, items: { product_id: string; custom_price: string; quantity?: number }[]): Promise<void> {
     await db.delete(couponProducts).where(eq(couponProducts.coupon_id, couponId));
     if (items.length > 0) {
       await db.insert(couponProducts).values(items.map(i => ({
         coupon_id: couponId,
         product_id: i.product_id,
         custom_price: i.custom_price,
+        quantity: i.quantity || 1,
       })));
     }
   }

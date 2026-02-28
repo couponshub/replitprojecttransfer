@@ -68,7 +68,7 @@ export default function AdminDashboard() {
   const [filterCategoryId, setFilterCategoryId] = useState("");
   const [shopSearch, setShopSearch] = useState("");
   const [catSearch, setCatSearch] = useState("");
-  const [bundleItems, setBundleItems] = useState<{ product_id: string; custom_price: string; name: string }[]>([]);
+  const [bundleItems, setBundleItems] = useState<{ product_id: string; custom_price: string; name: string; quantity: number }[]>([]);
   const [couponProdSearch, setCouponProdSearch] = useState("");
   const [productSearch, setProductSearch] = useState("");
   const [couponSearch, setCouponSearch] = useState("");
@@ -115,6 +115,7 @@ export default function AdminDashboard() {
           product_id: cp.product_id,
           custom_price: cp.custom_price,
           name: cp.product?.name || "Product",
+          quantity: cp.quantity || 1,
         })));
       }).catch(() => setBundleItems([]));
     } else {
@@ -299,7 +300,7 @@ export default function AdminDashboard() {
     }
     if (data.price) data.price = data.price.toString();
     if (type === "coupons") {
-      data.coupon_products = bundleItems.map(i => ({ product_id: i.product_id, custom_price: i.custom_price }));
+      data.coupon_products = bundleItems.map(i => ({ product_id: i.product_id, custom_price: i.custom_price, quantity: i.quantity || 1 }));
       if (data.type === "free_item") {
         data.value = "0";
       } else {
@@ -1947,7 +1948,7 @@ export default function AdminDashboard() {
                                     {attached ? (
                                       <button type="button" onClick={() => setBundleItems(prev => prev.filter(b => b.product_id !== p.id))} className="text-[11px] text-red-500 font-semibold px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20">Remove</button>
                                     ) : (
-                                      <button type="button" onClick={() => setBundleItems(prev => [...prev, { product_id: p.id, custom_price: p.price ? p.price.toString() : "0", name: p.name }])} className="text-[11px] text-blue-600 font-semibold px-2 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/20">Add</button>
+                                      <button type="button" onClick={() => setBundleItems(prev => [...prev, { product_id: p.id, custom_price: p.price ? p.price.toString() : "0", name: p.name, quantity: 1 }])} className="text-[11px] text-blue-600 font-semibold px-2 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/20">Add</button>
                                     )}
                                   </div>
                                 );
@@ -1956,14 +1957,20 @@ export default function AdminDashboard() {
                           </div>
                           {bundleItems.length > 0 && (
                             <div className="flex flex-col gap-2">
-                              <p className="text-[11px] font-semibold text-muted-foreground">Attached ({bundleItems.length}) — set offer prices:</p>
+                              <p className="text-[11px] font-semibold text-muted-foreground">Attached ({bundleItems.length}) — set offer prices & quantity:</p>
                               {bundleItems.map((item, idx) => (
                                 <div key={item.product_id} className="flex items-center gap-2 p-2 rounded-xl bg-gradient-to-r from-blue-50 to-violet-50 dark:from-blue-950/20 dark:to-violet-950/20 border border-blue-200 dark:border-blue-800">
-                                  <span className="text-xs font-medium text-gray-800 dark:text-gray-200 flex-1 truncate">{item.name}</span>
-                                  <div className="relative w-24 shrink-0">
+                                  <span className="text-xs font-medium text-gray-800 dark:text-gray-200 flex-1 truncate min-w-0">{item.name}</span>
+                                  <div className="relative w-20 shrink-0">
                                     <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₹</span>
                                     <Input type="number" value={item.custom_price} onChange={e => setBundleItems(prev => prev.map((b, i) => i === idx ? { ...b, custom_price: e.target.value } : b))} className="h-7 text-xs rounded-lg pl-5 pr-1" data-testid={`input-attach-price-${item.product_id}`} />
                                   </div>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <button type="button" onClick={() => setBundleItems(prev => prev.map((b, i) => i === idx ? { ...b, quantity: Math.max(1, (b.quantity || 1) - 1) } : b))} className="w-6 h-6 rounded-md border border-gray-200 dark:border-gray-700 flex items-center justify-center text-xs font-bold hover:bg-gray-100 dark:hover:bg-gray-800" data-testid={`button-qty-dec-${item.product_id}`}>-</button>
+                                    <span className="w-5 text-center text-xs font-bold" data-testid={`text-qty-${item.product_id}`}>{item.quantity || 1}</span>
+                                    <button type="button" onClick={() => setBundleItems(prev => prev.map((b, i) => i === idx ? { ...b, quantity: Math.min(99, (b.quantity || 1) + 1) } : b))} className="w-6 h-6 rounded-md border border-gray-200 dark:border-gray-700 flex items-center justify-center text-xs font-bold hover:bg-gray-100 dark:hover:bg-gray-800" data-testid={`button-qty-inc-${item.product_id}`}>+</button>
+                                  </div>
+                                  <button type="button" onClick={() => setBundleItems(prev => prev.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600 p-0.5 shrink-0" data-testid={`button-remove-bundle-${item.product_id}`}><X className="w-3.5 h-3.5" /></button>
                                 </div>
                               ))}
                             </div>
@@ -2034,6 +2041,7 @@ export default function AdminDashboard() {
                         <tr className="border-b border-gray-100 dark:border-gray-800">
                           <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Order</th>
                           <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Customer</th>
+                          <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Phone</th>
                           <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Amount</th>
                           <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Date</th>
                           <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Status</th>
@@ -2047,6 +2055,15 @@ export default function AdminDashboard() {
                             </td>
                             <td className="px-5 py-3.5">
                               <span className="text-sm text-gray-700 dark:text-gray-300">{order.user?.name || "Unknown"}</span>
+                            </td>
+                            <td className="px-5 py-3.5">
+                              {order.user?.phone ? (
+                                <a href={`tel:+91${order.user.phone}`} className="text-sm text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:underline" data-testid={`link-order-phone-${order.id}`}>
+                                  <Phone className="w-3 h-3" />+91 {order.user.phone}
+                                </a>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
                             </td>
                             <td className="px-5 py-3.5">
                               <span className="font-bold text-sm text-gray-900 dark:text-white">₹{parseFloat(order.final_amount as string).toLocaleString()}</span>
