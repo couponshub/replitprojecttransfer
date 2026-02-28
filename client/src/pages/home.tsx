@@ -60,7 +60,7 @@ function BannerSlider({ banners }: { banners: BannerWithCoupon[] }) {
       <div className="relative max-w-7xl mx-auto overflow-hidden rounded-2xl sm:rounded-3xl shadow-xl" style={{ aspectRatio: "16/6.5" }}>
         <div
           className="flex h-full transition-transform duration-500 ease-in-out"
-          style={{ transform: `translateX(-${current * 100}%)`, width: `${banners.length * 100}%` }}
+          style={{ transform: `translateX(-${current * (100 / banners.length)}%)`, width: `${banners.length * 100}%` }}
         >
           {banners.map((b, i) => (
             <div
