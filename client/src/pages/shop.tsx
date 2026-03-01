@@ -74,7 +74,7 @@ function isShopOpen(hours: string | null | undefined): boolean {
 export default function ShopPage() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
-  const { addItem, items, updateQuantity, itemCount, addItems } = useCart();
+  const { addItem, items, updateQuantity, itemCount, addItems, removeFreeItemsForShop } = useCart();
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -124,6 +124,10 @@ export default function ShopPage() {
 
   const finishCouponClaim = (result: any, chosenFreeItem?: any) => {
     const hasItemsToAdd = result.items_to_add && result.items_to_add.length > 0;
+    const hasFreeItems = (result.items_to_add || []).some((i: any) => i.isFreeItem) || !!chosenFreeItem;
+    if (hasFreeItems && id) {
+      removeFreeItemsForShop(id);
+    }
     if (hasItemsToAdd) {
       addItems(result.items_to_add.map((item: any) => ({
         id: item.id, name: item.name, price: item.price,

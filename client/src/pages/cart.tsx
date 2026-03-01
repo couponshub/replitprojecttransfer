@@ -138,6 +138,9 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
   const shopName = shopItems[0]?.shopName || "Shop";
   const shopSubtotal = shopItems.reduce((s, i) => s + i.price * i.quantity, 0);
   const shopDiscount = getShopDiscount();
+  const freeItemsInCart = shopItems.filter(i => i.isFreeItem);
+  const hasFreeItemsInCart = freeItemsInCart.length > 0;
+  const couponAlreadyApplied = coupons.length > 0 || hasFreeItemsInCart;
 
   const dist = (userGPS && shopData?.latitude && shopData?.longitude)
     ? haversineKm(userGPS.lat, userGPS.lon, parseFloat(shopData.latitude), parseFloat(shopData.longitude))
@@ -208,15 +211,33 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
         </Card>
       ))}
 
-      {/* Per-store coupons — up to 3 */}
+      {/* Per-store coupons */}
       <Card className="rounded-2xl border-0 shadow-sm">
         <CardContent className="p-4">
           <div className="flex items-center gap-2 mb-3">
             <Tag className="w-4 h-4 text-violet-500" />
             <span className="text-sm font-semibold text-gray-800 dark:text-white">{shopName} Coupons</span>
-            {coupons.length > 0 && <span className="w-5 h-5 rounded-full bg-emerald-500 text-white text-[9px] font-bold flex items-center justify-center">✓</span>}
+            {couponAlreadyApplied && <span className="w-5 h-5 rounded-full bg-emerald-500 text-white text-[9px] font-bold flex items-center justify-center">✓</span>}
           </div>
-          {/* Applied coupons list */}
+
+          {/* Free items claimed from shop page */}
+          {hasFreeItemsInCart && coupons.length === 0 && (
+            <div className="flex flex-col gap-2 mb-3">
+              {freeItemsInCart.map(item => (
+                <div key={item.id} className="flex items-center justify-between p-2.5 bg-emerald-50/80 dark:bg-emerald-950/30 rounded-xl border border-emerald-200/60 dark:border-emerald-800/30">
+                  <div className="flex items-center gap-2">
+                    <Gift className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <div>
+                      <p className="text-xs font-black text-emerald-700 dark:text-emerald-400 tracking-wide">Coupon Applied</p>
+                      <p className="text-[10px] text-emerald-600">Free: {item.name}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Applied coupons from cart input */}
           {coupons.length > 0 && (
             <div className="flex flex-col gap-2 mb-3">
               {coupons.map(c => (
@@ -248,8 +269,9 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
               ))}
             </div>
           )}
-          {/* Coupon input — only show if no coupon yet */}
-          {coupons.length < 1 && (
+
+          {/* Coupon input — only show if no coupon yet and no free items in cart */}
+          {!couponAlreadyApplied && (
             <>
               <div className="flex gap-2">
                 <div className="relative flex-1">
