@@ -1010,43 +1010,46 @@ function CouponCard({ coupon }: { coupon: Coupon & { shop?: Shop } }) {
 
   return (
     <div className="relative rounded-2xl overflow-hidden shadow-lg border border-gray-100 dark:border-gray-800 flex flex-col bg-white dark:bg-gray-900" data-testid={`card-coupon-${coupon.id}`}>
-      {/* Banner */}
-      <div className="relative w-full h-32 shrink-0 overflow-hidden">
+      {/* Banner — full width, taller */}
+      <div className="relative w-full h-44 shrink-0 overflow-hidden">
         {bannerImg ? (
           <img src={bannerImg} alt={coupon.code} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
         ) : (
           <div className={`w-full h-full ${typeBg[coupon.type] || "bg-gradient-to-br from-blue-500 to-violet-500"} flex items-center justify-center`}>
-            <span className="text-5xl opacity-80">{typeIcons[coupon.type]}</span>
+            <span className="text-6xl opacity-70">{typeIcons[coupon.type]}</span>
           </div>
         )}
+        {/* Gradient overlay at bottom for readability */}
+        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/40 to-transparent" />
         {/* Type badge top-right */}
         <div className="absolute top-2 right-2">
           <Badge className={`bg-gradient-to-r ${typeColors[coupon.type]} text-white border-0 text-[10px] capitalize shadow-md`}>{coupon.type.replace("_", " ")}</Badge>
         </div>
-        {/* Logo overlapping banner bottom-left */}
-        <div className="absolute -bottom-5 left-3">
+        {/* Logo + shop name at bottom of banner */}
+        <div className="absolute bottom-2 left-2 flex items-center gap-1.5">
           {coupon.shop?.logo ? (
-            <img src={coupon.shop.logo} alt={coupon.shop?.name} className="w-11 h-11 rounded-xl object-cover border-2 border-white dark:border-gray-900 shadow-md" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+            <img src={coupon.shop.logo} alt={coupon.shop?.name} className="w-9 h-9 rounded-lg object-cover border-2 border-white/80 shadow" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
           ) : coupon.shop ? (
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-bold text-base border-2 border-white dark:border-gray-900 shadow-md">{coupon.shop.name[0]}</div>
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white font-bold text-sm border-2 border-white/80 shadow">{coupon.shop.name[0]}</div>
           ) : null}
+          <span className="text-[11px] font-bold text-white drop-shadow truncate max-w-[120px]">{coupon.shop?.name || "All Shops"}</span>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="px-3 pt-7 pb-3 flex flex-col gap-2">
-        {/* Shop name */}
-        <span className="text-[11px] font-semibold text-muted-foreground truncate">{coupon.shop?.name || "All Shops"}</span>
-
+      {/* Content — compact */}
+      <div className="px-3 pt-2.5 pb-2.5 flex flex-col gap-1.5">
         {/* Value */}
-        <div className="flex items-center gap-1">
-          <span className="font-extrabold text-lg text-gray-900 dark:text-white leading-none">
-            {coupon.type === "percentage" ? `${coupon.value}% OFF` : coupon.type === "flat" ? `₹${coupon.value} OFF` : "🎁 FREE ITEM"}
-          </span>
-        </div>
+        <span className="font-extrabold text-base text-gray-900 dark:text-white leading-tight">
+          {coupon.type === "percentage" ? `${coupon.value}% OFF` : coupon.type === "flat" ? `₹${coupon.value} OFF` : "🎁 FREE ITEM"}
+        </span>
+
+        {/* Description */}
+        {(coupon as any).description && (
+          <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">{(coupon as any).description}</p>
+        )}
 
         {/* Code row */}
-        <div className="bg-gray-100 dark:bg-gray-800 rounded-lg px-2.5 py-1.5 flex items-center justify-between">
+        <div className="bg-gray-100 dark:bg-gray-800 rounded-lg px-2.5 py-1.5 flex items-center justify-between mt-0.5">
           <code className="text-xs font-bold text-gray-900 dark:text-white tracking-widest">{coupon.code}</code>
           <button onClick={handleCopy} className="text-[11px] text-primary font-semibold ml-2 shrink-0" data-testid={`button-copy-coupon-${coupon.id}`}>Copy</button>
         </div>
@@ -1059,7 +1062,7 @@ function CouponCard({ coupon }: { coupon: Coupon & { shop?: Shop } }) {
         <Button
           size="sm"
           onClick={handleClaim}
-          className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 border-0 gap-1.5 text-white h-8 text-xs"
+          className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 border-0 gap-1.5 text-white h-8 text-xs mt-0.5"
           data-testid={`button-claim-coupon-${coupon.id}`}
         >
           <Zap className="w-3 h-3" />

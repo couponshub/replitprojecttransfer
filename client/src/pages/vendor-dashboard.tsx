@@ -131,11 +131,11 @@ export default function VendorDashboard() {
 
   const [couponDialog, setCouponDialog] = useState(false);
   const [editCoupon, setEditCoupon] = useState<any>(null);
-  const [couponForm, setCouponForm] = useState<any>({ code: "", type: "percentage", value: "", is_active: true, featured: false, free_item_product_id: null, free_item_qty: 1, min_order_amount: null, expiry_date: "" });
+  const [couponForm, setCouponForm] = useState<any>({ code: "", type: "percentage", value: "", is_active: true, featured: false, free_item_product_id: null, free_item_qty: 1, min_order_amount: null, expiry_date: "", description: "", banner_image: "", restrict_sub_category: null });
   const [couponProdSearch, setCouponProdSearch] = useState("");
   const [bundleItems, setBundleItems] = useState<{ product_id: string; name: string; custom_price: string; quantity: number }[]>([]);
 
-  const resetCouponDialog = () => { setCouponDialog(false); setEditCoupon(null); setCouponForm({ code: "", type: "percentage", value: "", is_active: true, featured: false, free_item_product_id: null, free_item_qty: 1, min_order_amount: null, expiry_date: "" }); setCouponProdSearch(""); setBundleItems([]); };
+  const resetCouponDialog = () => { setCouponDialog(false); setEditCoupon(null); setCouponForm({ code: "", type: "percentage", value: "", is_active: true, featured: false, free_item_product_id: null, free_item_qty: 1, min_order_amount: null, expiry_date: "", description: "", banner_image: "", restrict_sub_category: null }); setCouponProdSearch(""); setBundleItems([]); };
 
   const saveCouponMutation = useMutation({
     mutationFn: (data: any) => {
@@ -696,7 +696,7 @@ export default function VendorDashboard() {
                           </p>
                         </div>
                         <div className="flex gap-1 shrink-0">
-                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => { resetCouponDialog(); setEditCoupon(coupon); setCouponForm({ code: coupon.code, type: coupon.type, value: coupon.value, is_active: coupon.is_active, featured: coupon.featured || false, free_item_product_id: coupon.free_item_product_id || null, free_item_qty: coupon.free_item_qty || 1, min_order_amount: coupon.min_order_amount || null, expiry_date: coupon.expiry_date ? new Date(coupon.expiry_date).toISOString().split("T")[0] : "" }); if (coupon.coupon_products && Array.isArray(coupon.coupon_products)) { setBundleItems(coupon.coupon_products.map((cp: any) => ({ product_id: cp.product_id || cp.id, name: cp.name || "", custom_price: cp.custom_price || "", quantity: cp.quantity || 1 }))); } setCouponDialog(true); }} data-testid={`button-edit-coupon-${coupon.id}`}>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => { resetCouponDialog(); setEditCoupon(coupon); setCouponForm({ code: coupon.code, type: coupon.type, value: coupon.value, is_active: coupon.is_active, featured: coupon.featured || false, free_item_product_id: coupon.free_item_product_id || null, free_item_qty: coupon.free_item_qty || 1, min_order_amount: coupon.min_order_amount || null, expiry_date: coupon.expiry_date ? new Date(coupon.expiry_date).toISOString().split("T")[0] : "", description: coupon.description || "", banner_image: coupon.banner_image || "", restrict_sub_category: coupon.restrict_sub_category || null }); if (coupon.coupon_products && Array.isArray(coupon.coupon_products)) { setBundleItems(coupon.coupon_products.map((cp: any) => ({ product_id: cp.product_id || cp.id, name: cp.name || "", custom_price: cp.custom_price || "", quantity: cp.quantity || 1 }))); } setCouponDialog(true); }} data-testid={`button-edit-coupon-${coupon.id}`}>
                             <Edit className="w-3 h-3" />
                           </Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => deleteCouponMutation.mutate(coupon.id)} data-testid={`button-delete-coupon-${coupon.id}`}>
@@ -810,6 +810,60 @@ export default function VendorDashboard() {
                         )}
                       </div>
                     )}
+
+                    {/* Description */}
+                    <div>
+                      <Label className="text-xs font-semibold">Description <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                      <textarea
+                        value={couponForm.description || ""}
+                        onChange={e => setCouponForm((f: any) => ({ ...f, description: e.target.value }))}
+                        className="mt-1.5 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                        rows={2}
+                        placeholder="e.g. Valid on orders above ₹500. Get 20% off on all items."
+                        data-testid="input-vendor-coupon-description"
+                      />
+                    </div>
+
+                    {/* Category restriction */}
+                    {(() => {
+                      const subCats = Array.from(new Set(products.filter((p: any) => p.sub_category).map((p: any) => p.sub_category as string)));
+                      if (subCats.length === 0) return null;
+                      return (
+                        <div>
+                          <Label className="text-xs font-semibold text-orange-700 dark:text-orange-400">🎯 Restrict to Category <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                          <p className="text-[10px] text-muted-foreground mt-0.5 mb-1.5">If set, discount applies ONLY to items in this category.</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            <button type="button" onClick={() => setCouponForm((f: any) => ({ ...f, restrict_sub_category: null }))}
+                              className={`text-[11px] px-3 py-1 rounded-full border font-semibold transition-all ${!couponForm.restrict_sub_category ? "bg-blue-500 text-white border-blue-500" : "border-gray-300 dark:border-gray-600 text-muted-foreground hover:border-blue-400"}`}
+                              data-testid="vendor-cat-restrict-all">All items</button>
+                            {subCats.map(cat => (
+                              <button key={cat} type="button" onClick={() => setCouponForm((f: any) => ({ ...f, restrict_sub_category: cat }))}
+                                className={`text-[11px] px-3 py-1 rounded-full border font-semibold transition-all ${couponForm.restrict_sub_category === cat ? "bg-orange-500 text-white border-orange-500" : "border-gray-300 dark:border-gray-600 text-muted-foreground hover:border-orange-400"}`}
+                                data-testid={`vendor-cat-restrict-${cat}`}>{cat}</button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Banner Image */}
+                    <div>
+                      <Label className="text-xs font-semibold">Banner Image <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                      <p className="text-[11px] text-muted-foreground mb-1.5">Wide image shown at top of the coupon card (e.g. 800×320px).</p>
+                      <div className="flex gap-2 items-center">
+                        <Input value={couponForm.banner_image || ""} onChange={e => setCouponForm((f: any) => ({ ...f, banner_image: e.target.value }))} className="rounded-xl flex-1 text-xs" placeholder="https://..." data-testid="input-vendor-coupon-banner" />
+                        <label className="shrink-0 cursor-pointer px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-xs font-semibold hover:bg-gray-50 dark:hover:bg-gray-800">
+                          Upload
+                          <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { const r = new FileReader(); r.onload = ev => setCouponForm((frm: any) => ({ ...frm, banner_image: ev.target?.result as string })); r.readAsDataURL(f); } }} data-testid="input-vendor-coupon-banner-file" />
+                        </label>
+                      </div>
+                      {couponForm.banner_image && (
+                        <div className="relative mt-2">
+                          <img src={couponForm.banner_image} alt="Banner preview" className="w-full h-20 object-cover rounded-xl" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          <button onClick={() => setCouponForm((f: any) => ({ ...f, banner_image: "" }))} className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center text-xs">✕</button>
+                        </div>
+                      )}
+                    </div>
 
                     {/* Expiry date */}
                     <div>

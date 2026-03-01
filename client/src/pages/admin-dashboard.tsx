@@ -2015,6 +2015,19 @@ export default function AdminDashboard() {
                       </div>
                     )}
 
+                    {/* Description */}
+                    <div>
+                      <Label className="text-xs font-semibold">Description <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                      <textarea
+                        value={formData.description || ""}
+                        onChange={e => setForm("description", e.target.value)}
+                        className="mt-1.5 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                        rows={2}
+                        placeholder="e.g. Buy 1kg cake & get ₹100 off. Valid on all flavors."
+                        data-testid="input-coupon-description"
+                      />
+                    </div>
+
                     {/* Optional Products Section — available for ALL coupon types */}
                     <div className="rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 p-4 flex flex-col gap-3">
                       <div className="flex items-center justify-between">
@@ -2023,6 +2036,29 @@ export default function AdminDashboard() {
                           <p className="text-[10px] text-muted-foreground mt-0.5">When user claims this coupon, selected products auto-add to cart. If none selected, normal offer applies.</p>
                         </div>
                       </div>
+                      {/* Restrict to category — coupon applies only to items in this sub-category */}
+                      {formData.shop_id && (() => {
+                        const shopSubCats = Array.from(new Set(
+                          products.filter(p => p.shop_id === formData.shop_id && (p as any).sub_category).map(p => (p as any).sub_category as string)
+                        ));
+                        if (shopSubCats.length === 0) return null;
+                        return (
+                          <div>
+                            <Label className="text-xs font-semibold text-orange-700 dark:text-orange-400">🎯 Restrict to Category <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                            <p className="text-[10px] text-muted-foreground mt-0.5 mb-1.5">If set, discount applies ONLY to items in this category. Leave blank for entire order.</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              <button type="button" onClick={() => setForm("restrict_sub_category", null)}
+                                className={`text-[11px] px-3 py-1 rounded-full border font-semibold transition-all ${!formData.restrict_sub_category ? "bg-blue-500 text-white border-blue-500" : "border-gray-300 dark:border-gray-600 text-muted-foreground hover:border-blue-400"}`}
+                                data-testid="cat-restrict-all">All items</button>
+                              {shopSubCats.map(cat => (
+                                <button key={cat} type="button" onClick={() => setForm("restrict_sub_category", cat)}
+                                  className={`text-[11px] px-3 py-1 rounded-full border font-semibold transition-all ${formData.restrict_sub_category === cat ? "bg-orange-500 text-white border-orange-500" : "border-gray-300 dark:border-gray-600 text-muted-foreground hover:border-orange-400"}`}
+                                  data-testid={`cat-restrict-${cat}`}>{cat}</button>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
                       {!formData.shop_id ? (
                         <p className="text-xs text-muted-foreground italic">Select a shop above to attach products</p>
                       ) : (

@@ -85,6 +85,8 @@ export const coupons = pgTable("coupons", {
   min_order_amount: numeric("min_order_amount", { precision: 10, scale: 2 }),
   expiry_date: timestamp("expiry_date"),
   banner_image: text("banner_image"),
+  description: text("description"),
+  restrict_sub_category: text("restrict_sub_category"),
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });
 

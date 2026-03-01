@@ -226,11 +226,15 @@ export default function CartPage() {
   const [phoneInput, setPhoneInput] = useState("");
   const [phoneSaving, setPhoneSaving] = useState(false);
 
+  const restrictedCategory = (appliedCoupon as any)?.restrict_sub_category ?? null;
+  const discountBase = restrictedCategory
+    ? items.filter(i => i.sub_category === restrictedCategory).reduce((s, i) => s + i.price * i.quantity, 0)
+    : total;
   const discount = appliedCoupon
     ? appliedCoupon.type === "percentage"
-      ? total * parseFloat(appliedCoupon.value) / 100
+      ? discountBase * parseFloat(appliedCoupon.value) / 100
       : appliedCoupon.type === "flat"
-        ? Math.min(parseFloat(appliedCoupon.value), total)
+        ? Math.min(parseFloat(appliedCoupon.value), discountBase)
         : 0
     : 0;
 
@@ -605,9 +609,14 @@ export default function CartPage() {
                     <span className="font-medium">₹{total.toLocaleString()}</span>
                   </div>
                   {appliedCoupon && discount > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-emerald-600">Discount ({appliedCoupon.code})</span>
-                      <span className="font-medium text-emerald-600">-₹{discount.toFixed(0)}</span>
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-emerald-600">Discount ({appliedCoupon.code})</span>
+                        <span className="font-medium text-emerald-600">-₹{discount.toFixed(0)}</span>
+                      </div>
+                      {restrictedCategory && (
+                        <p className="text-[10px] text-orange-500 font-medium">🎯 Applies to "{restrictedCategory}" items only</p>
+                      )}
                     </div>
                   )}
                   {appliedCoupon && (appliedCoupon.type === "bundle" || appliedCoupon.type === "free_item") && (

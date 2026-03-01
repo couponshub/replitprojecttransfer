@@ -169,6 +169,7 @@ export default function ShopPage() {
       price: parseFloat(product.price as string),
       shop_id: shop?.id || "",
       shopName: shop?.name || "",
+      sub_category: (product as any).sub_category || undefined,
     });
     toast({ title: `${product.name} added to cart` });
   };
@@ -324,27 +325,42 @@ export default function ShopPage() {
                 const bannerImg = (coupon as any).banner_image || (shop as any)?.banner_image;
                 return (
                   <div key={coupon.id} className="relative rounded-2xl overflow-hidden shadow-lg border border-gray-100 dark:border-gray-800 flex flex-col bg-white dark:bg-gray-900" data-testid={`card-coupon-${coupon.id}`}>
-                    {/* Banner */}
-                    <div className="relative w-full h-28 shrink-0 overflow-hidden">
+                    {/* Banner — h-44 full width */}
+                    <div className="relative w-full h-44 shrink-0 overflow-hidden">
                       {bannerImg ? (
                         <img src={bannerImg} alt={coupon.code} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
                       ) : (
                         <div className={`w-full h-full ${typeBg[coupon.type] || "bg-gradient-to-br from-blue-500 to-violet-500"} flex items-center justify-center`}>
-                          <span className="text-4xl opacity-80">{typeIcons[coupon.type]}</span>
+                          <span className="text-6xl opacity-70">{typeIcons[coupon.type]}</span>
                         </div>
                       )}
+                      {/* Gradient overlay */}
+                      <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/40 to-transparent" />
+                      {/* Type badge */}
                       <div className="absolute top-2 right-2">
                         <Badge className={`bg-gradient-to-r ${typeColors[coupon.type]} text-white border-0 text-[10px] capitalize shadow-md`}>{coupon.type.replace("_", " ")}</Badge>
                       </div>
+                      {/* Value label at bottom-left inside banner */}
+                      <div className="absolute bottom-2 left-3">
+                        <span className="text-white font-black text-lg drop-shadow">
+                          {coupon.type === "percentage" ? `${coupon.value}% OFF` : coupon.type === "flat" ? `₹${coupon.value} OFF` : "🎁 FREE ITEM"}
+                        </span>
+                      </div>
                     </div>
 
-                    {/* Content */}
-                    <div className="px-3 pt-3 pb-3 flex flex-col gap-2">
-                      <span className="font-extrabold text-lg text-gray-900 dark:text-white leading-none">
-                        {coupon.type === "percentage" ? `${coupon.value}% OFF` : coupon.type === "flat" ? `₹${coupon.value} OFF` : "🎁 FREE ITEM"}
-                      </span>
+                    {/* Content — compact */}
+                    <div className="px-3 pt-2.5 pb-2.5 flex flex-col gap-1.5">
+                      {/* Description */}
+                      {(coupon as any).description && (
+                        <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">{(coupon as any).description}</p>
+                      )}
 
                       <CouponProductsList couponId={coupon.id} />
+
+                      {/* Restrict category badge */}
+                      {(coupon as any).restrict_sub_category && (
+                        <p className="text-[10px] text-orange-500 font-semibold">🎯 For {(coupon as any).restrict_sub_category} only</p>
+                      )}
 
                       <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800 rounded-xl px-2.5 py-1.5">
                         <code className="font-bold text-xs tracking-widest text-gray-900 dark:text-white">{coupon.code}</code>
@@ -359,7 +375,7 @@ export default function ShopPage() {
                         size="sm"
                         onClick={() => handleClaimCoupon(coupon)}
                         disabled={claimingCoupon === coupon.id}
-                        className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 border-0 gap-2 text-white h-8 text-xs"
+                        className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 border-0 gap-2 text-white h-8 text-xs mt-0.5"
                         data-testid={`button-claim-coupon-${coupon.id}`}
                       >
                         <Zap className="w-3 h-3" />
