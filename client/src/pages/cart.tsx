@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { useCart } from "@/lib/cart";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
@@ -14,7 +16,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
 import {
   ShoppingCart, Trash2, Plus, Minus, Tag, CheckCircle, ArrowLeft,
-  Gift, Package, Sparkles, ChevronDown, Percent, Zap, AlertCircle, X, Phone, User
+  Gift, Package, Sparkles, ChevronDown, Percent, Zap, AlertCircle, X, Phone, User, MessageCircle
 } from "lucide-react";
 import type { Coupon, Shop } from "@shared/schema";
 
@@ -210,7 +212,7 @@ function AvailableCouponsPanel({ shopId, cartTotal, appliedCode, onApply }: Avai
 export default function CartPage() {
   const [, navigate] = useLocation();
   const { items, removeItem, updateQuantity, clearCart, total, shopId, addItems } = useCart();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, updateProfile } = useAuth();
   const { toast } = useToast();
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<{
@@ -220,6 +222,9 @@ export default function CartPage() {
     items_to_add?: any[];
   } | null>(null);
   const [couponLoading, setCouponLoading] = useState(false);
+  const [phoneDialogOpen, setPhoneDialogOpen] = useState(false);
+  const [phoneInput, setPhoneInput] = useState("");
+  const [phoneSaving, setPhoneSaving] = useState(false);
 
   const discount = appliedCoupon
     ? appliedCoupon.type === "percentage"
@@ -340,7 +345,31 @@ export default function CartPage() {
       navigate("/login");
       return;
     }
+    if (!user?.phone) {
+      setPhoneInput("");
+      setPhoneDialogOpen(true);
+      return;
+    }
     placeOrder();
+  };
+
+  const handleSavePhone = async () => {
+    const cleaned = phoneInput.replace(/\D/g, "");
+    if (cleaned.length !== 10) {
+      toast({ title: "Please enter a valid 10-digit mobile number", variant: "destructive" });
+      return;
+    }
+    setPhoneSaving(true);
+    try {
+      await updateProfile({ phone: cleaned });
+      setPhoneDialogOpen(false);
+      toast({ title: "Mobile number saved!" });
+      placeOrder();
+    } catch {
+      toast({ title: "Failed to save number. Try again.", variant: "destructive" });
+    } finally {
+      setPhoneSaving(false);
+    }
   };
 
   useEffect(() => {
@@ -385,6 +414,7 @@ export default function CartPage() {
   }
 
   return (
+    <>
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Navbar />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
@@ -627,5 +657,68 @@ export default function CartPage() {
         </div>
       </div>
     </div>
+
+    <Dialog open={phoneDialogOpen} onOpenChange={setPhoneDialogOpen}>
+      <DialogContent className="sm:max-w-sm rounded-2xl">
+        <DialogHeader>
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+              <MessageCircle className="w-5 h-5 text-white" />
+            </div>
+            <DialogTitle className="text-lg">Add Mobile Number</DialogTitle>
+          </div>
+          <DialogDescription className="text-sm leading-relaxed">
+            The shop will contact you on WhatsApp to confirm your order. Please add your mobile number before placing the order.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-4 mt-2">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="phone-input">Mobile Number</Label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">+91</span>
+              <Input
+                id="phone-input"
+                type="tel"
+                inputMode="numeric"
+                placeholder="9876543210"
+                value={phoneInput}
+                onChange={e => setPhoneInput(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                onKeyDown={e => e.key === "Enter" && handleSavePhone()}
+                className="h-12 rounded-xl pl-12 text-base"
+                autoFocus
+                data-testid="input-phone-dialog"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">This number will be saved to your profile and used for order confirmations.</p>
+          </div>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              className="flex-1 rounded-xl"
+              onClick={() => setPhoneDialogOpen(false)}
+              data-testid="button-phone-cancel"
+            >
+              Cancel
+            </Button>
+            <Button
+              className="flex-1 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 border-0 font-semibold"
+              onClick={handleSavePhone}
+              disabled={phoneSaving || phoneInput.replace(/\D/g, "").length !== 10}
+              data-testid="button-phone-save"
+            >
+              {phoneSaving ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Saving...
+                </div>
+              ) : (
+                <><Phone className="w-4 h-4 mr-1" /> Save & Place Order</>
+              )}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
