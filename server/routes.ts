@@ -977,6 +977,68 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ id: user.id, name: user.name, email: user.email, phone: user.phone, address: user.address, role: user.role });
   });
 
+  app.get("/api/auth/google", (req, res) => {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) return res.status(503).json({ error: "Google login not configured" });
+    const domain = (process.env.REPLIT_DOMAINS || "").split(",")[0] || req.get("host") || "localhost";
+    const callbackUrl = `https://${domain}/api/auth/google/callback`;
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: callbackUrl,
+      response_type: "code",
+      scope: "email profile",
+      access_type: "online",
+    });
+    res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+  });
+
+  app.get("/api/auth/google/callback", async (req, res) => {
+    try {
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+      if (!clientId || !clientSecret) return res.redirect("/?error=google_not_configured");
+      const code = req.query.code as string;
+      if (!code) return res.redirect("/?error=google_denied");
+      const domain = (process.env.REPLIT_DOMAINS || "").split(",")[0] || req.get("host") || "localhost";
+      const callbackUrl = `https://${domain}/api/auth/google/callback`;
+      const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          code,
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: callbackUrl,
+          grant_type: "authorization_code",
+        }),
+      });
+      const tokenData = await tokenRes.json() as any;
+      if (!tokenData.access_token) return res.redirect("/login?error=google_token_failed");
+      const profileRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      });
+      const profile = await profileRes.json() as any;
+      if (!profile.email) return res.redirect("/login?error=google_no_email");
+      let user = await storage.getUserByEmail(profile.email);
+      if (!user) {
+        const randomPass = await bcrypt.hash(Math.random().toString(36), 10);
+        user = await storage.createUser({
+          name: profile.name || profile.email.split("@")[0],
+          email: profile.email,
+          phone: null,
+          password: randomPass,
+          role: "user",
+        });
+      }
+      const token = generateToken({ id: user.id, email: user.email, role: user.role });
+      res.cookie("token", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
+      res.redirect(`/home?google_token=${encodeURIComponent(token)}`);
+    } catch (err) {
+      console.error("Google OAuth error:", err);
+      res.redirect("/login?error=google_failed");
+    }
+  });
+
   app.patch("/api/users/me", authMiddleware, async (req, res) => {
     try {
       const { name, phone, address } = req.body;

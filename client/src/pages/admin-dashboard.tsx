@@ -130,31 +130,33 @@ export default function AdminDashboard() {
     setCouponProdSearch("");
   }, [editItem, dialogOpen, activeTab]);
 
-  if (!loading && !isAdmin) {
-    navigate("/login");
-    return null;
-  }
-  if (loading) return null;
+  useEffect(() => {
+    if (!loading && !isAdmin) {
+      navigate("/admin-login");
+    }
+  }, [loading, isAdmin]);
 
-  const { data: stats } = useQuery<any>({ queryKey: ["/api/admin/stats"] });
-  const { data: recentOrders = [] } = useQuery<(Order & { user?: User })[]>({ queryKey: ["/api/admin/recent-orders"] });
-  const { data: categories = [] } = useQuery<Category[]>({ queryKey: ["/api/categories"] });
-  const { data: shops = [] } = useQuery<(Shop & { category?: Category })[]>({ queryKey: ["/api/shops"] });
-  const { data: products = [] } = useQuery<(Product & { shop?: Shop })[]>({ queryKey: ["/api/products"] });
-  const { data: coupons = [] } = useQuery<(Coupon & { shop?: Shop })[]>({ queryKey: ["/api/coupons"] });
-  const { data: orders = [] } = useQuery<(Order & { user?: User })[]>({ queryKey: ["/api/orders"] });
-  const { data: allUsers = [] } = useQuery<any[]>({ queryKey: ["/api/admin/users"] });
-  const { data: topShops = [] } = useQuery<Shop[]>({ queryKey: ["/api/admin/top-shops"] });
-  const { data: topCoupons = [] } = useQuery<(Coupon & { shop?: Shop })[]>({ queryKey: ["/api/admin/top-coupons"] });
-  const { data: vendorAccounts = [], refetch: refetchVendors } = useQuery<any[]>({ queryKey: ["/api/admin/vendors"] });
-  const { data: adminBanners = [] } = useQuery<any[]>({ queryKey: ["/api/admin/banners"] });
+  const isReady = !loading && isAdmin;
+
+  const { data: stats } = useQuery<any>({ queryKey: ["/api/admin/stats"], enabled: isReady });
+  const { data: recentOrders = [] } = useQuery<(Order & { user?: User })[]>({ queryKey: ["/api/admin/recent-orders"], enabled: isReady });
+  const { data: categories = [] } = useQuery<Category[]>({ queryKey: ["/api/categories"], enabled: isReady });
+  const { data: shops = [] } = useQuery<(Shop & { category?: Category })[]>({ queryKey: ["/api/shops"], enabled: isReady });
+  const { data: products = [] } = useQuery<(Product & { shop?: Shop })[]>({ queryKey: ["/api/products"], enabled: isReady });
+  const { data: coupons = [] } = useQuery<(Coupon & { shop?: Shop })[]>({ queryKey: ["/api/coupons"], enabled: isReady });
+  const { data: orders = [] } = useQuery<(Order & { user?: User })[]>({ queryKey: ["/api/orders"], enabled: isReady });
+  const { data: allUsers = [] } = useQuery<any[]>({ queryKey: ["/api/admin/users"], enabled: isReady });
+  const { data: topShops = [] } = useQuery<Shop[]>({ queryKey: ["/api/admin/top-shops"], enabled: isReady });
+  const { data: topCoupons = [] } = useQuery<(Coupon & { shop?: Shop })[]>({ queryKey: ["/api/admin/top-coupons"], enabled: isReady });
+  const { data: vendorAccounts = [], refetch: refetchVendors } = useQuery<any[]>({ queryKey: ["/api/admin/vendors"], enabled: isReady });
+  const { data: adminBanners = [] } = useQuery<any[]>({ queryKey: ["/api/admin/banners"], enabled: isReady });
   const { data: selectedOrderDetail, isLoading: orderDetailLoading } = useQuery<Order & { user?: User; items: (OrderItem & { product?: Product })[] }>({
     queryKey: ["/api/admin/orders", selectedOrderId],
     queryFn: () => fetch(`/api/admin/orders/${selectedOrderId}`, {
       headers: { "Content-Type": "application/json" },
       credentials: "include"
     }).then(r => r.json()),
-    enabled: !!selectedOrderId,
+    enabled: isReady && !!selectedOrderId,
   });
 
   const premiumShops = shops.filter(s => s.is_premium);
@@ -455,6 +457,8 @@ export default function AdminDashboard() {
       </button>
     );
   };
+
+  if (loading || !isAdmin) return null;
 
   return (
     <div className="flex h-screen bg-gray-50/80 dark:bg-gray-950 overflow-hidden">

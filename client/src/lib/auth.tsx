@@ -31,7 +31,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem("coupons_hub_token");
+    const params = new URLSearchParams(window.location.search);
+    const googleToken = params.get("google_token");
+    if (googleToken) {
+      localStorage.setItem("coupons_hub_token", googleToken);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    const storedToken = googleToken || localStorage.getItem("coupons_hub_token");
     if (storedToken) {
       setToken(storedToken);
       fetch("/api/auth/me", {
