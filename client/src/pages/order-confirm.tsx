@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   CheckCircle, MessageCircle, CreditCard, Home, Phone,
   Copy, Check, QrCode, X, Loader2, IndianRupee, ShieldCheck,
-  Upload, ImageIcon, Send, MapPin, User
+  Upload, ImageIcon, Send, MapPin, User, ArrowLeft
 } from "lucide-react";
 
 interface OrderData {
@@ -26,6 +26,12 @@ interface OrderData {
   customerName?: string;
   customerPhone?: string;
   customerAddress?: string;
+  lastShopId?: string;
+  orders?: any[];
+  totalDiscount?: number;
+  serviceFee?: number;
+  deliveryFee?: number;
+  grandTotal?: number;
 }
 
 declare global { interface Window { Razorpay: any; } }
@@ -258,31 +264,102 @@ export default function OrderConfirmPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Navbar />
       <div className="max-w-lg mx-auto px-4 sm:px-6 py-10">
+        {/* Back to Store */}
+        {order.lastShopId && (
+          <Button variant="ghost" size="sm" onClick={() => navigate(`/shop/${order.lastShopId}`)} className="mb-4 -ml-2" data-testid="button-back-to-store">
+            <ArrowLeft className="w-4 h-4 mr-1" /> Back to Store
+          </Button>
+        )}
+
         <div className="text-center mb-8">
           <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-emerald-400/30">
             <CheckCircle className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Order Ready!</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            {(order.orders?.length ?? 1) > 1 ? `${order.orders!.length} Orders Placed!` : "Order Ready!"}
+          </h1>
           <p className="text-muted-foreground mt-1">Choose how to pay or place your order</p>
         </div>
 
-        {/* Order Summary */}
+        {/* Multi-store breakdown */}
+        {order.orders && order.orders.length > 1 && (
+          <div className="flex flex-col gap-3 mb-4">
+            {order.orders.map((o: any, idx: number) => (
+              <Card key={o.shopId || idx} className="rounded-2xl border-0 shadow-sm">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold text-sm text-gray-900 dark:text-white">{o.shopName}</h3>
+                    {o.orderId && <span className="text-[10px] text-muted-foreground">#{o.orderId.slice(0,8).toUpperCase()}</span>}
+                  </div>
+                  <div className="flex flex-col gap-1 mb-2">
+                    {o.items.map((item: any, i: number) => (
+                      <div key={i} className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">{item.name} ×{item.quantity}{item.isFreeItem ? " 🎁" : ""}</span>
+                        <span>{item.isFreeItem ? "Free" : `₹${(item.price * item.quantity).toLocaleString()}`}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-xs space-y-0.5 border-t border-gray-100 dark:border-gray-800 pt-1.5">
+                    {o.discount > 0 && <div className="flex justify-between text-emerald-600"><span>Discount</span><span>-₹{o.discount.toFixed(0)}</span></div>}
+                    {o.serviceFee > 0 && <div className="flex justify-between text-muted-foreground"><span>Service fee (2%)</span><span>₹{o.serviceFee}</span></div>}
+                    {o.deliveryFee > 0 && <div className="flex justify-between text-muted-foreground"><span>Delivery</span><span>₹{o.deliveryFee}</span></div>}
+                    <div className="flex justify-between font-bold text-gray-900 dark:text-white pt-0.5">
+                      <span>Subtotal</span><span>₹{o.finalAmount.toLocaleString()}</span>
+                    </div>
+                  </div>
+                  {o.shopWhatsapp && (
+                    <button
+                      onClick={() => {
+                        const phone = o.shopWhatsapp.replace(/\D/g, "");
+                        const itemLines = o.items.map((i: any) => i.isFreeItem ? `• ${i.name} ×${i.quantity} — FREE 🎁` : `• ${i.name} ×${i.quantity} — ₹${(i.price * i.quantity).toLocaleString()}`).join("\n");
+                        const text = [`🛍️ *New Order from CouponsHub X*`, ``, `*Shop:* ${o.shopName}`, o.orderId ? `*Order ID:* #${o.orderId.slice(0,8).toUpperCase()}` : "", ``, `*Customer:*`, order.customerName ? `• Name: ${order.customerName}` : "", order.customerPhone ? `• Phone: +91${order.customerPhone}` : "", ``, `*Items:*`, itemLines, ``, o.discount > 0 ? `*Discount:* -₹${o.discount.toFixed(0)}` : "", `*Total:* ₹${o.finalAmount.toLocaleString()}`, ``, `Please confirm my order. Thank you! 🙏`].filter(Boolean).join("\n");
+                        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank");
+                      }}
+                      className="mt-3 w-full flex items-center justify-center gap-2 bg-[#25D366] text-white rounded-xl py-2.5 text-sm font-semibold"
+                      data-testid={`button-whatsapp-shop-${o.shopId}`}
+                    >
+                      <MessageCircle className="w-4 h-4" /> Order via WhatsApp
+                    </button>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Order Summary (single store or combined total) */}
         <Card className="rounded-2xl border-0 shadow-md mb-4">
           <CardContent className="p-5">
-            <h2 className="font-semibold text-gray-900 dark:text-white mb-3">{order.shopName}</h2>
-            <div className="flex flex-col gap-1.5 mb-3">
-              {order.items.map((item, i) => (
-                <div key={i} className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">{item.name} ×{item.quantity}{item.isFreeItem ? " 🎁" : ""}</span>
-                  <span className="font-medium">{item.isFreeItem ? "Free" : `₹${(item.price * item.quantity).toLocaleString()}`}</span>
-                </div>
-              ))}
-            </div>
+            <h2 className="font-semibold text-gray-900 dark:text-white mb-3">
+              {order.orders && order.orders.length > 1 ? "Grand Total" : order.shopName}
+            </h2>
+            {!(order.orders && order.orders.length > 1) && (
+              <div className="flex flex-col gap-1.5 mb-3">
+                {order.items.map((item, i) => (
+                  <div key={i} className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">{item.name} ×{item.quantity}{item.isFreeItem ? " 🎁" : ""}</span>
+                    <span className="font-medium">{item.isFreeItem ? "Free" : `₹${(item.price * item.quantity).toLocaleString()}`}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="border-t border-gray-100 dark:border-gray-800 pt-2 space-y-1">
-              {order.discount > 0 && (
+              {(order.totalDiscount ?? order.discount) > 0 && (
                 <div className="flex justify-between text-sm text-emerald-600">
-                  <span>Discount {order.couponCode && `(${order.couponCode})`}</span>
-                  <span>-₹{order.discount.toFixed(0)}</span>
+                  <span>Coupon discounts</span>
+                  <span>-₹{(order.totalDiscount ?? order.discount).toFixed(0)}</span>
+                </div>
+              )}
+              {(order.serviceFee ?? 0) > 0 && (
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Service fee (2%)</span>
+                  <span>₹{order.serviceFee}</span>
+                </div>
+              )}
+              {(order.deliveryFee ?? 0) > 0 && (
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Delivery fee</span>
+                  <span>₹{order.deliveryFee}</span>
                 </div>
               )}
               <div className="flex justify-between font-bold text-gray-900 dark:text-white">

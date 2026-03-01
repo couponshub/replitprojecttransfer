@@ -22,6 +22,7 @@ interface CartContextType {
   total: number;
   itemCount: number;
   shopId: string | null;
+  uniqueShopIds: string[];
 }
 
 const CartContext = createContext<CartContextType | null>(null);
@@ -30,16 +31,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
 
   const shopId = items.length > 0 ? items[0].shop_id : null;
+  const uniqueShopIds = Array.from(new Set(items.map(i => i.shop_id)));
 
   const addItem = (item: Omit<CartItem, "quantity">) => {
     setItems(prev => {
-      if (prev.length > 0 && item.shop_id !== prev[0].shop_id) {
-        // Different shop — silently clear previous cart and start fresh
-        return [{ ...item, quantity: 1 }];
-      }
-      const existing = prev.find(i => i.id === item.id);
+      const existing = prev.find(i => i.id === item.id && i.shop_id === item.shop_id);
       if (existing) {
-        return prev.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i);
+        return prev.map(i => (i.id === item.id && i.shop_id === item.shop_id) ? { ...i, quantity: i.quantity + 1 } : i);
       }
       return [...prev, { ...item, quantity: 1 }];
     });
@@ -49,9 +47,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems(prev => {
       let updated = [...prev];
       for (const item of newItems) {
-        const existing = updated.find(i => i.id === item.id);
+        const existing = updated.find(i => i.id === item.id && i.shop_id === item.shop_id);
         if (existing) {
-          updated = updated.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i);
+          updated = updated.map(i => (i.id === item.id && i.shop_id === item.shop_id) ? { ...i, quantity: i.quantity + 1 } : i);
         } else {
           updated = [...updated, { ...item, quantity: 1 }];
         }
@@ -75,7 +73,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ items, addItem, addItems, removeItem, updateQuantity, clearCart, total, itemCount, shopId }}>
+    <CartContext.Provider value={{ items, addItem, addItems, removeItem, updateQuantity, clearCart, total, itemCount, shopId, uniqueShopIds }}>
       {children}
     </CartContext.Provider>
   );

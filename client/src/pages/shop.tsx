@@ -73,7 +73,7 @@ function isShopOpen(hours: string | null | undefined): boolean {
 export default function ShopPage() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
-  const { addItem, items, updateQuantity, itemCount, addItems, clearCart } = useCart();
+  const { addItem, items, updateQuantity, itemCount, addItems } = useCart();
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -84,6 +84,10 @@ export default function ShopPage() {
   const { data: shop, isLoading: shopLoading } = useQuery<Shop & { category?: Category }>({
     queryKey: [`/api/shops/${id}`],
   });
+
+  useEffect(() => {
+    if (id) localStorage.setItem("lastShopId", id);
+  }, [id]);
   const { data: shopProducts = [], isLoading: prodLoading } = useQuery<Product[]>({
     queryKey: [`/api/products?shopId=${id}`],
   });
@@ -198,7 +202,7 @@ export default function ShopPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-28">
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        <Button variant="ghost" size="sm" onClick={() => { clearCart(); navigate("/home"); }} className="mb-4 -ml-2" data-testid="button-back">
+        <Button variant="ghost" size="sm" onClick={() => navigate("/home")} className="mb-4 -ml-2" data-testid="button-back">
           <ArrowLeft className="w-4 h-4 mr-1" /> Back
         </Button>
 
