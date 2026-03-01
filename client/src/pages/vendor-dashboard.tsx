@@ -134,9 +134,10 @@ export default function VendorDashboard() {
   const EMPTY_COUPON_FORM = { code: "", type: "percentage", value: "", is_active: true, featured: false, free_item_product_id: null, free_item_qty: 1, free_item_products: [] as string[], bogo_buy_product_id: null as string | null, bogo_get_product_id: null as string | null, bogo_get_qty: 1, min_order_amount: null, expiry_date: "", description: "", banner_image: "", restrict_sub_category: null };
   const [couponForm, setCouponForm] = useState<any>(EMPTY_COUPON_FORM);
   const [couponProdSearch, setCouponProdSearch] = useState("");
+  const [freeItemCatFilter, setFreeItemCatFilter] = useState<string[]>([]);
   const [bundleItems, setBundleItems] = useState<{ product_id: string; name: string; custom_price: string; quantity: number }[]>([]);
 
-  const resetCouponDialog = () => { setCouponDialog(false); setEditCoupon(null); setCouponForm(EMPTY_COUPON_FORM); setCouponProdSearch(""); setBundleItems([]); };
+  const resetCouponDialog = () => { setCouponDialog(false); setEditCoupon(null); setCouponForm(EMPTY_COUPON_FORM); setCouponProdSearch(""); setFreeItemCatFilter([]); setBundleItems([]); };
 
   const saveCouponMutation = useMutation({
     mutationFn: (data: any) => {
@@ -775,10 +776,31 @@ export default function VendorDashboard() {
                           <span className="text-[10px] text-muted-foreground">{(couponForm.free_item_products || []).length} items added</span>
                         </div>
                         <p className="text-[10px] text-muted-foreground -mt-1">User will pick one item from this list for free when claiming the coupon.</p>
+                        {/* Category filter chips */}
+                        {Array.from(new Set(products.map((p: any) => p.sub_category).filter(Boolean))).length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            <button type="button" onClick={() => setFreeItemCatFilter([])}
+                              className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold transition-all ${freeItemCatFilter.length === 0 ? "bg-emerald-500 text-white border-emerald-500" : "border-gray-300 dark:border-gray-600 text-muted-foreground hover:border-emerald-400"}`}>
+                              All
+                            </button>
+                            {(Array.from(new Set(products.map((p: any) => p.sub_category).filter(Boolean))) as string[]).map(cat => (
+                              <button key={cat} type="button"
+                                onClick={() => setFreeItemCatFilter(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat])}
+                                className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold transition-all ${freeItemCatFilter.includes(cat) ? "bg-emerald-500 text-white border-emerald-500" : "border-gray-300 dark:border-gray-600 text-muted-foreground hover:border-emerald-400"}`}
+                                data-testid={`free-item-cat-filter-${cat}`}>
+                                {cat}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                         <Input placeholder="Search products..." value={couponProdSearch} onChange={e => setCouponProdSearch(e.target.value)} className="rounded-xl h-8 text-xs" data-testid="input-free-product-search" />
                         <div className="flex flex-col gap-1.5 max-h-44 overflow-y-auto pr-1">
                           {products
-                            .filter(p => !couponProdSearch || (p.name || "").toLowerCase().includes(couponProdSearch.toLowerCase()))
+                            .filter((p: any) => {
+                              const matchesCat = freeItemCatFilter.length === 0 || freeItemCatFilter.includes(p.sub_category);
+                              const matchesSearch = !couponProdSearch || (p.name || "").toLowerCase().includes(couponProdSearch.toLowerCase());
+                              return matchesCat && matchesSearch;
+                            })
                             .map((p: any) => {
                               const freeProds: string[] = couponForm.free_item_products || [];
                               const inList = freeProds.includes(p.id);

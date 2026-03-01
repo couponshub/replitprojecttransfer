@@ -80,6 +80,7 @@ export default function AdminDashboard() {
   const [couponShopFilter, setCouponShopFilter] = useState("");
   const [freeItemShopId, setFreeItemShopId] = useState("");
   const [freeItemShopSearch, setFreeItemShopSearch] = useState("");
+  const [freeItemCatFilter, setFreeItemCatFilter] = useState<string[]>([]);
   const [userSearch, setUserSearch] = useState("");
   const [vendorSearch, setVendorSearch] = useState("");
   const [orderSearch, setOrderSearch] = useState("");
@@ -178,8 +179,8 @@ export default function AdminDashboard() {
     onError: (err: any) => toast({ title: err.message, variant: "destructive" }),
   });
 
-  const openCreate = (defaults: any = {}) => { setEditItem(null); setFormData(defaults); setDialogOpen(true); setFreeItemShopId(""); setFreeItemShopSearch(""); };
-  const openEdit = (item: any) => { setEditItem(item); setFormData({ ...item }); setDialogOpen(true); setFreeItemShopId(""); setFreeItemShopSearch(""); };
+  const openCreate = (defaults: any = {}) => { setEditItem(null); setFormData(defaults); setDialogOpen(true); setFreeItemShopId(""); setFreeItemShopSearch(""); setFreeItemCatFilter([]); };
+  const openEdit = (item: any) => { setEditItem(item); setFormData({ ...item }); setDialogOpen(true); setFreeItemShopId(""); setFreeItemShopSearch(""); setFreeItemCatFilter([]); };
   const setForm = (key: string, value: any) => setFormData((f: any) => ({ ...f, [key]: value }));
 
   const parseMenuText = (text: string) => {
@@ -1969,10 +1970,32 @@ export default function AdminDashboard() {
                           <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 rounded-lg px-3 py-2">Select a shop above to see products</p>
                         ) : (
                           <>
+                            {/* Category filter chips */}
+                            {(() => {
+                              const shopProds = products.filter(p => p.shop_id === (freeItemShopId || formData.shop_id));
+                              const cats = Array.from(new Set(shopProds.map((p: any) => p.sub_category).filter(Boolean))) as string[];
+                              return cats.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  <button type="button" onClick={() => setFreeItemCatFilter([])}
+                                    className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold transition-all ${freeItemCatFilter.length === 0 ? "bg-emerald-500 text-white border-emerald-500" : "border-gray-300 dark:border-gray-600 text-muted-foreground hover:border-emerald-400"}`}>All</button>
+                                  {cats.map(cat => (
+                                    <button key={cat} type="button"
+                                      onClick={() => setFreeItemCatFilter(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat])}
+                                      className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold transition-all ${freeItemCatFilter.includes(cat) ? "bg-emerald-500 text-white border-emerald-500" : "border-gray-300 dark:border-gray-600 text-muted-foreground hover:border-emerald-400"}`}
+                                      data-testid={`admin-free-item-cat-filter-${cat}`}>{cat}</button>
+                                  ))}
+                                </div>
+                              ) : null;
+                            })()}
                             <Input placeholder="Search products..." value={couponProdSearch} onChange={e => setCouponProdSearch(e.target.value)} className="rounded-xl h-8 text-xs" data-testid="input-free-product-search" />
                             <div className="flex flex-col gap-1.5 max-h-44 overflow-y-auto pr-1">
                               {products
-                                .filter(p => p.shop_id === (freeItemShopId || formData.shop_id) && (!couponProdSearch || p.name.toLowerCase().includes(couponProdSearch.toLowerCase())))
+                                .filter((p: any) => {
+                                  const matchShop = p.shop_id === (freeItemShopId || formData.shop_id);
+                                  const matchCat = freeItemCatFilter.length === 0 || freeItemCatFilter.includes(p.sub_category);
+                                  const matchSearch = !couponProdSearch || p.name.toLowerCase().includes(couponProdSearch.toLowerCase());
+                                  return matchShop && matchCat && matchSearch;
+                                })
                                 .map(p => {
                                   const freeProds: string[] = formData.free_item_products || [];
                                   const inList = freeProds.includes(p.id);

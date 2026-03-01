@@ -53,7 +53,7 @@ function CouponBenefit({ coupon }: { coupon: ShopCoupon }) {
   return <span className="text-blue-600 dark:text-blue-400 font-bold">Special offer</span>;
 }
 
-function AvailableShopCoupons({ shopId, shopTotal, appliedCode, onApply }: { shopId: string; shopTotal: number; appliedCode?: string | null; onApply: (code: string) => void; }) {
+function AvailableShopCoupons({ shopId, shopTotal, appliedCodes, onApply }: { shopId: string; shopTotal: number; appliedCodes: string[]; onApply: (code: string) => void; }) {
   const [open, setOpen] = useState(false);
   const { data: allCoupons = [], isLoading } = useQuery<ShopCoupon[]>({
     queryKey: ["/api/coupons", shopId],
@@ -79,7 +79,7 @@ function AvailableShopCoupons({ shopId, shopTotal, appliedCode, onApply }: { sho
           {coupons.map(coupon => {
             const colors = TYPE_COLORS[coupon.type] || TYPE_COLORS.percentage;
             const expired = coupon.expiry_date && new Date(coupon.expiry_date) < new Date();
-            const isApplied = appliedCode === coupon.code;
+            const isApplied = appliedCodes.includes(coupon.code);
             return (
               <div key={coupon.id} className="relative rounded-xl overflow-hidden border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900" data-testid={`avail-coupon-${coupon.id}`}>
                 <div className={`absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r ${colors.gradient}`} />
@@ -92,7 +92,7 @@ function AvailableShopCoupons({ shopId, shopTotal, appliedCode, onApply }: { sho
                       <p className="text-[10px] text-emerald-600">Saves ₹{coupon.type === "percentage" ? Math.floor(shopTotal * parseFloat(coupon.value as string) / 100) : Math.min(parseFloat(coupon.value as string), shopTotal)}</p>
                     )}
                   </div>
-                  {!expired && !isApplied && (
+                  {!expired && !isApplied && appliedCodes.length < 3 && (
                     <button onClick={() => { onApply(coupon.code); setOpen(false); }}
                       className={`px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-gradient-to-r ${colors.gradient} shrink-0`}
                       data-testid={`button-apply-avail-${coupon.id}`}>Apply</button>
@@ -112,20 +112,20 @@ function AvailableShopCoupons({ shopId, shopTotal, appliedCode, onApply }: { sho
 interface ShopSectionProps {
   shopId: string;
   shopItems: CartItem[];
-  coupon: AppliedCoupon | null;
+  coupons: AppliedCoupon[];
   couponCode: string;
   couponLoading: boolean;
   userGPS: { lat: number; lon: number } | null;
   onCouponCodeChange: (code: string) => void;
   onApplyCoupon: (codeOverride?: string) => void;
-  onRemoveCoupon: () => void;
+  onRemoveCoupon: (code: string) => void;
   onRemoveItem: (id: string) => void;
   onUpdateQty: (id: string, qty: number) => void;
   getShopDiscount: () => number;
   onShopData: (data: any) => void;
 }
 
-function ShopSection({ shopId, shopItems, coupon, couponCode, couponLoading, userGPS, onCouponCodeChange, onApplyCoupon, onRemoveCoupon, onRemoveItem, onUpdateQty, getShopDiscount, onShopData }: ShopSectionProps) {
+function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, userGPS, onCouponCodeChange, onApplyCoupon, onRemoveCoupon, onRemoveItem, onUpdateQty, getShopDiscount, onShopData }: ShopSectionProps) {
   const { data: shopData } = useQuery<any>({
     queryKey: [`/api/shops/${shopId}`],
     enabled: !!shopId,
@@ -206,36 +206,44 @@ function ShopSection({ shopId, shopItems, coupon, couponCode, couponLoading, use
         </Card>
       ))}
 
-      {/* Per-store coupon */}
+      {/* Per-store coupons — up to 3 */}
       <Card className="rounded-2xl border-0 shadow-sm">
         <CardContent className="p-4">
           <div className="flex items-center gap-2 mb-3">
             <Tag className="w-4 h-4 text-violet-500" />
-            <span className="text-sm font-semibold text-gray-800 dark:text-white">{shopName} Coupon</span>
+            <span className="text-sm font-semibold text-gray-800 dark:text-white">{shopName} Coupons</span>
+            {coupons.length > 0 && <span className="w-5 h-5 rounded-full bg-emerald-500 text-white text-[9px] font-bold flex items-center justify-center">{coupons.length}/3</span>}
           </div>
-          {coupon ? (
-            <div className="flex items-center justify-between p-3 bg-emerald-50/80 dark:bg-emerald-950/30 rounded-xl border border-emerald-200/60 dark:border-emerald-800/30">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-                <div>
-                  <p className="text-sm font-black text-emerald-700 dark:text-emerald-400 tracking-wide">{coupon.code}</p>
-                  <p className="text-[11px] text-emerald-600">
-                    {coupon.type === "percentage" ? `${coupon.value}% off` : coupon.type === "flat" ? `₹${coupon.value} off` : "Applied"}
-                    {shopDiscount > 0 && ` — saves ₹${shopDiscount.toFixed(0)}`}
-                    {coupon.restrict_sub_category && <span className="text-orange-500 ml-1">🎯 {coupon.restrict_sub_category} only</span>}
-                  </p>
+          {/* Applied coupons list */}
+          {coupons.length > 0 && (
+            <div className="flex flex-col gap-2 mb-3">
+              {coupons.map(c => (
+                <div key={c.code} className="flex items-center justify-between p-2.5 bg-emerald-50/80 dark:bg-emerald-950/30 rounded-xl border border-emerald-200/60 dark:border-emerald-800/30" data-testid={`applied-coupon-${c.code}`}>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <div>
+                      <p className="text-xs font-black text-emerald-700 dark:text-emerald-400 tracking-wide">{c.code}</p>
+                      <p className="text-[10px] text-emerald-600">
+                        {c.type === "percentage" ? `${c.value}% off` : c.type === "flat" ? `₹${c.value} off` : c.type === "bogo" ? "BOGO applied" : "Free item"}
+                        {c.restrict_sub_category && <span className="text-orange-500 ml-1">🎯 {c.restrict_sub_category}</span>}
+                      </p>
+                    </div>
+                  </div>
+                  <button onClick={() => onRemoveCoupon(c.code)} className="w-5 h-5 rounded-md bg-white dark:bg-gray-800 flex items-center justify-center shadow-sm text-muted-foreground hover:text-destructive" data-testid={`button-remove-coupon-${c.code}`}>
+                    <X className="w-3 h-3" />
+                  </button>
                 </div>
-              </div>
-              <button onClick={onRemoveCoupon} className="w-6 h-6 rounded-lg bg-white dark:bg-gray-800 flex items-center justify-center shadow-sm text-muted-foreground hover:text-destructive" data-testid={`button-remove-coupon-${shopId}`}>
-                <X className="w-3.5 h-3.5" />
-              </button>
+              ))}
             </div>
-          ) : (
+          )}
+          {/* Input for more coupons (max 3) */}
+          {coupons.length < 3 && (
             <>
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
-                  <Input placeholder="Enter coupon code" value={couponCode}
+                  <Input placeholder={coupons.length === 0 ? "Enter coupon code" : "Add another coupon"}
+                    value={couponCode}
                     onChange={e => onCouponCodeChange(e.target.value.toUpperCase())}
                     className="pl-7 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 font-mono uppercase tracking-wider h-9 text-sm"
                     onKeyDown={e => e.key === "Enter" && onApplyCoupon()}
@@ -247,8 +255,14 @@ function ShopSection({ shopId, shopItems, coupon, couponCode, couponLoading, use
                   {couponLoading ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><Zap className="w-3 h-3 mr-1" />Apply</>}
                 </Button>
               </div>
-              <AvailableShopCoupons shopId={shopId} shopTotal={shopSubtotal} appliedCode={coupon?.code} onApply={code => { onCouponCodeChange(code); onApplyCoupon(code); }} />
+              <AvailableShopCoupons shopId={shopId} shopTotal={shopSubtotal} appliedCodes={coupons.map(c => c.code)} onApply={code => { onCouponCodeChange(code); onApplyCoupon(code); }} />
             </>
+          )}
+          {coupons.length >= 3 && (
+            <p className="text-[11px] text-muted-foreground text-center py-1">Maximum 3 coupons applied per store</p>
+          )}
+          {shopDiscount > 0 && (
+            <p className="text-xs text-emerald-600 font-semibold mt-2 text-center">Total savings: ₹{shopDiscount.toFixed(0)}</p>
           )}
         </CardContent>
       </Card>
@@ -271,7 +285,7 @@ export default function CartPage() {
   const { isAuthenticated, user, updateProfile } = useAuth();
   const { toast } = useToast();
 
-  const [appliedCoupons, setAppliedCoupons] = useState<Record<string, AppliedCoupon | null>>({});
+  const [appliedCoupons, setAppliedCoupons] = useState<Record<string, AppliedCoupon[]>>({});
   const [couponCodes, setCouponCodes] = useState<Record<string, string>>({});
   const [couponLoadingMap, setCouponLoadingMap] = useState<Record<string, boolean>>({});
   const [phoneDialogOpen, setPhoneDialogOpen] = useState(false);
@@ -300,8 +314,13 @@ export default function CartPage() {
       const coupon = JSON.parse(raw);
       sessionStorage.removeItem("pendingCoupon");
       if (coupon.shop_id) {
-        setAppliedCoupons(prev => ({ ...prev, [coupon.shop_id]: { code: coupon.code, type: coupon.type, value: coupon.value, items_to_add: coupon.items_to_add } }));
-        setCouponCodes(prev => ({ ...prev, [coupon.shop_id]: coupon.code }));
+        const entry: AppliedCoupon = { code: coupon.code, type: coupon.type, value: coupon.value, items_to_add: coupon.items_to_add };
+        setAppliedCoupons(prev => {
+          const existing = prev[coupon.shop_id] || [];
+          if (existing.find(c => c.code === coupon.code)) return prev;
+          return { ...prev, [coupon.shop_id]: [...existing, entry] };
+        });
+        setCouponCodes(prev => ({ ...prev, [coupon.shop_id]: "" }));
       }
     } catch {}
   }, []);
@@ -311,15 +330,22 @@ export default function CartPage() {
   const getShopSubtotal = (sid: string) => items.filter(i => i.shop_id === sid).reduce((s, i) => s + i.price * i.quantity, 0);
 
   const getShopDiscount = (sid: string): number => {
-    const coupon = appliedCoupons[sid];
-    if (!coupon) return 0;
+    const coupons = appliedCoupons[sid] || [];
+    if (coupons.length === 0) return 0;
     const shopItems = items.filter(i => i.shop_id === sid);
-    const base = coupon.restrict_sub_category
-      ? shopItems.filter(i => i.sub_category === coupon.restrict_sub_category).reduce((s, i) => s + i.price * i.quantity, 0)
-      : getShopSubtotal(sid);
-    if (coupon.type === "percentage") return base * parseFloat(coupon.value) / 100;
-    if (coupon.type === "flat") return Math.min(parseFloat(coupon.value), base);
-    return 0;
+    let totalDisc = 0;
+    let runningSubtotal = getShopSubtotal(sid);
+    for (const coupon of coupons) {
+      const base = coupon.restrict_sub_category
+        ? shopItems.filter(i => i.sub_category === coupon.restrict_sub_category).reduce((s, i) => s + i.price * i.quantity, 0)
+        : runningSubtotal;
+      let disc = 0;
+      if (coupon.type === "percentage") disc = base * parseFloat(coupon.value) / 100;
+      else if (coupon.type === "flat") disc = Math.min(parseFloat(coupon.value), base);
+      totalDisc += disc;
+      runningSubtotal = Math.max(0, runningSubtotal - disc);
+    }
+    return totalDisc;
   };
 
   const getShopDistance = (sid: string): number | null => {
@@ -341,13 +367,21 @@ export default function CartPage() {
   const validateCoupon = async (shopId: string, codeOverride?: string) => {
     const code = (codeOverride || couponCodes[shopId] || "").trim().toUpperCase();
     if (!code) return;
+    const existing = appliedCoupons[shopId] || [];
+    if (existing.find(c => c.code === code)) {
+      toast({ title: "Coupon already applied", variant: "destructive" }); return;
+    }
+    if (existing.length >= 3) {
+      toast({ title: "Maximum 3 coupons per store", variant: "destructive" }); return;
+    }
     setCouponLoadingMap(prev => ({ ...prev, [shopId]: true }));
     try {
       const result = await apiRequest("POST", "/api/coupons/validate", {
         code, shopId, cartTotal: getShopSubtotal(shopId).toString(),
       });
-      setAppliedCoupons(prev => ({ ...prev, [shopId]: { code: result.code, type: result.type, value: result.value, items_to_add: result.items_to_add, restrict_sub_category: result.restrict_sub_category ?? null } }));
-      setCouponCodes(prev => ({ ...prev, [shopId]: result.code }));
+      const newCoupon: AppliedCoupon = { code: result.code, type: result.type, value: result.value, items_to_add: result.items_to_add, restrict_sub_category: result.restrict_sub_category ?? null };
+      setAppliedCoupons(prev => ({ ...prev, [shopId]: [...(prev[shopId] || []), newCoupon] }));
+      setCouponCodes(prev => ({ ...prev, [shopId]: "" }));
       if (result.items_to_add?.length > 0) {
         addItems(result.items_to_add.map((item: any) => ({ id: item.id, name: item.name, price: item.price, shop_id: item.shop_id, shopName: item.shopName, isFreeItem: item.isFreeItem ?? false })));
       }
@@ -360,11 +394,11 @@ export default function CartPage() {
     }
   };
 
-  const removeCoupon = (shopId: string) => {
-    const coupon = appliedCoupons[shopId];
+  const removeCoupon = (shopId: string, code: string) => {
+    const shopCoupons = appliedCoupons[shopId] || [];
+    const coupon = shopCoupons.find(c => c.code === code);
     if (coupon?.items_to_add?.length) coupon.items_to_add.forEach((i: any) => removeItem(i.id));
-    setAppliedCoupons(prev => ({ ...prev, [shopId]: null }));
-    setCouponCodes(prev => ({ ...prev, [shopId]: "" }));
+    setAppliedCoupons(prev => ({ ...prev, [shopId]: (prev[shopId] || []).filter(c => c.code !== code) }));
   };
 
   const doPlaceOrders = async () => {
@@ -381,14 +415,15 @@ export default function CartPage() {
         const order = await apiRequest("POST", "/api/orders", {
           items: shopItems.map(i => ({ product_id: i.id, product_name: i.name, quantity: i.quantity, price: i.price.toString(), is_free_item: i.isFreeItem || false })),
           total_amount: sub.toString(), discount_amount: disc.toString(), final_amount: final.toString(),
-          shop_id: shopId, shop_name: shopItems[0]?.shopName, coupon_code: appliedCoupons[shopId]?.code || null,
+          shop_id: shopId, shop_name: shopItems[0]?.shopName, coupon_code: (appliedCoupons[shopId] || [])[0]?.code || null,
         });
+        const shopCouponCodes = (appliedCoupons[shopId] || []).map(c => c.code).join(", ");
         placedOrders.push({
           orderId: order?.id, shopId, shopName: shopItems[0]?.shopName || "Shop",
           shopWhatsapp: shopDataMap[shopId]?.whatsapp_number, shopPaymentId: shopDataMap[shopId]?.payment_id, shopPaymentQr: shopDataMap[shopId]?.payment_qr,
           items: shopItems.map(i => ({ name: i.name, quantity: i.quantity, price: i.price, isFreeItem: i.isFreeItem })),
           subtotal: sub, discount: disc, serviceFee: svc, deliveryFee: del, finalAmount: final,
-          couponCode: appliedCoupons[shopId]?.code,
+          couponCode: shopCouponCodes || null,
         });
       }
       queryClient.invalidateQueries({ queryKey: ["/api/orders/my"] });
@@ -480,13 +515,13 @@ export default function CartPage() {
                   <ShopSection
                     shopId={shopId}
                     shopItems={shopItems}
-                    coupon={appliedCoupons[shopId] || null}
+                    coupons={appliedCoupons[shopId] || []}
                     couponCode={couponCodes[shopId] || ""}
                     couponLoading={couponLoadingMap[shopId] || false}
                     userGPS={userGPS}
                     onCouponCodeChange={code => setCouponCodes(prev => ({ ...prev, [shopId]: code }))}
                     onApplyCoupon={(codeOverride?: string) => validateCoupon(shopId, codeOverride)}
-                    onRemoveCoupon={() => removeCoupon(shopId)}
+                    onRemoveCoupon={(code: string) => removeCoupon(shopId, code)}
                     onRemoveItem={removeItem}
                     onUpdateQty={updateQuantity}
                     getShopDiscount={() => getShopDiscount(shopId)}

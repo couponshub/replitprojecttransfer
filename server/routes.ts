@@ -1321,16 +1321,27 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
 
-      // BOGO (Buy One Get One) — add get_product as free item
-      if (coupon.type === "bogo" && coupon.bogo_get_product_id) {
-        const getProduct = await storage.getProduct(coupon.bogo_get_product_id);
-        if (getProduct) {
-          const qty = Math.max(1, parseInt(String(coupon.bogo_get_qty || "1")));
-          for (let i = 0; i < qty; i++) {
+      // BOGO (Buy One Get One) — add buy_product at normal price + get_product as free
+      if (coupon.type === "bogo") {
+        if (coupon.bogo_buy_product_id) {
+          const buyProduct = await storage.getProduct(coupon.bogo_buy_product_id);
+          if (buyProduct) {
             items_to_add = [
               ...items_to_add,
-              { id: getProduct.id, name: getProduct.name, price: 0, shop_id: getProduct.shop_id || "", shopName, isFreeItem: true },
+              { id: buyProduct.id, name: buyProduct.name, price: parseFloat(String(buyProduct.price || "0")), shop_id: buyProduct.shop_id || "", shopName, isFreeItem: false },
             ];
+          }
+        }
+        if (coupon.bogo_get_product_id) {
+          const getProduct = await storage.getProduct(coupon.bogo_get_product_id);
+          if (getProduct) {
+            const qty = Math.max(1, parseInt(String(coupon.bogo_get_qty || "1")));
+            for (let i = 0; i < qty; i++) {
+              items_to_add = [
+                ...items_to_add,
+                { id: getProduct.id, name: getProduct.name, price: 0, shop_id: getProduct.shop_id || "", shopName, isFreeItem: true },
+              ];
+            }
           }
         }
       }
