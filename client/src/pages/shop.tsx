@@ -307,46 +307,68 @@ export default function ShopPage() {
               <Badge className="bg-primary/10 text-primary border-0">{activeCoupons.length}</Badge>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {activeCoupons.map(coupon => (
-                <div key={coupon.id} className="relative rounded-2xl bg-gradient-to-br from-blue-500 to-violet-600 p-0.5 shadow-lg" data-testid={`card-coupon-${coupon.id}`}>
-                  <div className="rounded-[calc(1rem-2px)] bg-white dark:bg-gray-900 p-4 flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-lg text-gray-900 dark:text-white">
-                        {coupon.type === "percentage" ? `${coupon.value}% OFF`
-                          : coupon.type === "flat" ? `₹${coupon.value} OFF`
-                          : "FREE ITEM"}
+              {activeCoupons.map(coupon => {
+                const typeBg: Record<string, string> = {
+                  percentage: "bg-gradient-to-br from-blue-500 to-cyan-500",
+                  flat: "bg-gradient-to-br from-emerald-500 to-teal-500",
+                  free_item: "bg-gradient-to-br from-violet-500 to-purple-500",
+                  flash: "bg-gradient-to-br from-orange-500 to-red-500",
+                };
+                const typeColors: Record<string, string> = {
+                  percentage: "from-blue-500 to-cyan-500",
+                  flat: "from-emerald-500 to-teal-500",
+                  free_item: "from-violet-500 to-purple-500",
+                  flash: "from-orange-500 to-red-500",
+                };
+                const typeIcons: Record<string, string> = { percentage: "🏷️", flat: "💰", free_item: "🎁", flash: "⚡" };
+                const bannerImg = (coupon as any).banner_image || (shop as any)?.banner_image;
+                return (
+                  <div key={coupon.id} className="relative rounded-2xl overflow-hidden shadow-lg border border-gray-100 dark:border-gray-800 flex flex-col bg-white dark:bg-gray-900" data-testid={`card-coupon-${coupon.id}`}>
+                    {/* Banner */}
+                    <div className="relative w-full h-28 shrink-0 overflow-hidden">
+                      {bannerImg ? (
+                        <img src={bannerImg} alt={coupon.code} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                      ) : (
+                        <div className={`w-full h-full ${typeBg[coupon.type] || "bg-gradient-to-br from-blue-500 to-violet-500"} flex items-center justify-center`}>
+                          <span className="text-4xl opacity-80">{typeIcons[coupon.type]}</span>
+                        </div>
+                      )}
+                      <div className="absolute top-2 right-2">
+                        <Badge className={`bg-gradient-to-r ${typeColors[coupon.type]} text-white border-0 text-[10px] capitalize shadow-md`}>{coupon.type.replace("_", " ")}</Badge>
+                      </div>
+                    </div>
+
+                    {/* Content */}
+                    <div className="px-3 pt-3 pb-3 flex flex-col gap-2">
+                      <span className="font-extrabold text-lg text-gray-900 dark:text-white leading-none">
+                        {coupon.type === "percentage" ? `${coupon.value}% OFF` : coupon.type === "flat" ? `₹${coupon.value} OFF` : "🎁 FREE ITEM"}
                       </span>
-                      <Badge className={`border-0 text-xs capitalize ${
-                        coupon.type === "percentage" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
-                        coupon.type === "flat" ? "bg-emerald-100 text-emerald-700" : "bg-violet-100 text-violet-700"
-                      }`}>{coupon.type.replace("_", " ")}</Badge>
-                    </div>
 
-                    {/* Products attached to this coupon */}
-                    <CouponProductsList couponId={coupon.id} />
+                      <CouponProductsList couponId={coupon.id} />
 
-                    <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800 rounded-xl px-3 py-2">
-                      <code className="font-bold text-sm tracking-wider text-gray-900 dark:text-white">{coupon.code}</code>
-                      <button onClick={() => copyCode(coupon.code)} className="text-primary" data-testid={`button-copy-coupon-${coupon.id}`}>
-                        {copiedCode === coupon.code ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-                      </button>
+                      <div className="flex items-center justify-between bg-gray-100 dark:bg-gray-800 rounded-xl px-2.5 py-1.5">
+                        <code className="font-bold text-xs tracking-widest text-gray-900 dark:text-white">{coupon.code}</code>
+                        <button onClick={() => copyCode(coupon.code)} className="text-primary ml-2 shrink-0" data-testid={`button-copy-coupon-${coupon.id}`}>
+                          {copiedCode === coupon.code ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                      {coupon.expiry_date && (
+                        <p className="text-[10px] text-muted-foreground">Valid until {new Date(coupon.expiry_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
+                      )}
+                      <Button
+                        size="sm"
+                        onClick={() => handleClaimCoupon(coupon)}
+                        disabled={claimingCoupon === coupon.id}
+                        className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 border-0 gap-2 text-white h-8 text-xs"
+                        data-testid={`button-claim-coupon-${coupon.id}`}
+                      >
+                        <Zap className="w-3 h-3" />
+                        {claimingCoupon === coupon.id ? "Claiming..." : "Claim Offer"}
+                      </Button>
                     </div>
-                    {coupon.expiry_date && (
-                      <p className="text-xs text-muted-foreground">Valid until {new Date(coupon.expiry_date).toLocaleDateString()}</p>
-                    )}
-                    <Button
-                      size="sm"
-                      onClick={() => handleClaimCoupon(coupon)}
-                      disabled={claimingCoupon === coupon.id}
-                      className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 border-0 gap-2 text-white"
-                      data-testid={`button-claim-coupon-${coupon.id}`}
-                    >
-                      <Zap className="w-3.5 h-3.5" />
-                      {claimingCoupon === coupon.id ? "Claiming..." : "Claim Offer"}
-                    </Button>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

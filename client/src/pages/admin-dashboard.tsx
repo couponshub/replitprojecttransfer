@@ -2086,6 +2086,28 @@ export default function AdminDashboard() {
                       <Input type="date" value={formData.expiry_date ? new Date(formData.expiry_date).toISOString().split("T")[0] : ""} onChange={e => setForm("expiry_date", e.target.value || null)} className="mt-1.5 rounded-xl" data-testid="input-coupon-expiry" />
                     </div>
 
+                    {/* Banner Image */}
+                    <div>
+                      <Label className="text-xs font-semibold">Banner Image (optional)</Label>
+                      <p className="text-[11px] text-muted-foreground mb-1.5">Shown at top of coupon card. Use a wide image (e.g. 800×320px).</p>
+                      <div className="flex gap-2 items-center mt-1.5">
+                        <Input
+                          value={formData.banner_image || ""}
+                          onChange={e => setForm("banner_image", e.target.value)}
+                          className="rounded-xl flex-1 text-sm"
+                          placeholder="https://... or upload a file →"
+                          data-testid="input-coupon-banner"
+                        />
+                        <UploadBtn fieldKey="coupon-banner" onUrl={url => setForm("banner_image", url)} />
+                      </div>
+                      {formData.banner_image && (
+                        <div className="mt-2 relative">
+                          <img src={formData.banner_image} alt="Banner preview" className="w-full h-24 object-cover rounded-xl border" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          <button type="button" onClick={() => setForm("banner_image", "")} className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white text-xs flex items-center justify-center hover:bg-red-500/80 transition-colors">✕</button>
+                        </div>
+                      )}
+                    </div>
+
                     {/* Toggles */}
                     <div>
                       <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Settings</Label>

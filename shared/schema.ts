@@ -84,6 +84,7 @@ export const coupons = pgTable("coupons", {
   free_item_qty: integer("free_item_qty").default(1),
   min_order_amount: numeric("min_order_amount", { precision: 10, scale: 2 }),
   expiry_date: timestamp("expiry_date"),
+  banner_image: text("banner_image"),
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });
 
