@@ -1297,7 +1297,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           for (let i = 0; i < qty; i++) {
             items_to_add = [
               ...items_to_add,
-              { id: product.id, name: product.name, price: 0, shop_id: product.shop_id || "", shopName, isFreeItem: true },
+              { id: product.id, name: product.name, price: 0, originalPrice: parseFloat(String(product.price || "0")), shop_id: product.shop_id || "", shopName, isFreeItem: true },
             ];
           }
         }
@@ -1321,32 +1321,30 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
 
-      // BOGO (Buy One Get One) — add buy_product at normal price + get_product as free
+      // BOGO (Buy One Get One) — auto-add only the get_product as free; send names for display
+      let bogo_buy_product_name: string | null = null;
+      let bogo_get_product_name: string | null = null;
       if (coupon.type === "bogo") {
         if (coupon.bogo_buy_product_id) {
           const buyProduct = await storage.getProduct(coupon.bogo_buy_product_id);
-          if (buyProduct) {
-            items_to_add = [
-              ...items_to_add,
-              { id: buyProduct.id, name: buyProduct.name, price: parseFloat(String(buyProduct.price || "0")), shop_id: buyProduct.shop_id || "", shopName, isFreeItem: false },
-            ];
-          }
+          if (buyProduct) bogo_buy_product_name = buyProduct.name;
         }
         if (coupon.bogo_get_product_id) {
           const getProduct = await storage.getProduct(coupon.bogo_get_product_id);
           if (getProduct) {
+            bogo_get_product_name = getProduct.name;
             const qty = Math.max(1, parseInt(String(coupon.bogo_get_qty || "1")));
             for (let i = 0; i < qty; i++) {
               items_to_add = [
                 ...items_to_add,
-                { id: getProduct.id, name: getProduct.name, price: 0, shop_id: getProduct.shop_id || "", shopName, isFreeItem: true },
+                { id: getProduct.id, name: getProduct.name, price: 0, originalPrice: parseFloat(String(getProduct.price || "0")), shop_id: getProduct.shop_id || "", shopName, isFreeItem: true },
               ];
             }
           }
         }
       }
 
-      res.json({ ...coupon, items_to_add, pick_one_items });
+      res.json({ ...coupon, items_to_add, pick_one_items, bogo_buy_product_name, bogo_get_product_name });
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
 

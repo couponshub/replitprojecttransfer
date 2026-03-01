@@ -37,6 +37,8 @@ export interface AppliedCoupon {
   value: string;
   items_to_add?: any[];
   restrict_sub_category?: string | null;
+  bogo_buy_product_name?: string | null;
+  bogo_get_product_name?: string | null;
 }
 
 const TYPE_COLORS: Record<string, { gradient: string; icon: string }> = {
@@ -212,7 +214,7 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
           <div className="flex items-center gap-2 mb-3">
             <Tag className="w-4 h-4 text-violet-500" />
             <span className="text-sm font-semibold text-gray-800 dark:text-white">{shopName} Coupons</span>
-            {coupons.length > 0 && <span className="w-5 h-5 rounded-full bg-emerald-500 text-white text-[9px] font-bold flex items-center justify-center">{coupons.length}/3</span>}
+            {coupons.length > 0 && <span className="w-5 h-5 rounded-full bg-emerald-500 text-white text-[9px] font-bold flex items-center justify-center">✓</span>}
           </div>
           {/* Applied coupons list */}
           {coupons.length > 0 && (
@@ -224,8 +226,18 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
                     <div>
                       <p className="text-xs font-black text-emerald-700 dark:text-emerald-400 tracking-wide">{c.code}</p>
                       <p className="text-[10px] text-emerald-600">
-                        {c.type === "percentage" ? `${c.value}% off` : c.type === "flat" ? `₹${c.value} off` : c.type === "bogo" ? "BOGO applied" : "Free item"}
-                        {c.restrict_sub_category && <span className="text-orange-500 ml-1">🎯 {c.restrict_sub_category}</span>}
+                        {c.type === "percentage" ? `${c.value}% off` :
+                         c.type === "flat" ? `₹${c.value} off` :
+                         c.type === "bogo" ? (
+                           c.bogo_buy_product_name && c.bogo_get_product_name
+                             ? `Buy ${c.bogo_buy_product_name} → Get ${c.bogo_get_product_name} FREE`
+                             : c.bogo_get_product_name ? `Get ${c.bogo_get_product_name} FREE` : "BOGO offer"
+                         ) :
+                         c.type === "free_item" ? (() => {
+                           const freeItem = (c.items_to_add || []).find((i: any) => i.isFreeItem);
+                           return freeItem ? `Free: ${freeItem.name}` : "Free item added";
+                         })() : "Coupon applied"}
+                        {c.restrict_sub_category && <span className="text-orange-500 ml-1"> · {c.restrict_sub_category}</span>}
                       </p>
                     </div>
                   </div>
@@ -236,13 +248,13 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
               ))}
             </div>
           )}
-          {/* Input for more coupons (max 3) */}
-          {coupons.length < 3 && (
+          {/* Coupon input — only show if no coupon yet */}
+          {coupons.length < 1 && (
             <>
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
-                  <Input placeholder={coupons.length === 0 ? "Enter coupon code" : "Add another coupon"}
+                  <Input placeholder="Enter coupon code"
                     value={couponCode}
                     onChange={e => onCouponCodeChange(e.target.value.toUpperCase())}
                     className="pl-7 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 font-mono uppercase tracking-wider h-9 text-sm"
@@ -257,9 +269,6 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
               </div>
               <AvailableShopCoupons shopId={shopId} shopTotal={shopSubtotal} appliedCodes={coupons.map(c => c.code)} onApply={code => { onCouponCodeChange(code); onApplyCoupon(code); }} />
             </>
-          )}
-          {coupons.length >= 3 && (
-            <p className="text-[11px] text-muted-foreground text-center py-1">Maximum 3 coupons applied per store</p>
           )}
           {shopDiscount > 0 && (
             <p className="text-xs text-emerald-600 font-semibold mt-2 text-center">Total savings: ₹{shopDiscount.toFixed(0)}</p>
@@ -342,6 +351,10 @@ export default function CartPage() {
       let disc = 0;
       if (coupon.type === "percentage") disc = base * parseFloat(coupon.value) / 100;
       else if (coupon.type === "flat") disc = Math.min(parseFloat(coupon.value), base);
+      else if (coupon.type === "bogo" || coupon.type === "free_item") {
+        const freeItems = (coupon.items_to_add || []).filter((i: any) => i.isFreeItem);
+        disc = freeItems.reduce((s: number, i: any) => s + (parseFloat(i.originalPrice || i.price || "0")), 0);
+      }
       totalDisc += disc;
       runningSubtotal = Math.max(0, runningSubtotal - disc);
     }
@@ -371,15 +384,15 @@ export default function CartPage() {
     if (existing.find(c => c.code === code)) {
       toast({ title: "Coupon already applied", variant: "destructive" }); return;
     }
-    if (existing.length >= 3) {
-      toast({ title: "Maximum 3 coupons per store", variant: "destructive" }); return;
+    if (existing.length >= 1) {
+      toast({ title: "Only 1 coupon allowed per store", variant: "destructive" }); return;
     }
     setCouponLoadingMap(prev => ({ ...prev, [shopId]: true }));
     try {
       const result = await apiRequest("POST", "/api/coupons/validate", {
         code, shopId, cartTotal: getShopSubtotal(shopId).toString(),
       });
-      const newCoupon: AppliedCoupon = { code: result.code, type: result.type, value: result.value, items_to_add: result.items_to_add, restrict_sub_category: result.restrict_sub_category ?? null };
+      const newCoupon: AppliedCoupon = { code: result.code, type: result.type, value: result.value, items_to_add: result.items_to_add, restrict_sub_category: result.restrict_sub_category ?? null, bogo_buy_product_name: result.bogo_buy_product_name ?? null, bogo_get_product_name: result.bogo_get_product_name ?? null };
       setAppliedCoupons(prev => ({ ...prev, [shopId]: [...(prev[shopId] || []), newCoupon] }));
       setCouponCodes(prev => ({ ...prev, [shopId]: "" }));
       if (result.items_to_add?.length > 0) {
