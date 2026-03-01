@@ -131,11 +131,12 @@ export default function VendorDashboard() {
 
   const [couponDialog, setCouponDialog] = useState(false);
   const [editCoupon, setEditCoupon] = useState<any>(null);
-  const [couponForm, setCouponForm] = useState<any>({ code: "", type: "percentage", value: "", is_active: true, featured: false, free_item_product_id: null, free_item_qty: 1, min_order_amount: null, expiry_date: "", description: "", banner_image: "", restrict_sub_category: null });
+  const EMPTY_COUPON_FORM = { code: "", type: "percentage", value: "", is_active: true, featured: false, free_item_product_id: null, free_item_qty: 1, free_item_products: [] as string[], bogo_buy_product_id: null as string | null, bogo_get_product_id: null as string | null, bogo_get_qty: 1, min_order_amount: null, expiry_date: "", description: "", banner_image: "", restrict_sub_category: null };
+  const [couponForm, setCouponForm] = useState<any>(EMPTY_COUPON_FORM);
   const [couponProdSearch, setCouponProdSearch] = useState("");
   const [bundleItems, setBundleItems] = useState<{ product_id: string; name: string; custom_price: string; quantity: number }[]>([]);
 
-  const resetCouponDialog = () => { setCouponDialog(false); setEditCoupon(null); setCouponForm({ code: "", type: "percentage", value: "", is_active: true, featured: false, free_item_product_id: null, free_item_qty: 1, min_order_amount: null, expiry_date: "", description: "", banner_image: "", restrict_sub_category: null }); setCouponProdSearch(""); setBundleItems([]); };
+  const resetCouponDialog = () => { setCouponDialog(false); setEditCoupon(null); setCouponForm(EMPTY_COUPON_FORM); setCouponProdSearch(""); setBundleItems([]); };
 
   const saveCouponMutation = useMutation({
     mutationFn: (data: any) => {
@@ -696,7 +697,7 @@ export default function VendorDashboard() {
                           </p>
                         </div>
                         <div className="flex gap-1 shrink-0">
-                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => { resetCouponDialog(); setEditCoupon(coupon); setCouponForm({ code: coupon.code, type: coupon.type, value: coupon.value, is_active: coupon.is_active, featured: coupon.featured || false, free_item_product_id: coupon.free_item_product_id || null, free_item_qty: coupon.free_item_qty || 1, min_order_amount: coupon.min_order_amount || null, expiry_date: coupon.expiry_date ? new Date(coupon.expiry_date).toISOString().split("T")[0] : "", description: coupon.description || "", banner_image: coupon.banner_image || "", restrict_sub_category: coupon.restrict_sub_category || null }); if (coupon.coupon_products && Array.isArray(coupon.coupon_products)) { setBundleItems(coupon.coupon_products.map((cp: any) => ({ product_id: cp.product_id || cp.id, name: cp.name || "", custom_price: cp.custom_price || "", quantity: cp.quantity || 1 }))); } setCouponDialog(true); }} data-testid={`button-edit-coupon-${coupon.id}`}>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => { resetCouponDialog(); setEditCoupon(coupon); setCouponForm({ code: coupon.code, type: coupon.type, value: coupon.value, is_active: coupon.is_active, featured: coupon.featured || false, free_item_product_id: coupon.free_item_product_id || null, free_item_qty: coupon.free_item_qty || 1, free_item_products: coupon.free_item_products || [], bogo_buy_product_id: coupon.bogo_buy_product_id || null, bogo_get_product_id: coupon.bogo_get_product_id || null, bogo_get_qty: coupon.bogo_get_qty || 1, min_order_amount: coupon.min_order_amount || null, expiry_date: coupon.expiry_date ? new Date(coupon.expiry_date).toISOString().split("T")[0] : "", description: coupon.description || "", banner_image: coupon.banner_image || "", restrict_sub_category: coupon.restrict_sub_category || null }); if (coupon.coupon_products && Array.isArray(coupon.coupon_products)) { setBundleItems(coupon.coupon_products.map((cp: any) => ({ product_id: cp.product_id || cp.id, name: cp.name || "", custom_price: cp.custom_price || "", quantity: cp.quantity || 1 }))); } setCouponDialog(true); }} data-testid={`button-edit-coupon-${coupon.id}`}>
                             <Edit className="w-3 h-3" />
                           </Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => deleteCouponMutation.mutate(coupon.id)} data-testid={`button-delete-coupon-${coupon.id}`}>
@@ -714,14 +715,15 @@ export default function VendorDashboard() {
                   <DialogHeader><DialogTitle className="text-lg font-bold">{editCoupon ? "Edit Coupon" : "Add Coupon"}</DialogTitle></DialogHeader>
                   <div className="flex flex-col gap-5 pb-2">
 
-                    {/* Coupon Type — 3 big buttons */}
+                    {/* Coupon Type — 4 big buttons */}
                     <div>
                       <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Coupon Type</Label>
-                      <div className="grid grid-cols-3 gap-2 mt-2">
+                      <div className="grid grid-cols-2 gap-2 mt-2">
                         {([
                           { value: "percentage", label: "% Discount", desc: "Percentage off", icon: "%" },
                           { value: "flat", label: "₹ Flat Off", desc: "Fixed amount off", icon: "₹" },
-                          { value: "free_item", label: "Free Item", desc: "Give free product", icon: "🎁" },
+                          { value: "free_item", label: "Free Item", desc: "User picks 1 free item", icon: "🎁" },
+                          { value: "bogo", label: "Buy 1 Get 1", desc: "Buy item, get free item", icon: "🔄" },
                         ] as const).map(opt => {
                           const active = (couponForm.type || "percentage") === opt.value;
                           return (
@@ -765,46 +767,117 @@ export default function VendorDashboard() {
                       </div>
                     )}
 
-                    {/* Free item picker */}
+                    {/* Free item picker — pick one from list */}
                     {couponForm.type === "free_item" && (
-                      <div className="flex flex-col gap-3">
-                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Select Free Item</Label>
+                      <div className="flex flex-col gap-3 p-3 rounded-xl border-2 border-emerald-200 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/20">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">🎁 Add Items to "Pick One" List</Label>
+                          <span className="text-[10px] text-muted-foreground">{(couponForm.free_item_products || []).length} items added</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground -mt-1">User will pick one item from this list for free when claiming the coupon.</p>
                         <Input placeholder="Search products..." value={couponProdSearch} onChange={e => setCouponProdSearch(e.target.value)} className="rounded-xl h-8 text-xs" data-testid="input-free-product-search" />
-                        <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto pr-1">
+                        <div className="flex flex-col gap-1.5 max-h-44 overflow-y-auto pr-1">
                           {products
                             .filter(p => !couponProdSearch || (p.name || "").toLowerCase().includes(couponProdSearch.toLowerCase()))
                             .map((p: any) => {
-                              const selected = couponForm.free_item_product_id === p.id;
+                              const freeProds: string[] = couponForm.free_item_products || [];
+                              const inList = freeProds.includes(p.id);
                               return (
-                                <button key={p.id} type="button" onClick={() => setCouponForm((f: any) => ({ ...f, free_item_product_id: selected ? null : p.id }))} data-testid={`free-item-product-${p.id}`}
-                                  className={`flex items-center justify-between p-2.5 rounded-xl border-2 text-left w-full transition-all ${selected ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/20" : "border-gray-200 dark:border-gray-700 hover:border-gray-300"}`}>
+                                <div key={p.id} className={`flex items-center justify-between p-2.5 rounded-xl border-2 transition-all ${inList ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/30" : "border-gray-200 dark:border-gray-700"}`} data-testid={`free-item-product-${p.id}`}>
                                   <div>
                                     <p className="text-xs font-semibold text-gray-900 dark:text-white">{p.name}</p>
                                     <p className="text-[10px] text-muted-foreground">₹{Number(p.price).toLocaleString()}</p>
                                   </div>
-                                  {selected && <Badge className="bg-emerald-500 text-white border-0 text-[10px]">FREE ✓</Badge>}
-                                </button>
+                                  {inList ? (
+                                    <button type="button" onClick={() => setCouponForm((f: any) => ({ ...f, free_item_products: (f.free_item_products || []).filter((id: string) => id !== p.id) }))}
+                                      className="text-[10px] px-2 py-1 rounded-lg border border-red-300 text-red-500 hover:bg-red-50 font-semibold" data-testid={`free-item-remove-${p.id}`}>Remove</button>
+                                  ) : (
+                                    <button type="button" onClick={() => setCouponForm((f: any) => ({ ...f, free_item_products: [...(f.free_item_products || []), p.id] }))}
+                                      className="text-[10px] px-2 py-1 rounded-lg border border-emerald-400 text-emerald-600 hover:bg-emerald-50 font-semibold" data-testid={`free-item-add-${p.id}`}>+ Add</button>
+                                  )}
+                                </div>
                               );
                             })}
                           {products.length === 0 && <p className="text-xs text-muted-foreground text-center py-3">No products found. Add products first.</p>}
                         </div>
-                        {/* Quantity + Min order amount — shown when a product is selected */}
-                        {couponForm.free_item_product_id && (
-                          <div className="grid grid-cols-2 gap-3 mt-1">
-                            <div>
-                              <Label className="text-xs font-semibold">Free Qty</Label>
-                              <div className="flex items-center gap-1 mt-1.5">
-                                <button type="button" onClick={() => setCouponForm((f: any) => ({ ...f, free_item_qty: Math.max(1, (f.free_item_qty || 1) - 1) }))} className="w-7 h-7 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center text-sm font-bold hover:bg-gray-100 dark:hover:bg-gray-800" data-testid="button-free-qty-dec">-</button>
-                                <span className="w-8 text-center text-sm font-bold tabular-nums" data-testid="text-free-qty">{couponForm.free_item_qty || 1}</span>
-                                <button type="button" onClick={() => setCouponForm((f: any) => ({ ...f, free_item_qty: Math.min(10, (f.free_item_qty || 1) + 1) }))} className="w-7 h-7 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center text-sm font-bold hover:bg-gray-100 dark:hover:bg-gray-800" data-testid="button-free-qty-inc">+</button>
-                              </div>
-                            </div>
-                            <div>
-                              <Label className="text-xs font-semibold">Min Order (₹) <span className="text-muted-foreground font-normal">optional</span></Label>
-                              <div className="relative mt-1.5">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₹</span>
-                                <Input type="number" min="0" value={couponForm.min_order_amount || ""} onChange={e => setCouponForm((f: any) => ({ ...f, min_order_amount: e.target.value || null }))} className="rounded-xl pl-7 h-9 text-sm" placeholder="e.g. 500" data-testid="input-min-order-amount" />
-                              </div>
+                        {/* Selected items preview */}
+                        {(couponForm.free_item_products || []).length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {(couponForm.free_item_products || []).map((pid: string) => {
+                              const p = (products as any[]).find(x => x.id === pid);
+                              return p ? (
+                                <span key={pid} className="flex items-center gap-1 text-[10px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full px-2 py-0.5 font-medium">
+                                  {p.name}
+                                  <button type="button" onClick={() => setCouponForm((f: any) => ({ ...f, free_item_products: (f.free_item_products || []).filter((id: string) => id !== pid) }))} className="text-emerald-500 hover:text-red-500 font-bold leading-none">×</button>
+                                </span>
+                              ) : null;
+                            })}
+                          </div>
+                        )}
+                        <div>
+                          <Label className="text-xs font-semibold">Min Order (₹) <span className="text-muted-foreground font-normal">optional</span></Label>
+                          <div className="relative mt-1.5">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₹</span>
+                            <Input type="number" min="0" value={couponForm.min_order_amount || ""} onChange={e => setCouponForm((f: any) => ({ ...f, min_order_amount: e.target.value || null }))} className="rounded-xl pl-7 h-9 text-sm" placeholder="e.g. 500" data-testid="input-min-order-amount" />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* BOGO picker */}
+                    {couponForm.type === "bogo" && (
+                      <div className="flex flex-col gap-3 p-3 rounded-xl border-2 border-orange-200 dark:border-orange-800 bg-orange-50/40 dark:bg-orange-950/20">
+                        <Label className="text-xs font-semibold text-orange-700 dark:text-orange-400">🔄 Buy One Get One Setup</Label>
+                        <p className="text-[10px] text-muted-foreground -mt-1">Customer buys the "Buy" product and gets the "Get Free" product added to cart for free.</p>
+                        {/* Buy product selector */}
+                        <div>
+                          <Label className="text-xs font-semibold mb-1.5 block">Buy Product <span className="text-orange-600">*</span></Label>
+                          <Input placeholder="Search buy product..." value={couponProdSearch} onChange={e => setCouponProdSearch(e.target.value)} className="rounded-xl h-8 text-xs mb-1.5" data-testid="input-bogo-buy-search" />
+                          <div className="flex flex-col gap-1 max-h-28 overflow-y-auto pr-1">
+                            {products.filter(p => !couponProdSearch || p.name.toLowerCase().includes(couponProdSearch.toLowerCase())).map((p: any) => {
+                              const sel = couponForm.bogo_buy_product_id === p.id;
+                              return (
+                                <button key={p.id} type="button" onClick={() => setCouponForm((f: any) => ({ ...f, bogo_buy_product_id: sel ? null : p.id }))}
+                                  className={`flex items-center justify-between p-2 rounded-lg border-2 text-left w-full ${sel ? "border-orange-400 bg-orange-50 dark:bg-orange-950/30" : "border-gray-200 dark:border-gray-700 hover:border-orange-300"}`}
+                                  data-testid={`bogo-buy-product-${p.id}`}>
+                                  <div>
+                                    <p className="text-xs font-semibold text-gray-900 dark:text-white">{p.name}</p>
+                                    <p className="text-[10px] text-muted-foreground">₹{Number(p.price).toLocaleString()}</p>
+                                  </div>
+                                  {sel && <Badge className="bg-orange-500 text-white border-0 text-[10px]">BUY ✓</Badge>}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        {/* Get product selector */}
+                        <div>
+                          <Label className="text-xs font-semibold mb-1.5 block">Get Free Product <span className="text-emerald-600">*</span></Label>
+                          <div className="flex flex-col gap-1 max-h-28 overflow-y-auto pr-1">
+                            {products.map((p: any) => {
+                              const sel = couponForm.bogo_get_product_id === p.id;
+                              return (
+                                <button key={p.id} type="button" onClick={() => setCouponForm((f: any) => ({ ...f, bogo_get_product_id: sel ? null : p.id }))}
+                                  className={`flex items-center justify-between p-2 rounded-lg border-2 text-left w-full ${sel ? "border-emerald-400 bg-emerald-50 dark:bg-emerald-950/30" : "border-gray-200 dark:border-gray-700 hover:border-emerald-300"}`}
+                                  data-testid={`bogo-get-product-${p.id}`}>
+                                  <div>
+                                    <p className="text-xs font-semibold text-gray-900 dark:text-white">{p.name}</p>
+                                    <p className="text-[10px] text-muted-foreground">₹{Number(p.price).toLocaleString()}</p>
+                                  </div>
+                                  {sel && <Badge className="bg-emerald-500 text-white border-0 text-[10px]">FREE ✓</Badge>}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        {/* Get quantity */}
+                        {couponForm.bogo_get_product_id && (
+                          <div className="flex items-center gap-3">
+                            <Label className="text-xs font-semibold shrink-0">Free Qty:</Label>
+                            <div className="flex items-center gap-1">
+                              <button type="button" onClick={() => setCouponForm((f: any) => ({ ...f, bogo_get_qty: Math.max(1, (f.bogo_get_qty || 1) - 1) }))} className="w-7 h-7 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center text-sm font-bold" data-testid="button-bogo-qty-dec">-</button>
+                              <span className="w-8 text-center text-sm font-bold tabular-nums" data-testid="text-bogo-qty">{couponForm.bogo_get_qty || 1}</span>
+                              <button type="button" onClick={() => setCouponForm((f: any) => ({ ...f, bogo_get_qty: Math.min(10, (f.bogo_get_qty || 1) + 1) }))} className="w-7 h-7 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center text-sm font-bold" data-testid="button-bogo-qty-inc">+</button>
                             </div>
                           </div>
                         )}

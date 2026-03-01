@@ -4,7 +4,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const roleEnum = pgEnum("role", ["admin", "user"]);
-export const couponTypeEnum = pgEnum("coupon_type", ["percentage", "flat", "free_item", "bundle", "flash"]);
+export const couponTypeEnum = pgEnum("coupon_type", ["percentage", "flat", "free_item", "bundle", "flash", "bogo"]);
 export const orderStatusEnum = pgEnum("order_status", ["pending", "confirmed", "completed"]);
 
 export const users = pgTable("users", {
@@ -82,6 +82,10 @@ export const coupons = pgTable("coupons", {
   featured: boolean("featured").notNull().default(false),
   free_item_product_id: varchar("free_item_product_id"),
   free_item_qty: integer("free_item_qty").default(1),
+  free_item_products: text("free_item_products").array(),
+  bogo_buy_product_id: varchar("bogo_buy_product_id"),
+  bogo_get_product_id: varchar("bogo_get_product_id"),
+  bogo_get_qty: integer("bogo_get_qty").default(1),
   min_order_amount: numeric("min_order_amount", { precision: 10, scale: 2 }),
   expiry_date: timestamp("expiry_date"),
   banner_image: text("banner_image"),

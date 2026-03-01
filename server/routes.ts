@@ -1289,8 +1289,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
 
-      // Free item — added free_item_qty times for free_item type
-      if (coupon.type === "free_item" && coupon.free_item_product_id) {
+      // Free item — single auto-add mode (free_item_product_id is set, no pick list)
+      if (coupon.type === "free_item" && coupon.free_item_product_id && !(coupon.free_item_products?.length)) {
         const product = await storage.getProduct(coupon.free_item_product_id);
         if (product) {
           const qty = Math.max(1, parseInt(String(coupon.free_item_qty || "1")));
@@ -1303,7 +1303,39 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
 
-      res.json({ ...coupon, items_to_add });
+      // Free item — pick-one mode (free_item_products array is set)
+      let pick_one_items: { id: string; name: string; price: number; image?: string; shop_id: string; shopName: string }[] = [];
+      if (coupon.type === "free_item" && coupon.free_item_products && coupon.free_item_products.length > 0) {
+        for (const pid of coupon.free_item_products) {
+          const product = await storage.getProduct(pid);
+          if (product) {
+            pick_one_items.push({
+              id: product.id,
+              name: product.name,
+              price: parseFloat(String(product.price || "0")),
+              image: product.image || product.images?.[0],
+              shop_id: product.shop_id || "",
+              shopName,
+            });
+          }
+        }
+      }
+
+      // BOGO (Buy One Get One) — add get_product as free item
+      if (coupon.type === "bogo" && coupon.bogo_get_product_id) {
+        const getProduct = await storage.getProduct(coupon.bogo_get_product_id);
+        if (getProduct) {
+          const qty = Math.max(1, parseInt(String(coupon.bogo_get_qty || "1")));
+          for (let i = 0; i < qty; i++) {
+            items_to_add = [
+              ...items_to_add,
+              { id: getProduct.id, name: getProduct.name, price: 0, shop_id: getProduct.shop_id || "", shopName, isFreeItem: true },
+            ];
+          }
+        }
+      }
+
+      res.json({ ...coupon, items_to_add, pick_one_items });
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
 

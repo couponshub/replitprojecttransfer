@@ -12,8 +12,9 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
   ArrowLeft, Crown, MapPin, Phone, ShoppingCart, Tag, Copy, Check,
-  Plus, Minus, Globe, ChevronLeft, ChevronRight, Zap, Package, Clock
+  Plus, Minus, Globe, ChevronLeft, ChevronRight, Zap, Package, Clock, Gift
 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { Category, Shop, Product, Coupon } from "@shared/schema";
 
 interface CouponProduct {
@@ -80,6 +81,9 @@ export default function ShopPage() {
   const [bannerIdx, setBannerIdx] = useState(0);
   const [claimingCoupon, setClaimingCoupon] = useState<string | null>(null);
   const [activeSubCat, setActiveSubCat] = useState<string>("All");
+  const [pickOneModal, setPickOneModal] = useState(false);
+  const [pickOneItems, setPickOneItems] = useState<any[]>([]);
+  const [pendingCouponResult, setPendingCouponResult] = useState<any>(null);
 
   const { data: shop, isLoading: shopLoading } = useQuery<Shop & { category?: Category }>({
     queryKey: [`/api/shops/${id}`],
@@ -118,6 +122,28 @@ export default function ShopPage() {
     setTimeout(() => setCopiedCode(null), 2000);
   };
 
+  const finishCouponClaim = (result: any, chosenFreeItem?: any) => {
+    const hasItemsToAdd = result.items_to_add && result.items_to_add.length > 0;
+    if (hasItemsToAdd) {
+      addItems(result.items_to_add.map((item: any) => ({
+        id: item.id, name: item.name, price: item.price,
+        shop_id: item.shop_id, shopName: item.shopName, isFreeItem: item.isFreeItem ?? false,
+      })));
+    }
+    if (chosenFreeItem) {
+      addItems([{ id: chosenFreeItem.id, name: chosenFreeItem.name, price: 0, shop_id: chosenFreeItem.shop_id, shopName: chosenFreeItem.shopName || shop?.name || "", isFreeItem: true }]);
+    }
+    const parts: string[] = [];
+    if (result.type === "percentage" && parseFloat(result.value) > 0) parts.push(`${result.value}% off`);
+    if (result.type === "flat" && parseFloat(result.value) > 0) parts.push(`₹${result.value} off`);
+    if (chosenFreeItem) parts.push(`${chosenFreeItem.name} added free`);
+    else if (result.items_to_add?.some((i: any) => i.isFreeItem)) parts.push("free item added");
+    else if (hasItemsToAdd) parts.push(`${result.items_to_add.length} item${result.items_to_add.length > 1 ? "s" : ""} added`);
+    sessionStorage.setItem("pendingCoupon", JSON.stringify({ code: result.code, type: result.type, value: result.value, items_to_add: result.items_to_add }));
+    toast({ title: `✓ Coupon "${result.code}" applied!`, description: parts.join(" • ") || "Coupon applied to cart" });
+    setTimeout(() => navigate("/cart"), 600);
+  };
+
   const handleClaimCoupon = async (coupon: Coupon) => {
     if (!isAuthenticated) {
       toast({ title: "Please sign in to claim coupons", variant: "destructive" });
@@ -129,29 +155,23 @@ export default function ShopPage() {
       const result = await apiRequest("POST", "/api/coupons/validate", { code: coupon.code, shopId: id });
 
       const hasItemsToAdd = result.items_to_add && result.items_to_add.length > 0;
+      const hasPickOne = result.pick_one_items && result.pick_one_items.length > 0;
 
-      if (!hasItemsToAdd && itemCount === 0) {
+      if (!hasItemsToAdd && !hasPickOne && itemCount === 0) {
         toast({ title: "Add items to cart first, then claim the coupon!", variant: "destructive" });
         setClaimingCoupon(null);
         return;
       }
 
-      if (hasItemsToAdd) {
-        addItems(result.items_to_add.map((item: any) => ({
-          id: item.id, name: item.name, price: item.price,
-          shop_id: item.shop_id, shopName: item.shopName, isFreeItem: item.isFreeItem ?? false,
-        })));
+      if (hasPickOne) {
+        setPendingCouponResult(result);
+        setPickOneItems(result.pick_one_items);
+        setPickOneModal(true);
+        setClaimingCoupon(null);
+        return;
       }
 
-      const parts: string[] = [];
-      if (result.type === "percentage" && parseFloat(result.value) > 0) parts.push(`${result.value}% off`);
-      if (result.type === "flat" && parseFloat(result.value) > 0) parts.push(`₹${result.value} off`);
-      if (result.items_to_add?.some((i: any) => i.isFreeItem)) parts.push("free item added");
-      if (hasItemsToAdd && !result.items_to_add?.some((i: any) => i.isFreeItem)) parts.push(`${result.items_to_add.length} item${result.items_to_add.length > 1 ? "s" : ""} added`);
-
-      sessionStorage.setItem("pendingCoupon", JSON.stringify({ code: result.code, type: result.type, value: result.value, items_to_add: result.items_to_add }));
-      toast({ title: `✓ Coupon "${coupon.code}" applied!`, description: parts.join(" • ") || "Coupon applied to cart" });
-      setTimeout(() => navigate("/cart"), 800);
+      finishCouponClaim(result);
     } catch (err: any) {
       toast({ title: err.message || "Could not claim coupon", variant: "destructive" });
     } finally {
@@ -527,6 +547,51 @@ export default function ShopPage() {
           </button>
         </div>
       )}
+
+      {/* Pick One Free Item Modal */}
+      <Dialog open={pickOneModal} onOpenChange={v => { if (!v) { setPickOneModal(false); setPendingCouponResult(null); setPickOneItems([]); } }}>
+        <DialogContent className="rounded-2xl max-w-sm" data-testid="modal-pick-one">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold">
+              <Gift className="w-5 h-5 text-emerald-500" />
+              Pick Your Free Item
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 pb-1">
+            <p className="text-sm text-muted-foreground">Choose <span className="font-semibold text-emerald-600">one free item</span> from the list below — it will be added to your cart automatically.</p>
+            <div className="flex flex-col gap-2 max-h-64 overflow-y-auto">
+              {pickOneItems.map((item: any) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  data-testid={`pick-one-item-${item.id}`}
+                  onClick={() => {
+                    if (pendingCouponResult) {
+                      finishCouponClaim(pendingCouponResult, item);
+                      setPickOneModal(false);
+                      setPendingCouponResult(null);
+                      setPickOneItems([]);
+                    }
+                  }}
+                  className="flex items-center gap-3 p-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all text-left group"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-200 dark:from-emerald-900/40 dark:to-emerald-800/40 flex items-center justify-center shrink-0">
+                    <Gift className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{item.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="line-through mr-1">₹{Number(item.price).toLocaleString()}</span>
+                      <span className="text-emerald-600 font-bold">FREE</span>
+                    </p>
+                  </div>
+                  <span className="text-[10px] px-2 py-1 rounded-lg bg-emerald-500 text-white font-bold opacity-0 group-hover:opacity-100 transition-opacity shrink-0">Pick</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
