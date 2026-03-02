@@ -141,6 +141,20 @@ export default function AdminDashboard() {
   const isReady = !loading && isAdmin;
 
   const { data: stats } = useQuery<any>({ queryKey: ["/api/admin/stats"], enabled: isReady });
+  const { data: siteSettings = {} } = useQuery<Record<string, string>>({ queryKey: ["/api/settings"], enabled: isReady });
+  const [dashWhatsapp, setDashWhatsapp] = useState("");
+  const [dashWaSaving, setDashWaSaving] = useState(false);
+  useEffect(() => { if (siteSettings.admin_whatsapp) setDashWhatsapp(siteSettings.admin_whatsapp); }, [siteSettings]);
+  const saveDashWhatsapp = async () => {
+    const cleaned = dashWhatsapp.replace(/\D/g, "");
+    if (!cleaned) return;
+    setDashWaSaving(true);
+    try {
+      await apiRequest("POST", "/api/admin/settings", { key: "admin_whatsapp", value: cleaned });
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      toast({ title: "Admin WhatsApp saved!" });
+    } finally { setDashWaSaving(false); }
+  };
   const { data: recentOrders = [] } = useQuery<(Order & { user?: User })[]>({ queryKey: ["/api/admin/recent-orders"], enabled: isReady });
   const { data: categories = [] } = useQuery<Category[]>({ queryKey: ["/api/categories"], enabled: isReady });
   const { data: shops = [] } = useQuery<(Shop & { category?: Category })[]>({ queryKey: ["/api/shops"], enabled: isReady });
@@ -496,6 +510,42 @@ export default function AdminDashboard() {
 
           {activeTab === "overview" && (
             <div className="flex flex-col gap-6">
+
+              {/* Admin WhatsApp — top of dashboard */}
+              <div className="flex items-center gap-3 bg-white dark:bg-gray-900 rounded-2xl shadow-md border border-gray-100 dark:border-gray-800 px-5 py-4">
+                <div className="w-10 h-10 rounded-xl bg-[#25D366] flex items-center justify-center shrink-0">
+                  <MessageCircle className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Admin WhatsApp Number</p>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={dashWhatsapp}
+                      onChange={e => setDashWhatsapp(e.target.value)}
+                      placeholder="e.g. 919876543210 (with country code)"
+                      className="rounded-xl text-sm h-9 flex-1"
+                      data-testid="input-dash-admin-whatsapp"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={saveDashWhatsapp}
+                      disabled={dashWaSaving || !dashWhatsapp}
+                      className="rounded-xl bg-[#25D366] hover:bg-[#20b958] text-white border-0 shrink-0 h-9 px-4"
+                      data-testid="button-dash-save-whatsapp"
+                    >
+                      {dashWaSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      <span className="ml-1.5 hidden sm:inline">Save</span>
+                    </Button>
+                  </div>
+                </div>
+                {siteSettings.admin_whatsapp && (
+                  <div className="shrink-0 text-right hidden sm:block">
+                    <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Active</span>
+                    <p className="text-xs text-muted-foreground">+{siteSettings.admin_whatsapp}</p>
+                  </div>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
                 {STAT_CARDS.map(stat => (
                   <StatCard key={stat.key} stat={stat} onClick={() => {
