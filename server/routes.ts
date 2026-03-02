@@ -2039,6 +2039,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  app.delete("/api/admin/contests/:id", adminMiddleware, async (req, res) => {
+    try {
+      await storage.deleteContest(req.params.id);
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   app.post("/api/admin/contests/:id/draw", adminMiddleware, async (req, res) => {
     try {
       const c = await storage.getContest(req.params.id);

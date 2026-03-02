@@ -3388,7 +3388,13 @@ function AdminContestsTab({ toast }: { toast: any }) {
 
   const drawWinnerMutation = useMutation({
     mutationFn: (id: string) => apiRequest("POST", `/api/admin/contests/${id}/draw`, {}),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/admin/contests"] }); toast({ title: "🏆 Winner drawn!" }); setSelectedContest(null); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/admin/contests"] }); toast({ title: "Winner drawn!" }); setSelectedContest(null); },
+    onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const deleteContestMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/admin/contests/${id}`),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/admin/contests"] }); toast({ title: "Contest deleted" }); setSelectedContest(null); },
     onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
   });
 
@@ -3636,9 +3642,16 @@ function AdminContestsTab({ toast }: { toast: any }) {
                       {c.status === "closed" && (
                         <Button size="sm" variant="outline" onClick={() => updateStatusMutation.mutate({ id: c.id, status: "open" })}
                           disabled={updateStatusMutation.isPending} className="rounded-xl text-xs h-8 text-emerald-600">
-                          ▶️ Reopen
+                          Reopen
                         </Button>
                       )}
+                      <Button size="sm" variant="outline"
+                        onClick={() => { if (window.confirm(`Delete "${c.title}"? This cannot be undone.`)) deleteContestMutation.mutate(c.id); }}
+                        disabled={deleteContestMutation.isPending}
+                        className="rounded-xl text-xs h-8 text-red-500 border-red-200 hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-950/20"
+                        data-testid={`button-admin-delete-contest-${c.id}`}>
+                        Delete
+                      </Button>
                     </div>
                   </div>
 

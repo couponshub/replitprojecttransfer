@@ -129,6 +129,7 @@ export interface IStorage {
   getContestsByShop(shopId: string): Promise<(Contest & { slots: ContestSlot[] })[]>;
   createContest(data: InsertContest): Promise<Contest>;
   updateContest(id: string, data: Partial<InsertContest>): Promise<Contest | undefined>;
+  deleteContest(id: string): Promise<void>;
   joinContest(contestId: string, slotNumber: number, userId: string, userName: string, userEmail?: string): Promise<ContestSlot>;
   drawWinner(contestId: string): Promise<Contest | undefined>;
   getUserContestSlot(contestId: string, userId: string): Promise<ContestSlot | undefined>;
@@ -720,6 +721,11 @@ export class PgStorage implements IStorage {
   async updateContest(id: string, data: Partial<InsertContest>): Promise<Contest | undefined> {
     const rows = await db.update(contests).set(data).where(eq(contests.id, id)).returning();
     return rows[0];
+  }
+
+  async deleteContest(id: string): Promise<void> {
+    await db.delete(contestSlots).where(eq(contestSlots.contest_id, id));
+    await db.delete(contests).where(eq(contests.id, id));
   }
 
   async joinContest(contestId: string, slotNumber: number, userId: string, userName: string, userEmail?: string): Promise<ContestSlot> {
