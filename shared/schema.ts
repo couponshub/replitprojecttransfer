@@ -84,6 +84,7 @@ export const coupons = pgTable("coupons", {
   free_item_qty: integer("free_item_qty").default(1),
   free_item_products: text("free_item_products").array(),
   bogo_buy_product_id: varchar("bogo_buy_product_id"),
+  bogo_buy_qty: integer("bogo_buy_qty").default(1),
   bogo_get_product_id: varchar("bogo_get_product_id"),
   bogo_get_qty: integer("bogo_get_qty").default(1),
   min_order_amount: numeric("min_order_amount", { precision: 10, scale: 2 }),

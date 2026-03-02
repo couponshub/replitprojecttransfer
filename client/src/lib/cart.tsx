@@ -9,6 +9,7 @@ export interface CartItem {
   shopName: string;
   quantity: number;
   isFreeItem?: boolean;
+  originalPrice?: number;
   sub_category?: string;
 }
 
@@ -34,11 +35,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const shopId = items.length > 0 ? items[0].shop_id : null;
   const uniqueShopIds = Array.from(new Set(items.map(i => i.shop_id)));
 
+  const matchItem = (a: { id: string; shop_id: string; isFreeItem?: boolean }, b: { id: string; shop_id: string; isFreeItem?: boolean }) =>
+    a.id === b.id && a.shop_id === b.shop_id && !!a.isFreeItem === !!b.isFreeItem;
+
   const addItem = (item: Omit<CartItem, "quantity">) => {
     setItems(prev => {
-      const existing = prev.find(i => i.id === item.id && i.shop_id === item.shop_id);
+      const existing = prev.find(i => matchItem(i, item));
       if (existing) {
-        return prev.map(i => (i.id === item.id && i.shop_id === item.shop_id) ? { ...i, quantity: i.quantity + 1 } : i);
+        return prev.map(i => matchItem(i, item) ? { ...i, quantity: i.quantity + 1 } : i);
       }
       return [...prev, { ...item, quantity: 1 }];
     });
@@ -48,9 +52,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems(prev => {
       let updated = [...prev];
       for (const item of newItems) {
-        const existing = updated.find(i => i.id === item.id && i.shop_id === item.shop_id);
+        const existing = updated.find(i => matchItem(i, item));
         if (existing) {
-          updated = updated.map(i => (i.id === item.id && i.shop_id === item.shop_id) ? { ...i, quantity: i.quantity + 1 } : i);
+          updated = updated.map(i => matchItem(i, item) ? { ...i, quantity: i.quantity + 1 } : i);
         } else {
           updated = [...updated, { ...item, quantity: 1 }];
         }

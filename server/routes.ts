@@ -1321,13 +1321,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
 
-      // BOGO (Buy One Get One) — auto-add only the get_product as free; send names for display
+      // BOGO (Buy One Get One) — add buy product with real price + get product as free
       let bogo_buy_product_name: string | null = null;
       let bogo_get_product_name: string | null = null;
       if (coupon.type === "bogo") {
         if (coupon.bogo_buy_product_id) {
           const buyProduct = await storage.getProduct(coupon.bogo_buy_product_id);
-          if (buyProduct) bogo_buy_product_name = buyProduct.name;
+          if (buyProduct) {
+            bogo_buy_product_name = buyProduct.name;
+            const buyQty = Math.max(1, parseInt(String(coupon.bogo_buy_qty || "1")));
+            for (let i = 0; i < buyQty; i++) {
+              items_to_add = [
+                ...items_to_add,
+                { id: buyProduct.id, name: buyProduct.name, price: parseFloat(String(buyProduct.price || "0")), shop_id: buyProduct.shop_id || "", shopName, isFreeItem: false, isBogoItem: true },
+              ];
+            }
+          }
         }
         if (coupon.bogo_get_product_id) {
           const getProduct = await storage.getProduct(coupon.bogo_get_product_id);

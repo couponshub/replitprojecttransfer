@@ -170,38 +170,29 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
         <span className="text-xs text-muted-foreground shrink-0">{shopItems.reduce((s, i) => s + i.quantity, 0)} items</span>
       </div>
 
-      {/* Items */}
-      {shopItems.map(item => (
-        <Card key={item.id} className={`rounded-2xl border-0 shadow-md ${item.isFreeItem ? "ring-2 ring-emerald-400 ring-offset-1" : ""}`} data-testid={`card-cart-item-${item.id}`}>
+      {/* Items — show regular/buy items first, then free items below */}
+      {shopItems.filter(i => !i.isFreeItem).map(item => (
+        <Card key={item.id} className="rounded-2xl border-0 shadow-md" data-testid={`card-cart-item-${item.id}`}>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className={`w-14 h-14 rounded-xl flex items-center justify-center shrink-0 ${item.isFreeItem ? "bg-gradient-to-br from-emerald-100 to-emerald-200 dark:from-emerald-900/40 dark:to-emerald-800/40" : "bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700"}`}>
-                {item.isFreeItem ? <Gift className="w-6 h-6 text-emerald-600" /> : <span className="text-xl">{item.name[0]}</span>}
+              <div className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700">
+                <span className="text-xl">{item.name[0]}</span>
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-semibold text-gray-900 dark:text-white text-sm truncate">{item.name}</h3>
-                  {item.isFreeItem && <Badge className="bg-emerald-500 text-white border-0 text-[10px] px-1.5 py-0">FREE</Badge>}
                 </div>
                 {item.sub_category && <p className="text-[10px] text-muted-foreground">{item.sub_category}</p>}
-                {item.isFreeItem
-                  ? <p className="font-bold text-emerald-600 mt-0.5 text-sm">₹0</p>
-                  : <p className="font-bold text-primary mt-0.5 text-sm">₹{item.price.toLocaleString()} × {item.quantity} = ₹{(item.price * item.quantity).toLocaleString()}</p>
-                }
+                <p className="font-bold text-primary mt-0.5 text-sm">₹{item.price.toLocaleString()} × {item.quantity} = ₹{(item.price * item.quantity).toLocaleString()}</p>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
-                {!item.isFreeItem && (
-                  <>
-                    <button onClick={() => onUpdateQty(item.id, item.quantity - 1)} className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center" data-testid={`button-decrease-${item.id}`}>
-                      <Minus className="w-3 h-3" />
-                    </button>
-                    <span className="w-6 text-center font-medium text-sm" data-testid={`text-quantity-${item.id}`}>{item.quantity}</span>
-                    <button onClick={() => onUpdateQty(item.id, item.quantity + 1)} className="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center" data-testid={`button-increase-${item.id}`}>
-                      <Plus className="w-3 h-3" />
-                    </button>
-                  </>
-                )}
-                {item.isFreeItem && <span className="w-6 text-center font-medium text-sm text-muted-foreground">×{item.quantity}</span>}
+                <button onClick={() => onUpdateQty(item.id, item.quantity - 1)} className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center" data-testid={`button-decrease-${item.id}`}>
+                  <Minus className="w-3 h-3" />
+                </button>
+                <span className="w-6 text-center font-medium text-sm" data-testid={`text-quantity-${item.id}`}>{item.quantity}</span>
+                <button onClick={() => onUpdateQty(item.id, item.quantity + 1)} className="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center" data-testid={`button-increase-${item.id}`}>
+                  <Plus className="w-3 h-3" />
+                </button>
                 <button onClick={() => onRemoveItem(item.id)} className="w-7 h-7 rounded-full text-destructive flex items-center justify-center ml-1" data-testid={`button-remove-${item.id}`}>
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -210,6 +201,37 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
           </CardContent>
         </Card>
       ))}
+      {/* Free items from BOGO/coupon — shown separately below with FREE badge */}
+      {shopItems.filter(i => i.isFreeItem).length > 0 && (
+        <div className="flex flex-col gap-2 pl-4 border-l-2 border-emerald-300 dark:border-emerald-700">
+          <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1"><Gift className="w-3 h-3" /> Free with offer</p>
+          {shopItems.filter(i => i.isFreeItem).map(item => (
+            <Card key={item.id} className="rounded-2xl border-0 shadow-md ring-2 ring-emerald-400 ring-offset-1" data-testid={`card-cart-item-${item.id}`}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0 bg-gradient-to-br from-emerald-100 to-emerald-200 dark:from-emerald-900/40 dark:to-emerald-800/40">
+                    <Gift className="w-6 h-6 text-emerald-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-gray-900 dark:text-white text-sm truncate">{item.name}</h3>
+                      <Badge className="bg-emerald-500 text-white border-0 text-[10px] px-1.5 py-0">FREE</Badge>
+                    </div>
+                    {item.sub_category && <p className="text-[10px] text-muted-foreground">{item.sub_category}</p>}
+                    <p className="font-bold text-emerald-600 mt-0.5 text-sm">{item.originalPrice ? <span className="line-through text-muted-foreground text-xs mr-1">₹{item.originalPrice.toLocaleString()}</span> : null} ₹0</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="w-6 text-center font-medium text-sm text-muted-foreground">×{item.quantity}</span>
+                    <button onClick={() => onRemoveItem(item.id)} className="w-7 h-7 rounded-full text-destructive flex items-center justify-center ml-1" data-testid={`button-remove-${item.id}`}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Per-store coupons */}
       <Card className="rounded-2xl border-0 shadow-sm">
@@ -418,7 +440,7 @@ export default function CartPage() {
       setAppliedCoupons(prev => ({ ...prev, [shopId]: [...(prev[shopId] || []), newCoupon] }));
       setCouponCodes(prev => ({ ...prev, [shopId]: "" }));
       if (result.items_to_add?.length > 0) {
-        addItems(result.items_to_add.map((item: any) => ({ id: item.id, name: item.name, price: item.price, shop_id: item.shop_id, shopName: item.shopName, isFreeItem: item.isFreeItem ?? false })));
+        addItems(result.items_to_add.map((item: any) => ({ id: item.id, name: item.name, price: item.price, shop_id: item.shop_id, shopName: item.shopName, isFreeItem: item.isFreeItem ?? false, originalPrice: item.originalPrice ?? item.price })));
       }
       const shopName = items.find(i => i.shop_id === shopId)?.shopName || "shop";
       toast({ title: "🎉 Coupon applied!", description: `${result.code} applied to ${shopName}` });

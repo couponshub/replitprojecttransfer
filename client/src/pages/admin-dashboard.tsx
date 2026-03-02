@@ -2108,6 +2108,17 @@ export default function AdminDashboard() {
                                 })}
                               </div>
                             </div>
+                            {/* Buy qty */}
+                            {formData.bogo_buy_product_id && (
+                              <div className="flex items-center gap-3">
+                                <Label className="text-xs font-semibold shrink-0">Buy Qty:</Label>
+                                <div className="flex items-center gap-1">
+                                  <button type="button" onClick={() => setForm("bogo_buy_qty", Math.max(1, (formData.bogo_buy_qty || 1) - 1))} className="w-7 h-7 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center text-sm font-bold" data-testid="button-bogo-buy-qty-dec">-</button>
+                                  <span className="w-8 text-center text-sm font-bold tabular-nums" data-testid="text-bogo-buy-qty">{formData.bogo_buy_qty || 1}</span>
+                                  <button type="button" onClick={() => setForm("bogo_buy_qty", Math.min(10, (formData.bogo_buy_qty || 1) + 1))} className="w-7 h-7 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center text-sm font-bold" data-testid="button-bogo-buy-qty-inc">+</button>
+                                </div>
+                              </div>
+                            )}
                             {/* Get qty */}
                             {formData.bogo_get_product_id && (
                               <div className="flex items-center gap-3">
