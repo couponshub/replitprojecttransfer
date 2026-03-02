@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,12 @@ export default function OrderConfirmPage() {
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
   const [screenshotUploading, setScreenshotUploading] = useState(false);
+  const [sentShopIds, setSentShopIds] = useState<Set<string>>(new Set());
+  const [adminSent, setAdminSent] = useState(false);
   const screenshotRef = useRef<HTMLInputElement>(null);
+
+  const { data: siteSettings = {} } = useQuery<Record<string, string>>({ queryKey: ["/api/settings"] });
+  const adminWhatsapp = siteSettings.admin_whatsapp || "";
 
   const raw = sessionStorage.getItem("pendingOrder");
   const order: OrderData | null = raw ? JSON.parse(raw) : null;
@@ -314,17 +320,67 @@ export default function OrderConfirmPage() {
                         const itemLines = o.items.map((i: any) => i.isFreeItem ? `• ${i.name} ×${i.quantity} — FREE 🎁` : `• ${i.name} ×${i.quantity} — ₹${(i.price * i.quantity).toLocaleString()}`).join("\n");
                         const text = [`🛍️ *New Order from CouponsHub X*`, ``, `*Shop:* ${o.shopName}`, o.orderId ? `*Order ID:* #${o.orderId.slice(0,8).toUpperCase()}` : "", ``, `*Customer:*`, order.customerName ? `• Name: ${order.customerName}` : "", order.customerPhone ? `• Phone: +91${order.customerPhone}` : "", ``, `*Items:*`, itemLines, ``, o.discount > 0 ? `*Discount:* -₹${o.discount.toFixed(0)}` : "", `*Total:* ₹${o.finalAmount.toLocaleString()}`, ``, `Please confirm my order. Thank you! 🙏`].filter(Boolean).join("\n");
                         window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank");
+                        setSentShopIds(prev => new Set([...prev, o.shopId]));
                       }}
-                      className="mt-3 w-full flex items-center justify-center gap-2 bg-[#25D366] text-white rounded-xl py-2.5 text-sm font-semibold"
+                      className={`mt-3 w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-all ${sentShopIds.has(o.shopId) ? "bg-gray-800 dark:bg-gray-700 text-white" : "bg-[#25D366] text-white"}`}
                       data-testid={`button-whatsapp-shop-${o.shopId}`}
                     >
-                      <MessageCircle className="w-4 h-4" /> Order via WhatsApp
+                      <MessageCircle className="w-4 h-4" />
+                      {sentShopIds.has(o.shopId) ? "Sent ✓" : "Send to Shop WhatsApp"}
                     </button>
                   )}
                 </CardContent>
               </Card>
             ))}
           </div>
+        )}
+
+        {/* Send All Orders to Admin WhatsApp (multi-store only) */}
+        {order.orders && order.orders.length > 1 && adminWhatsapp && (
+          <Card className="rounded-2xl border-0 shadow-md mb-4 border-2 border-violet-200 dark:border-violet-800">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
+                  <MessageCircle className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm text-gray-900 dark:text-white">Send All Orders to Admin</p>
+                  <p className="text-xs text-muted-foreground">One message with all {order.orders.length} shops' details</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  const lines: string[] = [
+                    `🛍️ *New Multi-Store Order — CouponsHub X*`, ``,
+                    order.customerName ? `*Customer:* ${order.customerName}` : "",
+                    order.customerPhone ? `*Phone:* +91${order.customerPhone}` : "",
+                    ``,
+                  ];
+                  order.orders!.forEach((o: any, idx: number) => {
+                    lines.push(`*${idx + 1}. ${o.shopName}*`);
+                    if (o.orderId) lines.push(`   Order ID: #${o.orderId.slice(0, 8).toUpperCase()}`);
+                    o.items.forEach((i: any) => {
+                      lines.push(i.isFreeItem ? `   • ${i.name} ×${i.quantity} — FREE 🎁` : `   • ${i.name} ×${i.quantity} — ₹${(i.price * i.quantity).toLocaleString()}`);
+                    });
+                    if (o.discount > 0) lines.push(`   Discount: -₹${o.discount.toFixed(0)}`);
+                    lines.push(`   *Subtotal: ₹${o.finalAmount.toLocaleString()}*`);
+                    lines.push(``);
+                  });
+                  const grandTotal = order.grandTotal ?? order.finalAmount;
+                  lines.push(`*Grand Total: ₹${grandTotal.toLocaleString()}*`);
+                  lines.push(``, `Please coordinate with respective shops. Thank you! 🙏`);
+                  const text = lines.filter(l => l !== undefined).join("\n");
+                  window.open(`https://wa.me/${adminWhatsapp}?text=${encodeURIComponent(text)}`, "_blank");
+                  setAdminSent(true);
+                }}
+                className={`w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-all ${adminSent ? "bg-gray-800 dark:bg-gray-700 text-white" : "bg-gradient-to-r from-violet-500 to-purple-600 text-white"}`}
+                data-testid="button-whatsapp-admin"
+              >
+                <MessageCircle className="w-4 h-4" />
+                {adminSent ? "Sent to Admin ✓" : `Send All to Admin WhatsApp`}
+              </button>
+            </CardContent>
+          </Card>
         )}
 
         {/* Order Summary (single store or combined total) */}

@@ -17,12 +17,12 @@ import {
   Plus, Edit, Trash2, Crown, LogOut, ChevronRight, Users, TrendingUp,
   Zap, Star, Check, X, Menu, Award, Flame, UserCheck, Phone, Mail,
   Globe, MapPin, Wifi, WifiOff, Search, Image, Link, ExternalLink, Upload, Loader2, Eye, EyeOff,
-  Download, RefreshCw, ArrowUpAZ, ArrowDownAZ
+  Download, RefreshCw, ArrowUpAZ, ArrowDownAZ, Settings, MessageCircle, Save
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import type { Category, Shop, Product, Coupon, Order, User, OrderItem } from "@shared/schema";
 
-type Tab = "overview" | "categories" | "shops" | "products" | "coupons" | "orders" | "users" | "vendors" | "top-shops" | "top-coupons" | "banners" | "offline-coupons";
+type Tab = "overview" | "categories" | "shops" | "products" | "coupons" | "orders" | "users" | "vendors" | "top-shops" | "top-coupons" | "banners" | "offline-coupons" | "settings";
 
 const NAV_ITEMS: { id: Tab; label: string; icon: any; section?: string }[] = [
   { id: "overview", label: "Dashboard", icon: LayoutDashboard, section: "Main" },
@@ -37,6 +37,7 @@ const NAV_ITEMS: { id: Tab; label: string; icon: any; section?: string }[] = [
   { id: "vendors", label: "Vendors", icon: Crown, section: "People" },
   { id: "top-shops", label: "Top Shops", icon: Award, section: "Insights" },
   { id: "top-coupons", label: "Top Coupons", icon: Flame, section: "Insights" },
+  { id: "settings", label: "Settings", icon: Settings, section: "System" },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -2520,8 +2521,90 @@ export default function AdminDashboard() {
 
           {activeTab === "offline-coupons" && <OfflineCouponsTab toast={toast} />}
 
+          {activeTab === "settings" && <SiteSettingsTab toast={toast} />}
+
         </main>
       </div>
+    </div>
+  );
+}
+
+function SiteSettingsTab({ toast }: { toast: any }) {
+  const { data: settings = {} } = useQuery<Record<string, string>>({ queryKey: ["/api/settings"] });
+  const [adminWhatsapp, setAdminWhatsapp] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (settings.admin_whatsapp) setAdminWhatsapp(settings.admin_whatsapp);
+  }, [settings]);
+
+  const handleSave = async () => {
+    const cleaned = adminWhatsapp.replace(/\D/g, "");
+    if (cleaned.length < 10) {
+      toast({ title: "Enter a valid WhatsApp number (min 10 digits)", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      await apiRequest("POST", "/api/admin/settings", { key: "admin_whatsapp", value: cleaned });
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      toast({ title: "Settings saved!", description: "Admin WhatsApp number updated." });
+    } catch (err: any) {
+      toast({ title: err.message || "Failed to save", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-6 max-w-lg">
+      <div>
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Site Settings</h2>
+        <p className="text-sm text-muted-foreground mt-1">Manage global settings for CouponsHub X</p>
+      </div>
+
+      <Card className="rounded-2xl border-0 shadow-md">
+        <CardContent className="p-6 flex flex-col gap-5">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
+              <MessageCircle className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900 dark:text-white">Admin WhatsApp</h3>
+              <p className="text-xs text-muted-foreground">Users can optionally send all orders to this number</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="admin-whatsapp">WhatsApp Number (with country code)</Label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">+</span>
+              <Input
+                id="admin-whatsapp"
+                type="tel"
+                inputMode="numeric"
+                placeholder="919876543210"
+                value={adminWhatsapp}
+                onChange={e => setAdminWhatsapp(e.target.value.replace(/[^\d+]/g, ""))}
+                className="h-12 rounded-xl pl-8 font-mono"
+                data-testid="input-admin-whatsapp"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">Example: 919876543210 (91 = India code + 10-digit number)</p>
+          </div>
+
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="h-11 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 border-0 font-semibold w-full"
+            data-testid="button-save-settings"
+          >
+            {saving
+              ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</>
+              : <><Save className="w-4 h-4 mr-2" />Save Settings</>}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

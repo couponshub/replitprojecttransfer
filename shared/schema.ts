@@ -182,6 +182,11 @@ export type InsertBanner = z.infer<typeof insertBannerSchema>;
 export type Banner = typeof banners.$inferSelect;
 
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, created_at: true });
+export const siteSettings = pgTable("site_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+});
+
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true, created_at: true });
 export const insertShopSchema = createInsertSchema(shops).omit({ id: true, created_at: true });
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, created_at: true });

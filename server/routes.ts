@@ -1866,5 +1866,20 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
+  // Site Settings (public read, admin write)
+  app.get("/api/settings", async (_req, res) => {
+    try { res.json(await storage.getAllSettings()); }
+    catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.post("/api/admin/settings", adminMiddleware, async (req, res) => {
+    try {
+      const { key, value } = req.body;
+      if (!key || typeof value !== "string") return res.status(400).json({ error: "key and value required" });
+      await storage.setSetting(key, value);
+      res.json({ ok: true });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
   return httpServer;
 }

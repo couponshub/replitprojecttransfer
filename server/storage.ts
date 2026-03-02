@@ -115,6 +115,11 @@ export interface IStorage {
   getUserOfflineCoupons(userId: string): Promise<any[]>;
   markOfflineCouponCodeUsed(codeId: string, userId: string): Promise<OfflineCouponCode | undefined>;
   getOfflineCouponsByShop(shopId: string): Promise<(OfflineCoupon & { claimed_count: number; remaining: number })[]>;
+
+  // Site Settings
+  getSetting(key: string): Promise<string | null>;
+  setSetting(key: string, value: string): Promise<void>;
+  getAllSettings(): Promise<Record<string, string>>;
 }
 
 export class PgStorage implements IStorage {
@@ -634,6 +639,21 @@ export class PgStorage implements IStorage {
       result.push({ ...oc, claimed_count, remaining });
     }
     return result;
+  }
+
+  async getSetting(key: string): Promise<string | null> {
+    const result = await db.select().from(schema.siteSettings).where(eq(schema.siteSettings.key, key)).limit(1);
+    return result[0]?.value ?? null;
+  }
+
+  async setSetting(key: string, value: string): Promise<void> {
+    await db.insert(schema.siteSettings).values({ key, value })
+      .onConflictDoUpdate({ target: schema.siteSettings.key, set: { value } });
+  }
+
+  async getAllSettings(): Promise<Record<string, string>> {
+    const rows = await db.select().from(schema.siteSettings);
+    return Object.fromEntries(rows.map(r => [r.key, r.value]));
   }
 }
 
