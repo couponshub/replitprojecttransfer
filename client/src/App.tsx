@@ -18,6 +18,7 @@ import CategoriesPage from "@/pages/categories";
 import OrderConfirmPage from "@/pages/order-confirm";
 import MyOrdersPage from "@/pages/my-orders";
 import VendorDashboard from "@/pages/vendor-dashboard";
+import ARCamera from "@/pages/ar-camera";
 
 function Router() {
   const { user, loading, isAdmin } = useAuth();
@@ -53,6 +54,7 @@ function Router() {
       <Route path="/order-confirm" component={OrderConfirmPage} />
       <Route path="/my-orders" component={MyOrdersPage} />
       <Route path="/vendor-dashboard" component={VendorDashboard} />
+      <Route path="/ar-camera" component={ARCamera} />
       <Route component={NotFound} />
     </Switch>
   );

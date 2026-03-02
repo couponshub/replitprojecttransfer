@@ -17,7 +17,7 @@ A full-stack marketplace for Eluru, AP — discover coupons, offline deals, and 
 - `categories` - Shop categories (Food, Fashion, Electronics, etc.)
 - `shops` - Marketplace shops with premium/featured flags, listing_type (products/services/both), business_hours (format: HH:MM-HH:MM), show_on_radar (boolean, default true), marker_color (text, optional custom map marker color)
 - `products` - Products within shops (is_active toggle supported)
-- `coupons` - Discount coupons (percentage, flat, free_item, bogo, flash types) with is_active + featured flags; BOGO supports bogo_buy_product_id, bogo_buy_qty, bogo_get_product_id, bogo_get_qty
+- `coupons` - Discount coupons (percentage, flat, free_item, bogo, flash, category_offer types) with is_active + featured flags; BOGO supports bogo_buy_product_id, bogo_buy_qty, bogo_get_product_id, bogo_get_qty; category_offer uses category_offer_subtype (percentage/flat/free_item) + restrict_sub_category[]
 - `orders` - Customer orders (pending, confirmed, completed)
 - `order_items` - Line items within orders
 - `vendors` - Vendor login accounts (one per shop, separate JWT auth via VENDOR_SECRET)
@@ -30,6 +30,7 @@ A full-stack marketplace for Eluru, AP — discover coupons, offline deals, and 
 - `/shop/:id` - Shop detail with products and coupons
 - `/cart` - Shopping cart with coupon application
 - `/profile` - User profile and order history
+- `/ar-camera` - AR Camera view: real-time camera + GPS + compass to show nearby coupon banners in augmented reality
 - `/admin-dashboard` - Apple-themed admin panel with sidebar
 
 ### Admin Dashboard Tabs
