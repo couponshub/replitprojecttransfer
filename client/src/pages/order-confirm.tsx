@@ -620,20 +620,7 @@ export default function OrderConfirmPage() {
                 )}
               </div>
 
-              {/* Share on WhatsApp — to Shop */}
-              {order.shopWhatsapp && (
-                <Button
-                  onClick={handleSharePaymentWhatsApp}
-                  disabled={screenshotUploading}
-                  className={`w-full rounded-xl text-white border-0 gap-2 ${shopSent ? "bg-gray-700 hover:bg-gray-700" : "bg-[#25D366] hover:bg-[#20b958]"}`}
-                  data-testid="button-share-payment-whatsapp"
-                >
-                  {screenshotUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  {screenshotUploading ? "Uploading & Sharing..." : shopSent ? "Sent to Shop ✓" : "Share Payment to Shop"}
-                </Button>
-              )}
-
-              {/* Share on WhatsApp — to Admin */}
+              {/* Share on WhatsApp — to Admin FIRST */}
               {adminWhatsapp && (
                 <Button
                   onClick={handleSharePaymentWhatsAppAdmin}
@@ -643,6 +630,19 @@ export default function OrderConfirmPage() {
                 >
                   {screenshotUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   {screenshotUploading ? "Uploading & Sharing..." : paymentAdminSent ? "Sent to Admin ✓" : "Share Payment to Admin"}
+                </Button>
+              )}
+
+              {/* Share on WhatsApp — to Shop AFTER admin */}
+              {order.shopWhatsapp && (
+                <Button
+                  onClick={handleSharePaymentWhatsApp}
+                  disabled={screenshotUploading}
+                  className={`w-full rounded-xl text-white border-0 gap-2 ${shopSent ? "bg-gray-700 hover:bg-gray-700" : "bg-[#25D366] hover:bg-[#20b958]"}`}
+                  data-testid="button-share-payment-whatsapp"
+                >
+                  {screenshotUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  {screenshotUploading ? "Uploading & Sharing..." : shopSent ? "Sent to Shop ✓" : "Share Payment to Shop"}
                 </Button>
               )}
 
@@ -672,25 +672,7 @@ export default function OrderConfirmPage() {
             <IndianRupee className="w-5 h-5 text-white/60" />
           </button>
 
-          {/* WhatsApp to Shop */}
-          {order.shopWhatsapp && (
-            <button
-              onClick={handleWhatsAppShop}
-              className={`w-full flex items-center gap-4 text-white rounded-2xl p-5 transition-all hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 ${shopSent ? "bg-gray-800 dark:bg-gray-700 hover:shadow-gray-500/20" : "bg-[#25D366] hover:bg-[#20b958] hover:shadow-emerald-500/30"}`}
-              data-testid="button-order-whatsapp-shop"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
-                <MessageCircle className="w-6 h-6" />
-              </div>
-              <div className="text-left flex-1">
-                <p className="font-bold text-base">{shopSent ? "Sent to Shop ✓" : "Order via WhatsApp"}</p>
-                <p className="text-sm text-white/80">{shopSent ? "Message sent to shop" : "Send order directly to shop"}</p>
-              </div>
-              {!shopSent && <Phone className="w-5 h-5 text-white/60" />}
-            </button>
-          )}
-
-          {/* WhatsApp to Admin */}
+          {/* WhatsApp to Admin — shown FIRST */}
           {adminWhatsapp && (
             <button
               onClick={handleWhatsAppAdmin}
@@ -705,6 +687,24 @@ export default function OrderConfirmPage() {
                 <p className="text-sm text-white/80">{adminSent ? "Message sent to admin" : "Send order details to admin"}</p>
               </div>
               {!adminSent && <Phone className="w-5 h-5 text-white/60" />}
+            </button>
+          )}
+
+          {/* WhatsApp to Shop — shown AFTER admin */}
+          {order.shopWhatsapp && (
+            <button
+              onClick={handleWhatsAppShop}
+              className={`w-full flex items-center gap-4 text-white rounded-2xl p-5 transition-all hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 ${shopSent ? "bg-gray-800 dark:bg-gray-700 hover:shadow-gray-500/20" : "bg-[#25D366] hover:bg-[#20b958] hover:shadow-emerald-500/30"}`}
+              data-testid="button-order-whatsapp-shop"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+                <MessageCircle className="w-6 h-6" />
+              </div>
+              <div className="text-left flex-1">
+                <p className="font-bold text-base">{shopSent ? "Sent to Shop ✓" : "Order via WhatsApp"}</p>
+                <p className="text-sm text-white/80">{shopSent ? "Message sent to shop" : "Send order directly to shop"}</p>
+              </div>
+              {!shopSent && <Phone className="w-5 h-5 text-white/60" />}
             </button>
           )}
 
