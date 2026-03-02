@@ -362,6 +362,7 @@ export default function CartPage() {
   const [phoneSaving, setPhoneSaving] = useState(false);
   const [userGPS, setUserGPS] = useState<{ lat: number; lon: number } | null>(null);
   const [gpsLoading, setGpsLoading] = useState(false);
+  const [shareLocation, setShareLocation] = useState(false);
   const [placingOrder, setPlacingOrder] = useState(false);
   const [shopDataMap, setShopDataMap] = useState<Record<string, any>>({});
 
@@ -517,6 +518,7 @@ export default function CartPage() {
           items: shopItems.map(i => ({ product_id: i.id, product_name: i.name, quantity: i.quantity, price: i.price.toString(), is_free_item: i.isFreeItem || false })),
           total_amount: sub.toString(), discount_amount: disc.toString(), final_amount: final.toString(),
           shop_id: shopId, shop_name: shopItems[0]?.shopName, coupon_code: (appliedCoupons[shopId] || [])[0]?.code || null,
+          customer_location: (shareLocation && userGPS) ? `${userGPS.lat},${userGPS.lon}` : null,
         });
         const shopCouponCodes = (appliedCoupons[shopId] || []).map(c => c.code).join(", ");
         placedOrders.push({
@@ -718,8 +720,36 @@ export default function CartPage() {
                       </div>
                     </div>
                   </div>
+                  {/* Share location toggle */}
+                  <div
+                    className={`mt-4 flex items-center gap-3 rounded-xl p-3 cursor-pointer border transition-all ${shareLocation ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-300 dark:border-emerald-700" : "bg-gray-50 dark:bg-gray-800/50 border-transparent"}`}
+                    onClick={() => {
+                      if (!shareLocation && !userGPS) {
+                        setGpsLoading(true);
+                        navigator.geolocation?.getCurrentPosition(
+                          pos => { setUserGPS({ lat: pos.coords.latitude, lon: pos.coords.longitude }); setGpsLoading(false); setShareLocation(true); },
+                          () => { setGpsLoading(false); toast({ title: "Could not get GPS location", variant: "destructive" }); }
+                        );
+                      } else {
+                        setShareLocation(v => !v);
+                      }
+                    }}
+                    data-testid="toggle-share-location"
+                  >
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${shareLocation ? "bg-emerald-500" : "bg-gray-200 dark:bg-gray-700"}`}>
+                      <Navigation className={`w-4 h-4 ${shareLocation ? "text-white" : "text-gray-500"}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">Share my location</p>
+                      <p className="text-xs text-muted-foreground">Let the shop see your GPS for delivery</p>
+                    </div>
+                    <div className={`w-10 h-5 rounded-full transition-all shrink-0 ${shareLocation ? "bg-emerald-500" : "bg-gray-200 dark:bg-gray-600"}`}>
+                      <div className={`w-4 h-4 bg-white rounded-full mt-0.5 transition-all ${shareLocation ? "ml-5.5" : "ml-0.5"}`} style={{ marginLeft: shareLocation ? "22px" : "2px" }} />
+                    </div>
+                  </div>
+
                   <Button onClick={handlePlaceOrder} disabled={placingOrder}
-                    className="w-full mt-5 h-12 rounded-xl font-semibold bg-gradient-to-r from-blue-500 to-violet-600 border-0 shadow-lg shadow-blue-500/25 text-base"
+                    className="w-full mt-4 h-12 rounded-xl font-semibold bg-gradient-to-r from-blue-500 to-violet-600 border-0 shadow-lg shadow-blue-500/25 text-base"
                     data-testid="button-place-order">
                     {placingOrder
                       ? <div className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Placing {shopGroups.length > 1 ? "Orders" : "Order"}...</div>

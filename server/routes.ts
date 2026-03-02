@@ -1434,9 +1434,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(await storage.getShopOrders(vendor.shop_id));
   });
 
+  app.put("/api/vendor/orders/:id/status", vendorMiddleware, async (req, res) => {
+    const vendor = (req as any).vendor;
+    const { status } = req.body;
+    const validStatuses = ["pending", "confirmed", "completed", "cancelled"];
+    if (!validStatuses.includes(status)) return res.status(400).json({ error: "Invalid status" });
+    const order = await storage.getOrder(req.params.id);
+    if (!order) return res.status(404).json({ error: "Not found" });
+    if (order.shop_id !== vendor.shop_id) return res.status(403).json({ error: "Access denied" });
+    const updated = await storage.updateOrderStatus(req.params.id, status);
+    res.json(updated);
+  });
+
   app.post("/api/orders", authMiddleware, async (req, res) => {
     try {
-      const { items, total_amount, discount_amount, final_amount, shop_id, shop_name, coupon_code } = req.body;
+      const { items, total_amount, discount_amount, final_amount, shop_id, shop_name, coupon_code, customer_location } = req.body;
       const order = await storage.createOrder(
         {
           user_id: (req as any).user.id,
@@ -1448,6 +1460,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           status: "pending",
           payment_status: "unpaid",
           coupon_code: coupon_code || null,
+          customer_location: customer_location || null,
         },
         (items || []).map((i: any) => ({
           product_id: i.product_id,

@@ -5,7 +5,7 @@ import { z } from "zod";
 
 export const roleEnum = pgEnum("role", ["admin", "user"]);
 export const couponTypeEnum = pgEnum("coupon_type", ["percentage", "flat", "free_item", "bundle", "flash", "bogo", "category_offer"]);
-export const orderStatusEnum = pgEnum("order_status", ["pending", "confirmed", "completed"]);
+export const orderStatusEnum = pgEnum("order_status", ["pending", "confirmed", "completed", "cancelled"]);
 
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -116,6 +116,7 @@ export const orders = pgTable("orders", {
   payment_status: text("payment_status").notNull().default("unpaid"),
   razorpay_order_id: text("razorpay_order_id"),
   coupon_code: text("coupon_code"),
+  customer_location: text("customer_location"),
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });
 

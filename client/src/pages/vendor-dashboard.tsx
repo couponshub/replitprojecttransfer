@@ -86,6 +86,17 @@ export default function VendorDashboard() {
   const [selectedVendorOrder, setSelectedVendorOrder] = useState<any>(null);
   const [vendorOrderSearch, setVendorOrderSearch] = useState("");
 
+  const updateVendorOrderStatus = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      vendorFetch(`/api/vendor/orders/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) }),
+    onSuccess: (updated: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/vendor/orders"] });
+      setSelectedVendorOrder((prev: any) => prev ? { ...prev, status: updated?.status ?? prev.status } : prev);
+      toast({ title: "Order status updated" });
+    },
+    onError: (e: any) => toast({ title: e.message || "Failed to update status", variant: "destructive" }),
+  });
+
   const [shopForm, setShopForm] = useState<any>({});
   const [shopEditing, setShopEditing] = useState(false);
 
@@ -1151,9 +1162,29 @@ export default function VendorDashboard() {
                             {new Date(selectedVendorOrder.created_at).toLocaleString("en-IN")}
                           </p>
                         </div>
-                        <Badge className={`${selectedVendorOrder.status === "completed" ? "bg-emerald-100 text-emerald-700" : selectedVendorOrder.status === "confirmed" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"} border-0 capitalize text-sm px-3 py-1`}>
-                          {selectedVendorOrder.status}
-                        </Badge>
+                        <Select
+                          value={selectedVendorOrder.status}
+                          onValueChange={(v) => updateVendorOrderStatus.mutate({ id: selectedVendorOrder.id, status: v })}
+                          disabled={updateVendorOrderStatus.isPending}
+                        >
+                          <SelectTrigger
+                            className={`w-32 rounded-xl text-xs border-0 ${
+                              selectedVendorOrder.status === "completed" ? "bg-emerald-100 text-emerald-700" :
+                              selectedVendorOrder.status === "confirmed" ? "bg-blue-100 text-blue-700" :
+                              selectedVendorOrder.status === "cancelled" ? "bg-red-100 text-red-700" :
+                              "bg-amber-100 text-amber-700"
+                            }`}
+                            data-testid="select-vendor-order-status"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="confirmed">Confirmed</SelectItem>
+                            <SelectItem value="completed">Completed</SelectItem>
+                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
 
                       {/* Customer */}
@@ -1174,6 +1205,20 @@ export default function VendorDashboard() {
                             <div className="flex items-center gap-2 text-sm">
                               <MapPin className="w-4 h-4 text-violet-500 shrink-0" />
                               <span className="text-muted-foreground">{selectedVendorOrder.user.address}</span>
+                            </div>
+                          )}
+                          {selectedVendorOrder.customer_location && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <MapPin className="w-4 h-4 text-emerald-500 shrink-0" />
+                              <a
+                                href={`https://maps.google.com/?q=${selectedVendorOrder.customer_location}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-emerald-600 dark:text-emerald-400 font-semibold hover:underline"
+                                data-testid="link-vendor-customer-location"
+                              >
+                                📍 Customer GPS Location
+                              </a>
                             </div>
                           )}
                         </div>
