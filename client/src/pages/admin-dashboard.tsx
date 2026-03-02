@@ -2218,17 +2218,23 @@ export default function AdminDashboard() {
                         if (shopSubCats.length === 0) return null;
                         return (
                           <div>
-                            <Label className="text-xs font-semibold text-orange-700 dark:text-orange-400">🎯 Restrict to Category <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                            <p className="text-[10px] text-muted-foreground mt-0.5 mb-1.5">If set, discount applies ONLY to items in this category. Leave blank for entire order.</p>
+                            <Label className="text-xs font-semibold text-orange-700 dark:text-orange-400">🎯 Restrict to Categories <span className="font-normal text-muted-foreground">(optional — select multiple)</span></Label>
+                            <p className="text-[10px] text-muted-foreground mt-0.5 mb-1.5">If set, discount applies ONLY to items in selected categories. Leave blank for entire order.</p>
                             <div className="flex flex-wrap gap-1.5">
-                              <button type="button" onClick={() => setForm("restrict_sub_category", null)}
-                                className={`text-[11px] px-3 py-1 rounded-full border font-semibold transition-all ${!formData.restrict_sub_category ? "bg-blue-500 text-white border-blue-500" : "border-gray-300 dark:border-gray-600 text-muted-foreground hover:border-blue-400"}`}
+                              <button type="button" onClick={() => setForm("restrict_sub_category", [])}
+                                className={`text-[11px] px-3 py-1 rounded-full border font-semibold transition-all ${!formData.restrict_sub_category || formData.restrict_sub_category.length === 0 ? "bg-blue-500 text-white border-blue-500" : "border-gray-300 dark:border-gray-600 text-muted-foreground hover:border-blue-400"}`}
                                 data-testid="cat-restrict-all">All items</button>
-                              {shopSubCats.map(cat => (
-                                <button key={cat} type="button" onClick={() => setForm("restrict_sub_category", cat)}
-                                  className={`text-[11px] px-3 py-1 rounded-full border font-semibold transition-all ${formData.restrict_sub_category === cat ? "bg-orange-500 text-white border-orange-500" : "border-gray-300 dark:border-gray-600 text-muted-foreground hover:border-orange-400"}`}
-                                  data-testid={`cat-restrict-${cat}`}>{cat}</button>
-                              ))}
+                              {shopSubCats.map((cat: string) => {
+                                const selected = Array.isArray(formData.restrict_sub_category) && formData.restrict_sub_category.includes(cat);
+                                return (
+                                  <button key={cat} type="button" onClick={() => {
+                                    const current: string[] = Array.isArray(formData.restrict_sub_category) ? formData.restrict_sub_category : [];
+                                    setForm("restrict_sub_category", selected ? current.filter((c: string) => c !== cat) : [...current, cat]);
+                                  }}
+                                    className={`text-[11px] px-3 py-1 rounded-full border font-semibold transition-all ${selected ? "bg-orange-500 text-white border-orange-500" : "border-gray-300 dark:border-gray-600 text-muted-foreground hover:border-orange-400"}`}
+                                    data-testid={`cat-restrict-${cat}`}>{cat}</button>
+                                );
+                              })}
                             </div>
                           </div>
                         );

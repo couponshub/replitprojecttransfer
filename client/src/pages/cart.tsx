@@ -36,7 +36,7 @@ export interface AppliedCoupon {
   type: string;
   value: string;
   items_to_add?: any[];
-  restrict_sub_category?: string | null;
+  restrict_sub_category?: string[] | null;
   bogo_buy_product_name?: string | null;
   bogo_get_product_name?: string | null;
 }
@@ -280,7 +280,7 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
                            const freeItem = (c.items_to_add || []).find((i: any) => i.isFreeItem);
                            return freeItem ? `Free: ${freeItem.name}` : "Free item added";
                          })() : "Coupon applied"}
-                        {c.restrict_sub_category && <span className="text-orange-500 ml-1"> · {c.restrict_sub_category}</span>}
+                        {c.restrict_sub_category && c.restrict_sub_category.length > 0 && <span className="text-orange-500 ml-1"> · {c.restrict_sub_category.join(", ")}</span>}
                       </p>
                     </div>
                   </div>
@@ -390,8 +390,9 @@ export default function CartPage() {
     let totalDisc = 0;
     let runningSubtotal = getShopSubtotal(sid);
     for (const coupon of coupons) {
-      const base = coupon.restrict_sub_category
-        ? shopItems.filter(i => i.sub_category === coupon.restrict_sub_category).reduce((s, i) => s + i.price * i.quantity, 0)
+      const restrictCats = coupon.restrict_sub_category && coupon.restrict_sub_category.length > 0 ? coupon.restrict_sub_category : null;
+      const base = restrictCats
+        ? shopItems.filter(i => i.sub_category && restrictCats.includes(i.sub_category)).reduce((s, i) => s + i.price * i.quantity, 0)
         : runningSubtotal;
       let disc = 0;
       if (coupon.type === "percentage") disc = base * parseFloat(coupon.value) / 100;

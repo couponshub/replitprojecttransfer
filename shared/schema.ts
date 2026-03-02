@@ -91,7 +91,7 @@ export const coupons = pgTable("coupons", {
   expiry_date: timestamp("expiry_date"),
   banner_image: text("banner_image"),
   description: text("description"),
-  restrict_sub_category: text("restrict_sub_category"),
+  restrict_sub_category: text("restrict_sub_category").array(),
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });
 
