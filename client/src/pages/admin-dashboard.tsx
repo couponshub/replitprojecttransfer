@@ -17,12 +17,12 @@ import {
   Plus, Edit, Trash2, Crown, LogOut, ChevronRight, Users, TrendingUp,
   Zap, Star, Check, X, Menu, Award, Flame, UserCheck, Phone, Mail,
   Globe, MapPin, Wifi, WifiOff, Search, Image, Link, ExternalLink, Upload, Loader2, Eye, EyeOff,
-  Download, RefreshCw, ArrowUpAZ, ArrowDownAZ, Settings, MessageCircle, Save
+  Download, RefreshCw, ArrowUpAZ, ArrowDownAZ, Settings, MessageCircle, Save, Trophy, Gift
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import type { Category, Shop, Product, Coupon, Order, User, OrderItem } from "@shared/schema";
 
-type Tab = "overview" | "categories" | "shops" | "products" | "coupons" | "orders" | "users" | "vendors" | "top-shops" | "top-coupons" | "banners" | "offline-coupons" | "settings";
+type Tab = "overview" | "categories" | "shops" | "products" | "coupons" | "orders" | "users" | "vendors" | "top-shops" | "top-coupons" | "banners" | "offline-coupons" | "contests" | "settings";
 
 const NAV_ITEMS: { id: Tab; label: string; icon: any; section?: string }[] = [
   { id: "overview", label: "Dashboard", icon: LayoutDashboard, section: "Main" },
@@ -32,6 +32,7 @@ const NAV_ITEMS: { id: Tab; label: string; icon: any; section?: string }[] = [
   { id: "coupons", label: "Coupons", icon: Ticket, section: "Manage" },
   { id: "banners", label: "Banners", icon: Image, section: "Manage" },
   { id: "offline-coupons", label: "Offline Coupons", icon: WifiOff, section: "Manage" },
+  { id: "contests", label: "Contests", icon: Trophy, section: "Manage" },
   { id: "orders", label: "Orders", icon: ShoppingBag, section: "Manage" },
   { id: "users", label: "Users", icon: Users, section: "People" },
   { id: "vendors", label: "Vendors", icon: Crown, section: "People" },
@@ -2699,6 +2700,8 @@ export default function AdminDashboard() {
 
           {activeTab === "offline-coupons" && <OfflineCouponsTab toast={toast} />}
 
+          {activeTab === "contests" && <AdminContestsTab toast={toast} />}
+
           {activeTab === "settings" && <SiteSettingsTab toast={toast} />}
 
         </main>
@@ -3341,6 +3344,221 @@ function OfflineCouponsTab({ toast }: { toast: any }) {
           )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function AdminContestsTab({ toast }: { toast: any }) {
+  const [selectedContest, setSelectedContest] = useState<any>(null);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  const { data: allContests = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/admin/contests"],
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      apiRequest("PATCH", `/api/admin/contests/${id}`, { status }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/admin/contests"] }); toast({ title: "Status updated" }); },
+    onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const drawWinnerMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("POST", `/api/admin/contests/${id}/draw`, {}),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/admin/contests"] }); toast({ title: "🏆 Winner drawn!" }); setSelectedContest(null); },
+    onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const filtered = statusFilter === "all" ? allContests : allContests.filter((c: any) => c.status === statusFilter);
+
+  const stats = {
+    total: allContests.length,
+    open: allContests.filter((c: any) => c.status === "open").length,
+    completed: allContests.filter((c: any) => c.status === "completed").length,
+    participants: allContests.reduce((sum: number, c: any) => sum + (c.slots?.length || 0), 0),
+  };
+
+  return (
+    <div className="p-4 md:p-8 max-w-6xl mx-auto w-full">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
+          <Trophy className="w-5 h-5 text-white" />
+        </div>
+        <div>
+          <h2 className="text-2xl font-black text-gray-900 dark:text-white">Contests</h2>
+          <p className="text-xs text-muted-foreground">View and manage all shop contests across the platform</p>
+        </div>
+      </div>
+
+      {/* Stats row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        {[
+          { label: "Total Contests", value: stats.total, icon: Trophy, color: "from-amber-400 to-orange-500" },
+          { label: "Open", value: stats.open, icon: Zap, color: "from-emerald-400 to-teal-500" },
+          { label: "Completed", value: stats.completed, icon: Star, color: "from-violet-400 to-purple-500" },
+          { label: "Total Participants", value: stats.participants, icon: Users, color: "from-blue-400 to-cyan-500" },
+        ].map(s => (
+          <Card key={s.label} className="border-0 shadow-md rounded-2xl overflow-hidden">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${s.color} flex items-center justify-center shrink-0`}>
+                <s.icon className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <div className="text-xl font-black text-gray-900 dark:text-white">{s.value}</div>
+                <div className="text-[11px] text-muted-foreground font-medium">{s.label}</div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Filter tabs */}
+      <div className="flex gap-2 mb-4 flex-wrap">
+        {["all", "open", "closed", "completed"].map(f => (
+          <button key={f} onClick={() => setStatusFilter(f)} data-testid={`filter-contest-${f}`}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              statusFilter === f
+                ? "bg-gradient-to-r from-amber-400 to-orange-500 text-white shadow-md shadow-amber-500/25"
+                : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:border-amber-300"
+            }`}>
+            {f === "all" ? "All" : f === "open" ? "🔥 Open" : f === "closed" ? "⏸️ Closed" : "🏆 Completed"}
+          </button>
+        ))}
+      </div>
+
+      {/* Contest list */}
+      {isLoading ? (
+        <div className="flex flex-col gap-3">
+          {[1,2,3].map(i => <div key={i} className="h-24 rounded-2xl bg-gray-200 dark:bg-gray-800 animate-pulse" />)}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground">
+          <Trophy className="w-12 h-12 mx-auto mb-3 opacity-20" />
+          <p className="text-sm">No contests found</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {filtered.map((c: any) => {
+            const filled = c.slots?.length || 0;
+            const pct = c.total_slots > 0 ? Math.round((filled / c.total_slots) * 100) : 0;
+            return (
+              <Card key={c.id} className="border-0 shadow-md rounded-2xl overflow-hidden" data-testid={`admin-contest-${c.id}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0">
+                      <Trophy className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <Badge className={`text-[10px] border-0 font-bold ${
+                          c.status === "open" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" :
+                          c.status === "completed" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" :
+                          "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                        }`}>
+                          {c.status === "open" ? "🔥 Open" : c.status === "completed" ? "🏆 Completed" : "⏸️ Closed"}
+                        </Badge>
+                        {c.shop && (
+                          <span className="text-xs text-muted-foreground font-medium bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">
+                            🏪 {c.shop.name}
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="font-bold text-gray-900 dark:text-white">{c.title}</h3>
+                      {c.prize_description && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">🎁 {c.prize_description}</p>
+                      )}
+                      <div className="mt-2">
+                        <div className="flex justify-between text-[11px] text-muted-foreground mb-1">
+                          <span>{filled} / {c.total_slots} slots filled</span>
+                          <span>{pct}%</span>
+                        </div>
+                        <div className="h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                      {c.status === "completed" && c.winner_user_name && (
+                        <div className="mt-2 flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl px-3 py-2">
+                          <span className="text-base">🏆</span>
+                          <div>
+                            <span className="text-xs text-muted-foreground">Winner: </span>
+                            <span className="text-sm font-bold text-amber-800 dark:text-amber-300">{c.winner_user_name}</span>
+                            <span className="text-xs text-muted-foreground ml-1">(Slot #{c.winner_slot_number})</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex flex-col gap-2 shrink-0">
+                      <Button size="sm" variant="outline" onClick={() => setSelectedContest(selectedContest?.id === c.id ? null : c)}
+                        className="rounded-xl text-xs h-8" data-testid={`button-admin-view-contest-${c.id}`}>
+                        {selectedContest?.id === c.id ? "Hide" : "Participants"}
+                      </Button>
+                      {c.status !== "completed" && filled > 0 && (
+                        <Button size="sm" onClick={() => drawWinnerMutation.mutate(c.id)} disabled={drawWinnerMutation.isPending}
+                          className="rounded-xl text-xs h-8 bg-gradient-to-r from-amber-400 to-orange-500 border-0"
+                          data-testid={`button-admin-draw-${c.id}`}>
+                          {drawWinnerMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : "🎲 Draw Winner"}
+                        </Button>
+                      )}
+                      {c.status === "open" && (
+                        <Button size="sm" variant="outline" onClick={() => updateStatusMutation.mutate({ id: c.id, status: "closed" })}
+                          disabled={updateStatusMutation.isPending} className="rounded-xl text-xs h-8 text-gray-500">
+                          ⏸️ Close
+                        </Button>
+                      )}
+                      {c.status === "closed" && (
+                        <Button size="sm" variant="outline" onClick={() => updateStatusMutation.mutate({ id: c.id, status: "open" })}
+                          disabled={updateStatusMutation.isPending} className="rounded-xl text-xs h-8 text-emerald-600">
+                          ▶️ Reopen
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Participants expanded */}
+                  {selectedContest?.id === c.id && (
+                    <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1">
+                        <Users className="w-3 h-3" /> Participants ({filled})
+                      </p>
+                      {filled === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">No participants yet</p>
+                      ) : (
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                          {(c.slots || []).map((slot: any) => (
+                            <div key={slot.id}
+                              className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${
+                                c.winner_slot_number === slot.slot_number
+                                  ? "bg-amber-50 dark:bg-amber-900/20 border-amber-300 dark:border-amber-700 ring-2 ring-amber-400 ring-offset-1"
+                                  : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                              }`}
+                              data-testid={`admin-participant-${slot.slot_number}`}
+                            >
+                              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-400 to-purple-600 flex items-center justify-center text-white text-xs font-black shrink-0">
+                                {slot.slot_number}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-gray-900 dark:text-white truncate">
+                                  {c.winner_slot_number === slot.slot_number ? "🏆 " : ""}{slot.user_name}
+                                </p>
+                                {slot.user_email && (
+                                  <p className="text-[10px] text-muted-foreground truncate">{slot.user_email}</p>
+                                )}
+                                <p className="text-[9px] text-muted-foreground">{new Date(slot.joined_at).toLocaleDateString("en-IN")}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

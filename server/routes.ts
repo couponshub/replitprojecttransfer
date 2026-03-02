@@ -1963,6 +1963,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  app.patch("/api/admin/contests/:id", adminMiddleware, async (req, res) => {
+    try {
+      const updated = await storage.updateContest(req.params.id, req.body);
+      if (!updated) return res.status(404).json({ error: "Not found" });
+      res.json(updated);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/admin/contests/:id/draw", adminMiddleware, async (req, res) => {
+    try {
+      const c = await storage.getContest(req.params.id);
+      if (!c) return res.status(404).json({ error: "Not found" });
+      if (c.status === "completed") return res.status(400).json({ error: "Already drawn" });
+      const updated = await storage.drawWinner(req.params.id);
+      res.json(updated);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
   // Site Settings (public read, admin write)
   app.get("/api/settings", async (_req, res) => {
     try { res.json(await storage.getAllSettings()); }
