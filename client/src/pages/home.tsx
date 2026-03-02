@@ -1572,60 +1572,6 @@ function RadarMap({ lat, lng, onClick }: { lat: number | null; lng: number | nul
   );
 }
 
-function ARCameraButton({ onClick }: { onClick: () => void }) {
-  return (
-    <div className="flex flex-col items-center gap-1.5">
-      <button
-        onClick={onClick}
-        data-testid="button-ar-camera"
-        className="relative w-24 h-24 rounded-full cursor-pointer transition-transform hover:scale-105 active:scale-95 ar-btn-pulse"
-        style={{
-          background: "radial-gradient(circle at 40% 35%, rgba(80,10,60,0.97) 0%, rgba(40,5,40,0.99) 100%)",
-          border: "1.5px solid rgba(236,72,153,0.5)",
-        }}
-      >
-        {/* Lens rings */}
-        {[0.88, 0.64, 0.4].map((scale, i) => (
-          <div
-            key={i}
-            className="absolute inset-0 rounded-full"
-            style={{
-              border: `1px solid rgba(236,72,153,${0.12 + i * 0.1})`,
-              transform: `scale(${scale})`,
-            }}
-          />
-        ))}
-        {/* Rotating lens sweep */}
-        <div
-          className="absolute inset-0 rounded-full ar-lens-sweep overflow-hidden"
-          style={{
-            background: "conic-gradient(from 0deg at 50% 50%, transparent 280deg, rgba(236,72,153,0.12) 320deg, rgba(139,92,246,0.3) 360deg)",
-          }}
-        />
-        {/* Scanning corners inside button */}
-        <div className="absolute inset-3 pointer-events-none">
-          <div className="absolute top-0 left-0 w-3 h-3 border-l border-t border-pink-400/60 rounded-tl-sm" />
-          <div className="absolute top-0 right-0 w-3 h-3 border-r border-t border-pink-400/60 rounded-tr-sm" />
-          <div className="absolute bottom-0 left-0 w-3 h-3 border-l border-b border-pink-400/60 rounded-bl-sm" />
-          <div className="absolute bottom-0 right-0 w-3 h-3 border-r border-b border-pink-400/60 rounded-br-sm" />
-        </div>
-        {/* Center icon */}
-        <div className="absolute inset-0 flex items-center justify-center z-10">
-          <div className="flex flex-col items-center">
-            <span style={{ fontSize: 22 }}>📸</span>
-            <span style={{ fontSize: 7, color: "#f9a8d4", fontWeight: 800, letterSpacing: 1, marginTop: -2 }}>AR VIEW</span>
-          </div>
-        </div>
-        {/* Gloss */}
-        <div
-          className="absolute inset-0 rounded-full pointer-events-none"
-          style={{ background: "radial-gradient(ellipse at 35% 28%, rgba(255,255,255,0.14) 0%, transparent 60%)" }}
-        />
-      </button>
-      <span className="text-[10px] font-bold tracking-wide text-pink-200/70">AR Camera</span>
-    </div>
-  );
-}
 
 function MagicAIButton({ active, loading, onClick }: { active: boolean; loading: boolean; onClick: () => void }) {
   return (
@@ -1903,7 +1849,7 @@ export default function Home() {
             )}
           </div>
 
-          {/* 3D Radar + Magic AI + AR Camera — side by side */}
+          {/* 3D Radar + Magic AI — side by side */}
           <div className="flex items-end justify-center gap-5 pb-2">
             <div className="flex flex-col items-center gap-1.5">
               <RadarMap
@@ -1914,7 +1860,6 @@ export default function Home() {
               <span className="text-[10px] font-bold tracking-wide text-teal-200/70">Map Radar</span>
             </div>
             <MagicAIButton active={nearbyMode} loading={nearbyLoading} onClick={handleMagicAI} />
-            <ARCameraButton onClick={() => navigate("/ar-camera")} />
           </div>
         </div>
       </div>
