@@ -50,6 +50,7 @@ export default function OrderConfirmPage() {
   const [screenshotUploading, setScreenshotUploading] = useState(false);
   const [sentShopIds, setSentShopIds] = useState<Set<string>>(new Set());
   const [adminSent, setAdminSent] = useState(false);
+  const [shopSent, setShopSent] = useState(false);
   const screenshotRef = useRef<HTMLInputElement>(null);
 
   const { data: siteSettings = {} } = useQuery<Record<string, string>>({ queryKey: ["/api/settings"] });
@@ -118,10 +119,16 @@ export default function OrderConfirmPage() {
     return buildWhatsAppMessage();
   };
 
-  const handleWhatsApp = () => {
-    const targetPhone = adminWhatsapp || (order.shopWhatsapp || "").replace(/\D/g, "");
-    const message = adminWhatsapp ? buildAdminWhatsAppMessage() : buildWhatsAppMessage();
-    window.open(`https://wa.me/${targetPhone}?text=${message}`, "_blank");
+  const handleWhatsAppShop = () => {
+    const phone = (order.shopWhatsapp || "").replace(/\D/g, "");
+    if (!phone) return;
+    window.open(`https://wa.me/${phone}?text=${buildWhatsAppMessage()}`, "_blank");
+    setShopSent(true);
+  };
+
+  const handleWhatsAppAdmin = () => {
+    if (!adminWhatsapp) return;
+    window.open(`https://wa.me/${adminWhatsapp}?text=${buildAdminWhatsAppMessage()}`, "_blank");
     setAdminSent(true);
     setSentShopIds(prev => {
       const next = new Set(prev);
@@ -129,6 +136,8 @@ export default function OrderConfirmPage() {
       return next;
     });
   };
+
+  const handleWhatsApp = handleWhatsAppShop;
 
   const handleScreenshotSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -590,27 +599,37 @@ export default function OrderConfirmPage() {
             <IndianRupee className="w-5 h-5 text-white/60" />
           </button>
 
-          {/* WhatsApp — goes to Admin if configured, else to shop */}
-          {(adminWhatsapp || order.shopWhatsapp) && (
+          {/* WhatsApp to Shop */}
+          {order.shopWhatsapp && (
             <button
-              onClick={handleWhatsApp}
-              className={`w-full flex items-center gap-4 text-white rounded-2xl p-5 transition-all hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 ${adminSent ? "bg-gray-800 dark:bg-gray-700 hover:shadow-gray-500/20" : "bg-[#25D366] hover:bg-[#20b958] hover:shadow-emerald-500/30"}`}
-              data-testid="button-order-whatsapp"
+              onClick={handleWhatsAppShop}
+              className={`w-full flex items-center gap-4 text-white rounded-2xl p-5 transition-all hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 ${shopSent ? "bg-gray-800 dark:bg-gray-700 hover:shadow-gray-500/20" : "bg-[#25D366] hover:bg-[#20b958] hover:shadow-emerald-500/30"}`}
+              data-testid="button-order-whatsapp-shop"
             >
               <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
                 <MessageCircle className="w-6 h-6" />
               </div>
               <div className="text-left flex-1">
-                <p className="font-bold text-base">
-                  {adminSent ? "Order Sent ✓" : "Order via WhatsApp"}
-                </p>
-                <p className="text-sm text-white/80">
-                  {adminSent
-                    ? "Message sent successfully"
-                    : adminWhatsapp
-                      ? `Send ${order.orders && order.orders.length > 1 ? "all orders" : "order"} to Admin`
-                      : "Send order directly to shop"}
-                </p>
+                <p className="font-bold text-base">{shopSent ? "Sent to Shop ✓" : "Order via WhatsApp"}</p>
+                <p className="text-sm text-white/80">{shopSent ? "Message sent to shop" : "Send order directly to shop"}</p>
+              </div>
+              {!shopSent && <Phone className="w-5 h-5 text-white/60" />}
+            </button>
+          )}
+
+          {/* WhatsApp to Admin */}
+          {adminWhatsapp && (
+            <button
+              onClick={handleWhatsAppAdmin}
+              className={`w-full flex items-center gap-4 text-white rounded-2xl p-5 transition-all hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 ${adminSent ? "bg-gray-800 dark:bg-gray-700 hover:shadow-gray-500/20" : "bg-gradient-to-r from-violet-500 to-purple-600 hover:shadow-violet-500/30"}`}
+              data-testid="button-order-whatsapp-admin"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+                <MessageCircle className="w-6 h-6" />
+              </div>
+              <div className="text-left flex-1">
+                <p className="font-bold text-base">{adminSent ? "Sent to Admin ✓" : "Send to Admin"}</p>
+                <p className="text-sm text-white/80">{adminSent ? "Message sent to admin" : "Send order details to admin"}</p>
               </div>
               {!adminSent && <Phone className="w-5 h-5 text-white/60" />}
             </button>
