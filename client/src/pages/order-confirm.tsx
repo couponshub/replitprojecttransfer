@@ -51,6 +51,7 @@ export default function OrderConfirmPage() {
   const [sentShopIds, setSentShopIds] = useState<Set<string>>(new Set());
   const [adminSent, setAdminSent] = useState(false);
   const [shopSent, setShopSent] = useState(false);
+  const [paymentAdminSent, setPaymentAdminSent] = useState(false);
   const screenshotRef = useRef<HTMLInputElement>(null);
 
   const { data: siteSettings = {} } = useQuery<Record<string, string>>({ queryKey: ["/api/settings"] });
@@ -204,7 +205,66 @@ export default function OrderConfirmPage() {
       } else {
         window.location.href = waUrl;
       }
+      setShopSent(true);
       toast({ title: "WhatsApp తెరుచుకుంటోంది ✓" });
+    } catch (e: any) {
+      if (win) win.close();
+      toast({ title: e.message || "Failed to share", variant: "destructive" });
+    } finally {
+      setScreenshotUploading(false);
+    }
+  };
+
+  const handleSharePaymentWhatsAppAdmin = async () => {
+    if (!adminWhatsapp) return;
+    setScreenshotUploading(true);
+    const win = window.open("", "_blank");
+    try {
+      let screenshotUrl = "";
+      if (screenshotFile) {
+        const fd = new FormData();
+        fd.append("file", screenshotFile);
+        const res = await fetch("/api/upload", { method: "POST", body: fd });
+        if (res.ok) {
+          const data = await res.json();
+          screenshotUrl = data.url || "";
+        }
+      }
+      const paymentStatus = screenshotUrl
+        ? `✅ Paid — Screenshot attached`
+        : utrNumber.trim()
+          ? `✅ Paid — UTR provided`
+          : `⏳ Payment Pending`;
+
+      const lines = [
+        `💳 *Payment Confirmation — CouponsHub X*`, ``,
+        `*Shop:* ${order.shopName}`,
+        order.orderId ? `*Order ID:* #${order.orderId.slice(0, 8).toUpperCase()}` : "",
+        ``,
+        `*Customer:*`,
+        order.customerName ? `• Name: ${order.customerName}` : "",
+        order.customerPhone ? `• Phone: +91${order.customerPhone}` : "",
+        order.customerAddress ? `• Address: ${order.customerAddress}` : "",
+        ``,
+        `*Order Items:*`,
+        ...order.items.map((i: any) => i.isFreeItem
+          ? `• ${i.name} ×${i.quantity} — FREE 🎁`
+          : `• ${i.name} ×${i.quantity} — ₹${(i.price * i.quantity).toLocaleString()}`
+        ), ``,
+        order.discount > 0 ? `*Discount (${order.couponCode || "coupon"}):* -₹${order.discount.toFixed(0)}` : "",
+        `*Total:* ₹${order.finalAmount.toLocaleString()}`,
+        ``,
+        `*Payment Status:* ${paymentStatus}`,
+        utrNumber.trim() ? `*UTR / Transaction ID:* ${utrNumber.trim()}` : "",
+        screenshotUrl ? `*Payment Screenshot:* ${screenshotUrl}` : "",
+        ``,
+        `Please confirm receipt. Thank you! 🙏`,
+      ].filter(Boolean);
+
+      const waUrl = `https://wa.me/${adminWhatsapp}?text=${encodeURIComponent(lines.join("\n"))}`;
+      if (win) { win.location.href = waUrl; } else { window.location.href = waUrl; }
+      setPaymentAdminSent(true);
+      toast({ title: "Admin WhatsApp తెరుచుకుంటోంది ✓" });
     } catch (e: any) {
       if (win) win.close();
       toast({ title: e.message || "Failed to share", variant: "destructive" });
@@ -560,16 +620,29 @@ export default function OrderConfirmPage() {
                 )}
               </div>
 
-              {/* Share on WhatsApp */}
+              {/* Share on WhatsApp — to Shop */}
               {order.shopWhatsapp && (
                 <Button
                   onClick={handleSharePaymentWhatsApp}
                   disabled={screenshotUploading}
-                  className="w-full rounded-xl bg-[#25D366] hover:bg-[#20b958] text-white border-0 gap-2"
+                  className={`w-full rounded-xl text-white border-0 gap-2 ${shopSent ? "bg-gray-700 hover:bg-gray-700" : "bg-[#25D366] hover:bg-[#20b958]"}`}
                   data-testid="button-share-payment-whatsapp"
                 >
                   {screenshotUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  {screenshotUploading ? "Uploading & Sharing..." : "Share Payment via WhatsApp"}
+                  {screenshotUploading ? "Uploading & Sharing..." : shopSent ? "Sent to Shop ✓" : "Share Payment to Shop"}
+                </Button>
+              )}
+
+              {/* Share on WhatsApp — to Admin */}
+              {adminWhatsapp && (
+                <Button
+                  onClick={handleSharePaymentWhatsAppAdmin}
+                  disabled={screenshotUploading}
+                  className={`w-full rounded-xl text-white border-0 gap-2 ${paymentAdminSent ? "bg-gray-700 hover:bg-gray-700" : "bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700"}`}
+                  data-testid="button-share-payment-admin"
+                >
+                  {screenshotUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  {screenshotUploading ? "Uploading & Sharing..." : paymentAdminSent ? "Sent to Admin ✓" : "Share Payment to Admin"}
                 </Button>
               )}
 
