@@ -341,6 +341,7 @@ export default function CartPage() {
   const [appliedCoupons, setAppliedCoupons] = useState<Record<string, AppliedCoupon[]>>({});
   const [couponCodes, setCouponCodes] = useState<Record<string, string>>({});
   const [couponLoadingMap, setCouponLoadingMap] = useState<Record<string, boolean>>({});
+  const [pickOneDialog, setPickOneDialog] = useState<{ open: boolean; items: any[]; shopId: string; couponData: any } | null>(null);
   const [phoneDialogOpen, setPhoneDialogOpen] = useState(false);
   const [phoneInput, setPhoneInput] = useState("");
   const [phoneSaving, setPhoneSaving] = useState(false);
@@ -436,9 +437,16 @@ export default function CartPage() {
       const result = await apiRequest("POST", "/api/coupons/validate", {
         code, shopId, cartTotal: getShopSubtotal(shopId).toString(),
       });
+      setCouponCodes(prev => ({ ...prev, [shopId]: "" }));
+
+      // If free_item coupon has multiple pick-one choices, show selection dialog
+      if (result.type === "free_item" && result.pick_one_items?.length > 0) {
+        setPickOneDialog({ open: true, items: result.pick_one_items, shopId, couponData: result });
+        return;
+      }
+
       const newCoupon: AppliedCoupon = { code: result.code, type: result.type, value: result.value, items_to_add: result.items_to_add, restrict_sub_category: result.restrict_sub_category ?? null, bogo_buy_product_name: result.bogo_buy_product_name ?? null, bogo_get_product_name: result.bogo_get_product_name ?? null };
       setAppliedCoupons(prev => ({ ...prev, [shopId]: [...(prev[shopId] || []), newCoupon] }));
-      setCouponCodes(prev => ({ ...prev, [shopId]: "" }));
       if (result.items_to_add?.length > 0) {
         addItems(result.items_to_add.map((item: any) => ({ id: item.id, name: item.name, price: item.price, shop_id: item.shop_id, shopName: item.shopName, isFreeItem: item.isFreeItem ?? false, originalPrice: item.originalPrice ?? item.price })));
       }
@@ -449,6 +457,18 @@ export default function CartPage() {
     } finally {
       setCouponLoadingMap(prev => ({ ...prev, [shopId]: false }));
     }
+  };
+
+  const handlePickOneFreeItem = (chosenItem: any) => {
+    if (!pickOneDialog) return;
+    const { shopId, couponData } = pickOneDialog;
+    const freeCartItem = { id: chosenItem.id, name: chosenItem.name, price: 0, originalPrice: chosenItem.price, shop_id: chosenItem.shop_id, shopName: couponData.shopName || items.find(i => i.shop_id === shopId)?.shopName || "", isFreeItem: true };
+    const newCoupon: AppliedCoupon = { code: couponData.code, type: couponData.type, value: couponData.value, items_to_add: [freeCartItem], restrict_sub_category: couponData.restrict_sub_category ?? null, bogo_buy_product_name: null, bogo_get_product_name: null };
+    setAppliedCoupons(prev => ({ ...prev, [shopId]: [...(prev[shopId] || []), newCoupon] }));
+    addItems([freeCartItem]);
+    setPickOneDialog(null);
+    const shopName = items.find(i => i.shop_id === shopId)?.shopName || "shop";
+    toast({ title: "🎉 Free item added!", description: `${chosenItem.name} added free to your cart!` });
   };
 
   const removeCoupon = (shopId: string, code: string) => {
@@ -721,6 +741,52 @@ export default function CartPage() {
                   : <><Phone className="w-4 h-4 mr-1" />Save & Place Order</>}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pick One Free Item Dialog */}
+      <Dialog open={!!pickOneDialog?.open} onOpenChange={open => { if (!open) setPickOneDialog(null); }}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center">
+                <Gift className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg">Pick Your Free Item</DialogTitle>
+                <p className="text-xs text-muted-foreground">Coupon: {pickOneDialog?.couponData?.code}</p>
+              </div>
+            </div>
+            <DialogDescription className="text-sm leading-relaxed">
+              Choose one item from the list below — it will be added to your cart for free!
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 mt-2 max-h-80 overflow-y-auto pr-1">
+            {pickOneDialog?.items.map((item: any) => (
+              <button
+                key={item.id}
+                onClick={() => handlePickOneFreeItem(item)}
+                className="flex items-center justify-between p-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all text-left group"
+                data-testid={`button-pick-free-item-${item.id}`}
+              >
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-semibold text-sm text-gray-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-400">{item.name}</span>
+                  <span className="text-xs text-muted-foreground line-through">₹{parseFloat(item.price).toLocaleString()}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-900/50 px-2 py-0.5 rounded-full">FREE</span>
+                  <div className="w-7 h-7 rounded-full border-2 border-gray-200 dark:border-gray-700 group-hover:border-emerald-500 group-hover:bg-emerald-500 flex items-center justify-center transition-all">
+                    <div className="w-3 h-3 rounded-full bg-transparent group-hover:bg-white transition-all" />
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+          <div className="mt-2">
+            <Button variant="ghost" className="w-full rounded-xl text-muted-foreground" onClick={() => setPickOneDialog(null)} data-testid="button-pick-free-cancel">
+              Cancel
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
