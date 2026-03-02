@@ -172,7 +172,7 @@ export default function VendorDashboard() {
 
   const [couponDialog, setCouponDialog] = useState(false);
   const [editCoupon, setEditCoupon] = useState<any>(null);
-  const EMPTY_COUPON_FORM = { code: "", type: "percentage", value: "", is_active: true, featured: false, free_item_product_id: null, free_item_qty: 1, free_item_products: [] as string[], bogo_buy_product_id: null as string | null, bogo_buy_qty: 1, bogo_get_product_id: null as string | null, bogo_get_qty: 1, min_order_amount: null, expiry_date: "", description: "", banner_image: "", restrict_sub_category: null };
+  const EMPTY_COUPON_FORM = { code: "", type: "percentage", value: "", is_active: true, featured: false, is_contest_coupon: false, free_item_product_id: null, free_item_qty: 1, free_item_products: [] as string[], bogo_buy_product_id: null as string | null, bogo_buy_qty: 1, bogo_get_product_id: null as string | null, bogo_get_qty: 1, min_order_amount: null, expiry_date: "", description: "", banner_image: "", restrict_sub_category: null };
   const [couponForm, setCouponForm] = useState<any>(EMPTY_COUPON_FORM);
   const [couponProdSearch, setCouponProdSearch] = useState("");
   const [freeItemCatFilter, setFreeItemCatFilter] = useState<string[]>([]);
@@ -740,7 +740,7 @@ export default function VendorDashboard() {
                           </p>
                         </div>
                         <div className="flex gap-1 shrink-0">
-                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => { resetCouponDialog(); setEditCoupon(coupon); setCouponForm({ code: coupon.code, type: coupon.type, value: coupon.value, is_active: coupon.is_active, featured: coupon.featured || false, free_item_product_id: coupon.free_item_product_id || null, free_item_qty: coupon.free_item_qty || 1, free_item_products: coupon.free_item_products || [], bogo_buy_product_id: coupon.bogo_buy_product_id || null, bogo_buy_qty: coupon.bogo_buy_qty || 1, bogo_get_product_id: coupon.bogo_get_product_id || null, bogo_get_qty: coupon.bogo_get_qty || 1, min_order_amount: coupon.min_order_amount || null, expiry_date: coupon.expiry_date ? new Date(coupon.expiry_date).toISOString().split("T")[0] : "", description: coupon.description || "", banner_image: coupon.banner_image || "", restrict_sub_category: coupon.restrict_sub_category || null }); if (coupon.coupon_products && Array.isArray(coupon.coupon_products)) { setBundleItems(coupon.coupon_products.map((cp: any) => ({ product_id: cp.product_id || cp.id, name: cp.name || "", custom_price: cp.custom_price || "", quantity: cp.quantity || 1 }))); } setCouponDialog(true); }} data-testid={`button-edit-coupon-${coupon.id}`}>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => { resetCouponDialog(); setEditCoupon(coupon); setCouponForm({ code: coupon.code, type: coupon.type, value: coupon.value, is_active: coupon.is_active, featured: coupon.featured || false, is_contest_coupon: coupon.is_contest_coupon || false, free_item_product_id: coupon.free_item_product_id || null, free_item_qty: coupon.free_item_qty || 1, free_item_products: coupon.free_item_products || [], bogo_buy_product_id: coupon.bogo_buy_product_id || null, bogo_buy_qty: coupon.bogo_buy_qty || 1, bogo_get_product_id: coupon.bogo_get_product_id || null, bogo_get_qty: coupon.bogo_get_qty || 1, min_order_amount: coupon.min_order_amount || null, expiry_date: coupon.expiry_date ? new Date(coupon.expiry_date).toISOString().split("T")[0] : "", description: coupon.description || "", banner_image: coupon.banner_image || "", restrict_sub_category: coupon.restrict_sub_category || null }); if (coupon.coupon_products && Array.isArray(coupon.coupon_products)) { setBundleItems(coupon.coupon_products.map((cp: any) => ({ product_id: cp.product_id || cp.id, name: cp.name || "", custom_price: cp.custom_price || "", quantity: cp.quantity || 1 }))); } setCouponDialog(true); }} data-testid={`button-edit-coupon-${coupon.id}`}>
                             <Edit className="w-3 h-3" />
                           </Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => deleteCouponMutation.mutate(coupon.id)} data-testid={`button-delete-coupon-${coupon.id}`}>
@@ -1584,7 +1584,7 @@ export default function VendorDashboard() {
                     </div>
                     <div className="flex gap-2 justify-end">
                       <Button variant="outline" onClick={() => setShowContestForm(false)} className="rounded-xl">Cancel</Button>
-                      <Button onClick={() => createContestMutation.mutate(contestForm)} disabled={createContestMutation.isPending || !contestForm.title}
+                      <Button onClick={() => createContestMutation.mutate({ ...contestForm, attached_coupon_id: contestForm.attached_coupon_id || null, end_time: contestForm.end_time || null })} disabled={createContestMutation.isPending || !contestForm.title}
                         className="bg-gradient-to-r from-amber-400 to-orange-500 border-0 rounded-xl" data-testid="button-contest-submit">
                         {createContestMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Contest"}
                       </Button>

@@ -2440,8 +2440,10 @@ export default function AdminDashboard() {
                             onCls: "border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20", textCls: "text-emerald-700 dark:text-emerald-400", trackCls: "bg-emerald-500" },
                           { key: "featured", label: "Top Coupon", desc: "Show in top coupons",
                             onCls: "border-violet-400 bg-violet-50 dark:bg-violet-900/20", textCls: "text-violet-700 dark:text-violet-400", trackCls: "bg-violet-500" },
+                          { key: "is_contest_coupon", label: "Contest Coupon", desc: "Use as contest prize",
+                            onCls: "border-amber-400 bg-amber-50 dark:bg-amber-900/20", textCls: "text-amber-700 dark:text-amber-400", trackCls: "bg-amber-500" },
                         ] as const).map(({ key, label, desc, onCls, textCls, trackCls }) => {
-                          const checked = key === "is_active" ? (formData[key] ?? true) : (formData[key] ?? false);
+                          const checked = key === "is_active" ? (formData[key as keyof typeof formData] ?? true) : (formData[key as keyof typeof formData] ?? false);
                           return (
                             <button
                               key={key}
@@ -3500,7 +3502,7 @@ function AdminContestsTab({ toast }: { toast: any }) {
             </div>
             <div className="flex gap-2 justify-end mt-4">
               <Button variant="outline" onClick={() => setShowCreateForm(false)} className="rounded-xl">Cancel</Button>
-              <Button onClick={() => createContestMutation.mutate({ ...createForm, attached_coupon_id: createForm.attached_coupon_id || null })}
+              <Button onClick={() => createContestMutation.mutate({ ...createForm, attached_coupon_id: createForm.attached_coupon_id || null, end_time: createForm.end_time || null })}
                 disabled={createContestMutation.isPending || !createForm.title || !createForm.shop_id}
                 className="bg-gradient-to-r from-amber-400 to-orange-500 border-0 rounded-xl"
                 data-testid="button-admin-contest-submit">
