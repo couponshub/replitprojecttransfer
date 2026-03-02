@@ -104,7 +104,7 @@ export default function VendorDashboard() {
   });
 
   const [showContestForm, setShowContestForm] = useState(false);
-  const [contestForm, setContestForm] = useState({ title: "", description: "", prize_description: "", banner_image: "", total_slots: 20, attached_coupon_id: "" });
+  const [contestForm, setContestForm] = useState({ title: "", description: "", prize_description: "", banner_image: "", total_slots: 20, attached_coupon_id: "", end_time: "" });
   const { data: contestCoupons = [] } = useQuery<any[]>({
     queryKey: ["/api/vendor/coupons/contest"],
     queryFn: () => vendorFetch("/api/vendor/coupons/contest"),
@@ -112,7 +112,7 @@ export default function VendorDashboard() {
   });
   const createContestMutation = useMutation({
     mutationFn: (data: any) => vendorFetch("/api/vendor/contests", { method: "POST", body: JSON.stringify(data) }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/vendor/contests"] }); setShowContestForm(false); setContestForm({ title: "", description: "", prize_description: "", banner_image: "", total_slots: 20, attached_coupon_id: "" }); toast({ title: "Contest created!" }); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/vendor/contests"] }); setShowContestForm(false); setContestForm({ title: "", description: "", prize_description: "", banner_image: "", total_slots: 20, attached_coupon_id: "", end_time: "" }); toast({ title: "Contest created!" }); },
     onError: (e: any) => toast({ title: e.message || "Failed to create contest", variant: "destructive" }),
   });
   const toggleContestStatusMutation = useMutation({
@@ -1559,6 +1559,12 @@ export default function VendorDashboard() {
                         )}
                       </div>
                       <div>
+                        <Label className="text-xs font-semibold">Auto-Draw End Time (optional)</Label>
+                        <Input type="datetime-local" value={contestForm.end_time} onChange={e => setContestForm(f => ({ ...f, end_time: e.target.value }))}
+                          className="mt-1 rounded-xl" data-testid="input-contest-end-time" />
+                        <p className="text-xs text-muted-foreground mt-1">Winner will be auto-drawn at this time</p>
+                      </div>
+                      <div>
                         <Label className="text-xs font-semibold">Banner Image URL (optional)</Label>
                         <Input value={contestForm.banner_image} onChange={e => setContestForm(f => ({ ...f, banner_image: e.target.value }))}
                           placeholder="https://..." className="mt-1 rounded-xl" data-testid="input-contest-banner" />
@@ -1616,6 +1622,9 @@ export default function VendorDashboard() {
                               {c.prize_description && <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">🎁 {c.prize_description}</p>}
                               {c.attached_coupon_id && (
                                 <p className="text-xs text-violet-600 dark:text-violet-400 mt-0.5">🏷️ Coupon attached</p>
+                              )}
+                              {c.end_time && (
+                                <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">⏰ Auto-draw: {new Date(c.end_time).toLocaleString()}</p>
                               )}
                             </div>
                             <div className="text-right shrink-0 ml-3">

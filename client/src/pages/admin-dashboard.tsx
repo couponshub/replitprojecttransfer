@@ -3352,7 +3352,7 @@ function AdminContestsTab({ toast }: { toast: any }) {
   const [selectedContest, setSelectedContest] = useState<any>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [createForm, setCreateForm] = useState({ shop_id: "", title: "", description: "", prize_description: "", banner_image: "", total_slots: 20, attached_coupon_id: "" });
+  const [createForm, setCreateForm] = useState({ shop_id: "", title: "", description: "", prize_description: "", banner_image: "", total_slots: 20, attached_coupon_id: "", end_time: "" });
 
   const { data: allContests = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/admin/contests"],
@@ -3371,7 +3371,7 @@ function AdminContestsTab({ toast }: { toast: any }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/contests"] });
       setShowCreateForm(false);
-      setCreateForm({ shop_id: "", title: "", description: "", prize_description: "", banner_image: "", total_slots: 20, attached_coupon_id: "" });
+      setCreateForm({ shop_id: "", title: "", description: "", prize_description: "", banner_image: "", total_slots: 20, attached_coupon_id: "", end_time: "" });
       toast({ title: "Contest created!" });
     },
     onError: (e: any) => toast({ title: e.message || "Failed", variant: "destructive" }),
@@ -3473,6 +3473,12 @@ function AdminContestsTab({ toast }: { toast: any }) {
                     </SelectContent>
                   </Select>
                 )}
+              </div>
+              <div>
+                <Label className="text-xs font-semibold">Auto-Draw End Time (optional)</Label>
+                <Input type="datetime-local" value={createForm.end_time} onChange={e => setCreateForm(f => ({ ...f, end_time: e.target.value }))}
+                  className="mt-1 rounded-xl" data-testid="input-admin-contest-end-time" />
+                <p className="text-xs text-muted-foreground mt-1">Winner auto-drawn at this time</p>
               </div>
               <div>
                 <Label className="text-xs font-semibold">Banner Image URL (optional)</Label>
@@ -3581,6 +3587,9 @@ function AdminContestsTab({ toast }: { toast: any }) {
                       <h3 className="font-bold text-gray-900 dark:text-white">{c.title}</h3>
                       {c.prize_description && (
                         <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">🎁 {c.prize_description}</p>
+                      )}
+                      {c.end_time && (
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">⏰ Auto-draw: {new Date(c.end_time).toLocaleString()}</p>
                       )}
                       <div className="mt-2">
                         <div className="flex justify-between text-[11px] text-muted-foreground mb-1">

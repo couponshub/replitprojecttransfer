@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { ShoppingCart, User, Search, Menu, X, Tag, Zap, Package, ChevronRight } from "lucide-react";
+import { ShoppingCart, User, Search, Menu, X, Tag, Zap, Package, ChevronRight, Bell, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth";
@@ -218,6 +218,12 @@ export function Navbar({ onSearch }: { onSearch?: (q: string) => void }) {
                     <span className="hidden sm:inline">Admin</span>
                   </Button>
                 )}
+                <Link href="/notifications">
+                  <Button variant="ghost" size="icon" className="relative" data-testid="link-notifications">
+                    <Bell className="w-5 h-5" />
+                    <UnreadBadge />
+                  </Button>
+                </Link>
                 <Link href="/cart">
                   <Button variant="ghost" size="icon" className="relative" data-testid="link-cart">
                     <ShoppingCart className="w-5 h-5" />
@@ -244,6 +250,12 @@ export function Navbar({ onSearch }: { onSearch?: (q: string) => void }) {
                     <DropdownMenuItem onClick={() => navigate("/my-orders")} data-testid="link-my-orders">
                       <Package className="w-4 h-4 mr-2" /> My Orders
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/my-coupons")} data-testid="link-my-coupons">
+                      <Gift className="w-4 h-4 mr-2" /> My Coupons
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/notifications")} data-testid="link-notifications-menu">
+                      <Bell className="w-4 h-4 mr-2" /> Notifications
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleLogout} className="text-destructive" data-testid="button-logout">
                       Logout
@@ -260,5 +272,20 @@ export function Navbar({ onSearch }: { onSearch?: (q: string) => void }) {
         </div>
       </div>
     </nav>
+  );
+}
+
+function UnreadBadge() {
+  const { user } = useAuth();
+  const { data } = useQuery<{ count: number }>({
+    queryKey: ["/api/notifications/unread-count"],
+    enabled: !!user,
+    refetchInterval: 30_000,
+  });
+  if (!data?.count) return null;
+  return (
+    <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-red-500 text-white" data-testid="badge-unread-count">
+      {data.count > 9 ? "9+" : data.count}
+    </Badge>
   );
 }

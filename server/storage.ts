@@ -15,8 +15,9 @@ import {
   type Banner, type InsertBanner,
   type OfflineCoupon, type InsertOfflineCoupon, type OfflineCouponCode,
   type Contest, type InsertContest, type ContestSlot,
+  type Notification, type UserCoupon,
   users, categories, shops, products, coupons, couponProducts, orders, orderItems, vendors, banners,
-  offlineCoupons, offlineCouponCodes, contests, contestSlots
+  offlineCoupons, offlineCouponCodes, contests, contestSlots, notifications, userCoupons
 } from "@shared/schema";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -131,6 +132,20 @@ export interface IStorage {
   joinContest(contestId: string, slotNumber: number, userId: string, userName: string, userEmail?: string): Promise<ContestSlot>;
   drawWinner(contestId: string): Promise<Contest | undefined>;
   getUserContestSlot(contestId: string, userId: string): Promise<ContestSlot | undefined>;
+
+  // Notifications
+  getNotifications(userId: string): Promise<Notification[]>;
+  createNotification(data: { user_id: string; type: string; title: string; message?: string; data?: string }): Promise<Notification>;
+  markNotificationRead(id: string, userId: string): Promise<void>;
+  getUnreadCount(userId: string): Promise<number>;
+
+  // User Coupons
+  getUserCoupons(userId: string): Promise<(UserCoupon & { coupon?: any; contest?: any })[]>;
+  createUserCoupon(data: { user_id: string; coupon_id: string; contest_id: string }): Promise<UserCoupon>;
+  claimUserCoupon(id: string, userId: string): Promise<UserCoupon | undefined>;
+
+  // Auto contest check
+  getExpiredOpenContests(): Promise<Contest[]>;
 }
 
 export class PgStorage implements IStorage {
@@ -738,6 +753,71 @@ export class PgStorage implements IStorage {
       and(eq(contestSlots.contest_id, contestId), eq(contestSlots.user_id, userId))
     ).limit(1);
     return rows[0];
+  }
+
+  async getNotifications(userId: string): Promise<Notification[]> {
+    return db.select().from(notifications).where(eq(notifications.user_id, userId)).orderBy(desc(notifications.created_at)).limit(50);
+  }
+
+  async createNotification(data: { user_id: string; type: string; title: string; message?: string; data?: string }): Promise<Notification> {
+    const rows = await db.insert(notifications).values(data).returning();
+    return rows[0];
+  }
+
+  async markNotificationRead(id: string, userId: string): Promise<void> {
+    await db.update(notifications).set({ is_read: true }).where(and(eq(notifications.id, id), eq(notifications.user_id, userId)));
+  }
+
+  async getUnreadCount(userId: string): Promise<number> {
+    const rows = await db.select({ count: sql<number>`count(*)` }).from(notifications)
+      .where(and(eq(notifications.user_id, userId), eq(notifications.is_read, false)));
+    return Number(rows[0]?.count || 0);
+  }
+
+  async getUserCoupons(userId: string): Promise<(UserCoupon & { coupon?: any; contest?: any })[]> {
+    const ucs = await db.select().from(userCoupons).where(eq(userCoupons.user_id, userId)).orderBy(desc(userCoupons.created_at));
+    const results = [];
+    for (const uc of ucs) {
+      let coupon = null, contest = null;
+      if (uc.coupon_id) {
+        const c = await db.select().from(coupons).where(eq(coupons.id, uc.coupon_id)).limit(1);
+        if (c[0]) {
+          coupon = c[0];
+          if (coupon.shop_id) {
+            const s = await db.select().from(shops).where(eq(shops.id, coupon.shop_id)).limit(1);
+            coupon = { ...coupon, shop: s[0] || null };
+          }
+        }
+      }
+      if (uc.contest_id) {
+        const ct = await db.select().from(contests).where(eq(contests.id, uc.contest_id)).limit(1);
+        contest = ct[0] || null;
+      }
+      results.push({ ...uc, coupon, contest });
+    }
+    return results;
+  }
+
+  async createUserCoupon(data: { user_id: string; coupon_id: string; contest_id: string }): Promise<UserCoupon> {
+    const rows = await db.insert(userCoupons).values(data).returning();
+    return rows[0];
+  }
+
+  async claimUserCoupon(id: string, userId: string): Promise<UserCoupon | undefined> {
+    const rows = await db.update(userCoupons)
+      .set({ is_claimed: true, claimed_at: new Date() })
+      .where(and(eq(userCoupons.id, id), eq(userCoupons.user_id, userId)))
+      .returning();
+    return rows[0];
+  }
+
+  async getExpiredOpenContests(): Promise<Contest[]> {
+    return db.select().from(contests).where(
+      and(
+        eq(contests.status, "open"),
+        sql`${contests.end_time} IS NOT NULL AND ${contests.end_time} <= NOW()`
+      )
+    );
   }
 }
 

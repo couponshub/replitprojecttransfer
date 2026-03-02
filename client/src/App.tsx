@@ -19,6 +19,8 @@ import OrderConfirmPage from "@/pages/order-confirm";
 import MyOrdersPage from "@/pages/my-orders";
 import VendorDashboard from "@/pages/vendor-dashboard";
 import ContestsPage from "@/pages/contests";
+import NotificationsPage from "@/pages/notifications";
+import MyCouponsPage from "@/pages/my-coupons";
 
 
 function Router() {
@@ -56,6 +58,8 @@ function Router() {
       <Route path="/my-orders" component={MyOrdersPage} />
       <Route path="/vendor-dashboard" component={VendorDashboard} />
       <Route path="/contests" component={ContestsPage} />
+      <Route path="/notifications" component={NotificationsPage} />
+      <Route path="/my-coupons" component={MyCouponsPage} />
       <Route component={NotFound} />
     </Switch>
   );

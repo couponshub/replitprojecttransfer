@@ -186,10 +186,32 @@ export const contests = pgTable("contests", {
   attached_coupon_id: varchar("attached_coupon_id"),
   banner_image: text("banner_image"),
   total_slots: integer("total_slots").notNull().default(20),
+  end_time: timestamp("end_time"),
   status: contestStatusEnum("status").notNull().default("open"),
   winner_slot_number: integer("winner_slot_number"),
   winner_user_id: varchar("winner_user_id"),
   winner_user_name: text("winner_user_name"),
+  created_at: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  user_id: varchar("user_id").references(() => users.id),
+  type: text("type").notNull().default("info"),
+  title: text("title").notNull(),
+  message: text("message"),
+  data: text("data"),
+  is_read: boolean("is_read").notNull().default(false),
+  created_at: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const userCoupons = pgTable("user_coupons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  user_id: varchar("user_id").references(() => users.id),
+  coupon_id: varchar("coupon_id").references(() => coupons.id),
+  contest_id: varchar("contest_id").references(() => contests.id),
+  is_claimed: boolean("is_claimed").notNull().default(false),
+  claimed_at: timestamp("claimed_at"),
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -207,6 +229,8 @@ export const insertContestSchema = createInsertSchema(contests).omit({ id: true,
 export type InsertContest = z.infer<typeof insertContestSchema>;
 export type Contest = typeof contests.$inferSelect;
 export type ContestSlot = typeof contestSlots.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;
+export type UserCoupon = typeof userCoupons.$inferSelect;
 
 export const insertVendorSchema = createInsertSchema(vendors).omit({ id: true, created_at: true });
 export type InsertVendor = z.infer<typeof insertVendorSchema>;

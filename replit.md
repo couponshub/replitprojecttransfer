@@ -22,12 +22,16 @@ A full-stack marketplace for Eluru, AP — discover coupons, offline deals, and 
 - `order_items` - Line items within orders
 - `vendors` - Vendor login accounts (one per shop, separate JWT auth via VENDOR_SECRET)
 - `banners` - Home page banner slides linked to coupons
-- `contests` - Shop contests (open/closed/completed); total_slots (20 or 30), winner_slot_number, winner_user_id, winner_user_name
+- `contests` - Shop contests (open/closed/completed); total_slots (20 or 30), winner_slot_number, winner_user_id, winner_user_name, end_time (nullable, for auto-draw), attached_coupon_id (nullable, links to contest coupon prize)
 - `contest_slots` - Individual slots claimed by users (contest_id, slot_number, user_id, user_name)
+- `notifications` - User notifications (id, user_id, type, title, message, data, is_read, created_at); types: contest_win, coupon, etc.
+- `user_coupons` - Coupons won from contests (id, user_id, coupon_id, contest_id, is_claimed, claimed_at, created_at)
 
 ### Key Routes
 - `/` or `/home` - User marketplace homepage (has Map Radar, Nearby AI, and Contest buttons)
-- `/contests` - Contests page: banner carousel, slot grid (20/30 boxes), winner reveal
+- `/contests` - Contests page: banner carousel, slot grid (20/30 boxes), winner reveal, end_time display
+- `/notifications` - User notifications list with unread badge, mark-as-read
+- `/my-coupons` - User's won contest coupons with claim button
 - `/login` - 4-tab login (Sign In, Create Account, Vendor, Admin)
 - `/category/:id` - Shops filtered by category
 - `/shop/:id` - Shop detail with products and coupons

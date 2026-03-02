@@ -68,6 +68,9 @@ function ContestBannerSlider({ contests }: { contests: any[] }) {
               {contest.prize_description && (
                 <span className="text-xs text-amber-300 font-semibold">🎁 {contest.prize_description}</span>
               )}
+              {contest.end_time && (
+                <span className="text-xs text-blue-300 font-semibold">⏰ Ends: {new Date(contest.end_time).toLocaleString()}</span>
+              )}
             </div>
           </div>
         </div>
@@ -264,11 +267,15 @@ export default function ContestsPage() {
                     </div>
                   </div>
 
-                  {/* Prize */}
                   {selectedContest.prize_description && (
                     <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl px-3 py-2 mb-4">
                       <Gift className="w-4 h-4 text-amber-500 shrink-0" />
                       <span className="text-sm font-semibold text-amber-800 dark:text-amber-300">{selectedContest.prize_description}</span>
+                    </div>
+                  )}
+                  {selectedContest.end_time && (
+                    <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded-xl px-3 py-2 mb-4">
+                      <span className="text-sm font-semibold text-blue-800 dark:text-blue-300">⏰ Ends: {new Date(selectedContest.end_time).toLocaleString()}</span>
                     </div>
                   )}
 

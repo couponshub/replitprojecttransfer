@@ -8,6 +8,33 @@ import path from "path";
 import fs from "fs";
 import { createClient } from "@supabase/supabase-js";
 
+async function drawAndNotify(contestId: string) {
+  const pre = await storage.getContest(contestId);
+  if (pre?.status === "completed") return pre;
+  const updated = await storage.drawWinner(contestId);
+  if (!updated || !updated.winner_user_id) return updated;
+  const contest = await storage.getContest(contestId);
+  if (contest?.attached_coupon_id && updated.winner_user_id) {
+    const existing = (await storage.getUserCoupons(updated.winner_user_id))
+      .find(uc => uc.contest_id === contestId);
+    if (!existing) {
+      await storage.createUserCoupon({
+        user_id: updated.winner_user_id,
+        coupon_id: contest.attached_coupon_id,
+        contest_id: contestId,
+      });
+      await storage.createNotification({
+        user_id: updated.winner_user_id,
+        type: "contest_win",
+        title: "You won a contest!",
+        message: `Congratulations! You won "${contest.title}". Claim your prize coupon now!`,
+        data: JSON.stringify({ contest_id: contestId, coupon_id: contest.attached_coupon_id }),
+      });
+    }
+  }
+  return updated;
+}
+
 // Use service key for server-side uploads (has storage write permissions)
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
 const supabase = (process.env.SUPABASE_URL && supabaseServiceKey)
@@ -1928,7 +1955,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const vendor = (req as any).vendor;
       if (!vendor.shop_id) return res.status(400).json({ error: "No shop linked" });
-      const { title, description, prize_description, banner_image, total_slots, attached_coupon_id } = req.body;
+      const { title, description, prize_description, banner_image, total_slots, attached_coupon_id, end_time } = req.body;
       if (!title) return res.status(400).json({ error: "Title required" });
       const c = await storage.createContest({
         shop_id: vendor.shop_id, title,
@@ -1937,6 +1964,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         banner_image: banner_image || null,
         attached_coupon_id: attached_coupon_id || null,
         total_slots: Number(total_slots) || 20,
+        end_time: end_time ? new Date(end_time) : null,
         status: "open",
       } as any);
       res.json(c);
@@ -1967,7 +1995,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const c = await storage.getContest(req.params.id);
       if (!c || c.shop_id !== vendor.shop_id) return res.status(403).json({ error: "Forbidden" });
       if (c.status === "completed") return res.status(400).json({ error: "Already drawn" });
-      const updated = await storage.drawWinner(req.params.id);
+      const updated = await drawAndNotify(req.params.id);
       res.json(updated);
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
@@ -1994,7 +2022,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/admin/contests", adminMiddleware, async (req, res) => {
     try {
-      const { shop_id, title, description, prize_description, banner_image, total_slots, attached_coupon_id } = req.body;
+      const { shop_id, title, description, prize_description, banner_image, total_slots, attached_coupon_id, end_time } = req.body;
       if (!shop_id) return res.status(400).json({ error: "Shop required" });
       if (!title) return res.status(400).json({ error: "Title required" });
       const c = await storage.createContest({
@@ -2004,6 +2032,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         banner_image: banner_image || null,
         attached_coupon_id: attached_coupon_id || null,
         total_slots: Number(total_slots) || 20,
+        end_time: end_time ? new Date(end_time) : null,
         status: "open",
       } as any);
       res.json(c);
@@ -2015,10 +2044,73 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const c = await storage.getContest(req.params.id);
       if (!c) return res.status(404).json({ error: "Not found" });
       if (c.status === "completed") return res.status(400).json({ error: "Already drawn" });
-      const updated = await storage.drawWinner(req.params.id);
+      const updated = await drawAndNotify(req.params.id);
       res.json(updated);
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
+
+  // ── Notifications ───────────────────────────────────────────────────────────
+  app.get("/api/notifications", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      res.json(await storage.getNotifications(userId));
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/notifications/unread-count", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      res.json({ count: await storage.getUnreadCount(userId) });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.patch("/api/notifications/:id/read", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      await storage.markNotificationRead(req.params.id, userId);
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ── User Coupons (won from contests) ───────────────────────────────────────
+  app.get("/api/user/coupons", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      res.json(await storage.getUserCoupons(userId));
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/user/coupons/:id/claim", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const uc = await storage.claimUserCoupon(req.params.id, userId);
+      if (!uc) return res.status(404).json({ error: "Not found" });
+      res.json(uc);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ── Auto-close expired contests ───────────────────────────────────────────
+  setInterval(async () => {
+    try {
+      const expired = await storage.getExpiredOpenContests();
+      for (const c of expired) {
+        try {
+          const slots = await storage.getContest(c.id);
+          if (slots && slots.slots.length > 0) {
+            await drawAndNotify(c.id);
+            console.log(`[auto-draw] Contest "${c.title}" auto-drawn`);
+          } else {
+            await storage.updateContest(c.id, { status: "closed" } as any);
+            console.log(`[auto-close] Contest "${c.title}" closed (no participants)`);
+          }
+        } catch (err) {
+          console.error(`[auto-draw] Error for contest ${c.id}:`, err);
+        }
+      }
+    } catch (err) {
+      console.error("[auto-draw] Timer error:", err);
+    }
+  }, 60_000);
 
   // Site Settings (public read, admin write)
   app.get("/api/settings", async (_req, res) => {
