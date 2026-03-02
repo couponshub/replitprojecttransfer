@@ -1259,12 +1259,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(400).json({ error: "Coupon has expired" });
       }
 
-      // Min order amount check for free_item coupons
-      if (coupon.type === "free_item" && coupon.min_order_amount) {
+      // Min order amount check
+      if (coupon.min_order_amount) {
         const minAmt = parseFloat(coupon.min_order_amount);
         const cartAmt = parseFloat(cartTotal || "0");
         if (cartAmt < minAmt) {
-          return res.status(400).json({ error: `Minimum order ₹${minAmt.toFixed(0)} required for this free item coupon. Add ₹${(minAmt - cartAmt).toFixed(0)} more.` });
+          return res.status(400).json({ error: `Minimum order ₹${minAmt.toFixed(0)} required for this coupon. Add ₹${(minAmt - cartAmt).toFixed(0)} more.` });
         }
       }
 

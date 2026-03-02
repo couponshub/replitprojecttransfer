@@ -39,19 +39,27 @@ export interface AppliedCoupon {
   restrict_sub_category?: string[] | null;
   bogo_buy_product_name?: string | null;
   bogo_get_product_name?: string | null;
+  category_offer_subtype?: string | null;
 }
 
 const TYPE_COLORS: Record<string, { gradient: string; icon: string }> = {
-  percentage: { gradient: "from-blue-500 to-cyan-500", icon: "🏷️" },
-  flat:       { gradient: "from-emerald-500 to-teal-500", icon: "💰" },
-  free_item:  { gradient: "from-violet-500 to-purple-500", icon: "🎁" },
-  flash:      { gradient: "from-orange-500 to-red-500", icon: "⚡" },
+  percentage:      { gradient: "from-blue-500 to-cyan-500", icon: "🏷️" },
+  flat:            { gradient: "from-emerald-500 to-teal-500", icon: "💰" },
+  free_item:       { gradient: "from-violet-500 to-purple-500", icon: "🎁" },
+  flash:           { gradient: "from-orange-500 to-red-500", icon: "⚡" },
+  category_offer:  { gradient: "from-violet-600 to-indigo-500", icon: "🏷️" },
 };
 
 function CouponBenefit({ coupon }: { coupon: ShopCoupon }) {
   if (coupon.type === "percentage") return <span className="text-emerald-600 dark:text-emerald-400 font-bold">{coupon.value}% off</span>;
   if (coupon.type === "flat") return <span className="text-emerald-600 dark:text-emerald-400 font-bold">₹{coupon.value} flat off</span>;
   if (coupon.type === "free_item") return <span className="text-violet-600 dark:text-violet-400 font-bold">Free item added</span>;
+  if (coupon.type === "category_offer") {
+    const sub = (coupon as any).category_offer_subtype;
+    if (sub === "percentage") return <span className="text-violet-600 dark:text-violet-400 font-bold">{coupon.value}% off (category)</span>;
+    if (sub === "flat") return <span className="text-violet-600 dark:text-violet-400 font-bold">₹{coupon.value} off (category)</span>;
+    if (sub === "free_item") return <span className="text-violet-600 dark:text-violet-400 font-bold">Free item (category)</span>;
+  }
   return <span className="text-blue-600 dark:text-blue-400 font-bold">Special offer</span>;
 }
 
@@ -279,8 +287,15 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
                          c.type === "free_item" ? (() => {
                            const freeItem = (c.items_to_add || []).find((i: any) => i.isFreeItem);
                            return freeItem ? `Free: ${freeItem.name}` : "Free item added";
+                         })() :
+                         c.type === "category_offer" ? (() => {
+                           const cats = c.restrict_sub_category?.join(", ") || "selected categories";
+                           if (c.category_offer_subtype === "percentage") return `${c.value}% off on ${cats}`;
+                           if (c.category_offer_subtype === "flat") return `₹${c.value} off on ${cats}`;
+                           if (c.category_offer_subtype === "free_item") return `Free item on ${cats}`;
+                           return `Category offer on ${cats}`;
                          })() : "Coupon applied"}
-                        {c.restrict_sub_category && c.restrict_sub_category.length > 0 && <span className="text-orange-500 ml-1"> · {c.restrict_sub_category.join(", ")}</span>}
+                        {c.type !== "category_offer" && c.restrict_sub_category && c.restrict_sub_category.length > 0 && <span className="text-orange-500 ml-1"> · {c.restrict_sub_category.join(", ")}</span>}
                       </p>
                     </div>
                   </div>
@@ -400,6 +415,14 @@ export default function CartPage() {
       else if (coupon.type === "bogo" || coupon.type === "free_item") {
         const freeItems = (coupon.items_to_add || []).filter((i: any) => i.isFreeItem);
         disc = freeItems.reduce((s: number, i: any) => s + (parseFloat(i.originalPrice || i.price || "0")), 0);
+      } else if (coupon.type === "category_offer") {
+        const catBase = restrictCats ? base : 0;
+        if (coupon.category_offer_subtype === "percentage") disc = catBase * parseFloat(coupon.value) / 100;
+        else if (coupon.category_offer_subtype === "flat") disc = Math.min(parseFloat(coupon.value), catBase);
+        else if (coupon.category_offer_subtype === "free_item") {
+          const freeItems = (coupon.items_to_add || []).filter((i: any) => i.isFreeItem);
+          disc = freeItems.reduce((s: number, i: any) => s + (parseFloat(i.originalPrice || i.price || "0")), 0);
+        }
       }
       totalDisc += disc;
       runningSubtotal = Math.max(0, runningSubtotal - disc);
@@ -446,7 +469,7 @@ export default function CartPage() {
         return;
       }
 
-      const newCoupon: AppliedCoupon = { code: result.code, type: result.type, value: result.value, items_to_add: result.items_to_add, restrict_sub_category: result.restrict_sub_category ?? null, bogo_buy_product_name: result.bogo_buy_product_name ?? null, bogo_get_product_name: result.bogo_get_product_name ?? null };
+      const newCoupon: AppliedCoupon = { code: result.code, type: result.type, value: result.value, items_to_add: result.items_to_add, restrict_sub_category: result.restrict_sub_category ?? null, bogo_buy_product_name: result.bogo_buy_product_name ?? null, bogo_get_product_name: result.bogo_get_product_name ?? null, category_offer_subtype: result.category_offer_subtype ?? null };
       setAppliedCoupons(prev => ({ ...prev, [shopId]: [...(prev[shopId] || []), newCoupon] }));
       if (result.items_to_add?.length > 0) {
         addItems(result.items_to_add.map((item: any) => ({ id: item.id, name: item.name, price: item.price, shop_id: item.shop_id, shopName: item.shopName, isFreeItem: item.isFreeItem ?? false, originalPrice: item.originalPrice ?? item.price })));
@@ -464,7 +487,7 @@ export default function CartPage() {
     if (!pickOneDialog) return;
     const { shopId, couponData } = pickOneDialog;
     const freeCartItem = { id: chosenItem.id, name: chosenItem.name, price: 0, originalPrice: chosenItem.price, shop_id: chosenItem.shop_id, shopName: couponData.shopName || items.find(i => i.shop_id === shopId)?.shopName || "", isFreeItem: true };
-    const newCoupon: AppliedCoupon = { code: couponData.code, type: couponData.type, value: couponData.value, items_to_add: [freeCartItem], restrict_sub_category: couponData.restrict_sub_category ?? null, bogo_buy_product_name: null, bogo_get_product_name: null };
+    const newCoupon: AppliedCoupon = { code: couponData.code, type: couponData.type, value: couponData.value, items_to_add: [freeCartItem], restrict_sub_category: couponData.restrict_sub_category ?? null, bogo_buy_product_name: null, bogo_get_product_name: null, category_offer_subtype: couponData.category_offer_subtype ?? null };
     setAppliedCoupons(prev => ({ ...prev, [shopId]: [...(prev[shopId] || []), newCoupon] }));
     addItems([freeCartItem]);
     setPickOneDialog(null);

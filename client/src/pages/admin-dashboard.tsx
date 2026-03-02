@@ -344,6 +344,13 @@ export default function AdminDashboard() {
       data.coupon_products = bundleItems.map(i => ({ product_id: i.product_id, custom_price: i.custom_price, quantity: i.quantity || 1 }));
       if (data.type === "free_item") {
         data.value = "0";
+      } else if (data.type === "category_offer") {
+        if (data.category_offer_subtype === "free_item") {
+          data.value = "0";
+        } else {
+          data.value = data.value ? data.value.toString() : "0";
+        }
+        data.category_offer_subtype = data.category_offer_subtype || null;
       } else {
         data.value = data.value ? data.value.toString() : "0";
         data.free_item_product_id = data.free_item_product_id || null;
@@ -1854,6 +1861,8 @@ export default function AdminDashboard() {
                         bundle: "Bundle deal",
                         free_item: "Free item",
                         flash: "Flash sale",
+                        bogo: "Buy 1 Get 1",
+                        category_offer: `🏷️ Category Offer`,
                       };
                       return (
                         <div key={coupon.id} className="flex items-center justify-between px-5 py-4 gap-4 flex-wrap hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors" data-testid={`row-coupon-${coupon.id}`}>
@@ -1914,12 +1923,13 @@ export default function AdminDashboard() {
                     {/* Coupon Type Selector — 4 types */}
                     <div>
                       <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Coupon Type</Label>
-                      <div className="grid grid-cols-2 gap-2 mt-2">
+                      <div className="grid grid-cols-3 gap-2 mt-2">
                         {([
                           { value: "percentage", label: "% Discount", desc: "Percentage off", icon: "%" },
                           { value: "flat", label: "₹ Flat Off", desc: "Fixed amount off", icon: "₹" },
                           { value: "free_item", label: "Free Item", desc: "User picks 1 free item", icon: "🎁" },
                           { value: "bogo", label: "Buy 1 Get 1", desc: "Buy item, get free item", icon: "🔄" },
+                          { value: "category_offer", label: "Category Offer", desc: "Offer on selected categories", icon: "🏷️" },
                         ] as const).map(opt => {
                           const active = (formData.type || "percentage") === opt.value;
                           return (
@@ -2189,6 +2199,101 @@ export default function AdminDashboard() {
                       </div>
                     )}
 
+                    {/* Category Offer UI */}
+                    {formData.type === "category_offer" && (
+                      <div className="flex flex-col gap-3 p-3 rounded-xl border-2 border-violet-200 dark:border-violet-800 bg-violet-50/40 dark:bg-violet-950/20">
+                        <Label className="text-xs font-semibold text-violet-700 dark:text-violet-400">🏷️ Category Offer Setup</Label>
+                        <p className="text-[10px] text-muted-foreground -mt-1">Select categories from this shop. Discount applies only to items in those categories. At least 1 category required.</p>
+
+                        {/* Category Selector */}
+                        {formData.shop_id ? (() => {
+                          const shopSubCats = Array.from(new Set(
+                            products.filter(p => p.shop_id === formData.shop_id && (p as any).sub_category).map(p => (p as any).sub_category as string)
+                          ));
+                          if (shopSubCats.length === 0) return (
+                            <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 rounded-lg px-3 py-2">No category-tagged products found in this shop. Add sub-categories to products first.</p>
+                          );
+                          return (
+                            <div>
+                              <Label className="text-[10px] text-muted-foreground font-semibold">Select Categories <span className="text-red-500">*</span></Label>
+                              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                {shopSubCats.map((cat: string) => {
+                                  const selected = Array.isArray(formData.restrict_sub_category) && formData.restrict_sub_category.includes(cat);
+                                  return (
+                                    <button key={cat} type="button" onClick={() => {
+                                      const current: string[] = Array.isArray(formData.restrict_sub_category) ? formData.restrict_sub_category : [];
+                                      setForm("restrict_sub_category", selected ? current.filter((c: string) => c !== cat) : [...current, cat]);
+                                    }}
+                                      className={`text-[11px] px-3 py-1.5 rounded-full border-2 font-semibold transition-all ${selected ? "bg-violet-500 text-white border-violet-500" : "border-gray-300 dark:border-gray-600 text-muted-foreground hover:border-violet-400"}`}
+                                      data-testid={`cat-offer-${cat}`}>{cat}</button>
+                                  );
+                                })}
+                              </div>
+                              {(!formData.restrict_sub_category || formData.restrict_sub_category.length === 0) && (
+                                <p className="text-[10px] text-red-500 mt-1">Please select at least 1 category</p>
+                              )}
+                            </div>
+                          );
+                        })() : (
+                          <p className="text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 rounded-lg px-3 py-2">Select a shop first to see categories</p>
+                        )}
+
+                        {/* Offer Sub-type selector */}
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground font-semibold">Offer Type <span className="text-red-500">*</span></Label>
+                          <div className="flex gap-2 mt-1.5">
+                            {([
+                              { value: "percentage", label: "% Off", icon: "%" },
+                              { value: "flat", label: "₹ Flat Off", icon: "₹" },
+                              { value: "free_item", label: "Free Item", icon: "🎁" },
+                            ] as const).map(sub => {
+                              const active = formData.category_offer_subtype === sub.value;
+                              return (
+                                <button key={sub.value} type="button" onClick={() => setForm("category_offer_subtype", sub.value)}
+                                  className={`flex-1 flex flex-col items-center gap-0.5 py-2 px-1 rounded-xl border-2 font-semibold transition-all text-[11px] ${active ? "border-violet-500 bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300" : "border-gray-200 dark:border-gray-700 text-muted-foreground hover:border-violet-300"}`}
+                                  data-testid={`cat-offer-subtype-${sub.value}`}>
+                                  <span className="text-sm">{sub.icon}</span>
+                                  {sub.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Value input based on sub-type */}
+                        {formData.category_offer_subtype === "percentage" && (
+                          <div>
+                            <Label className="text-[10px] text-muted-foreground font-semibold">Discount %</Label>
+                            <div className="relative mt-1">
+                              <Input type="number" min="1" max="100" value={formData.value || ""} onChange={e => setForm("value", e.target.value)} className="rounded-xl pr-8 h-9 text-sm" placeholder="e.g. 20" data-testid="input-cat-offer-percent" />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">%</span>
+                            </div>
+                          </div>
+                        )}
+                        {formData.category_offer_subtype === "flat" && (
+                          <div>
+                            <Label className="text-[10px] text-muted-foreground font-semibold">Flat Discount (₹)</Label>
+                            <div className="relative mt-1">
+                              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">₹</span>
+                              <Input type="number" min="1" value={formData.value || ""} onChange={e => setForm("value", e.target.value)} className="rounded-xl pl-7 h-9 text-sm" placeholder="e.g. 300" data-testid="input-cat-offer-flat" />
+                            </div>
+                          </div>
+                        )}
+                        {formData.category_offer_subtype === "free_item" && (
+                          <p className="text-[10px] text-muted-foreground bg-emerald-50 dark:bg-emerald-950/30 rounded-lg px-3 py-2">Free item will be added to cart automatically. Use "Attach Products" section below to select the free item.</p>
+                        )}
+
+                        {/* Min Order */}
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground font-semibold">Min Order Amount (₹) <span className="font-normal text-muted-foreground">optional</span></Label>
+                          <div className="relative mt-1">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">₹</span>
+                            <Input type="number" min="0" value={formData.min_order_amount || ""} onChange={e => setForm("min_order_amount", e.target.value || null)} className="rounded-xl pl-7 h-9 text-sm" placeholder="e.g. 500" data-testid="input-cat-offer-min-order" />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Description */}
                     <div>
                       <Label className="text-xs font-semibold">Description <span className="font-normal text-muted-foreground">(optional)</span></Label>
@@ -2210,8 +2315,8 @@ export default function AdminDashboard() {
                           <p className="text-[10px] text-muted-foreground mt-0.5">When user claims this coupon, selected products auto-add to cart. If none selected, normal offer applies.</p>
                         </div>
                       </div>
-                      {/* Restrict to category — coupon applies only to items in this sub-category */}
-                      {formData.shop_id && (() => {
+                      {/* Restrict to category — hidden for category_offer (has its own dedicated UI) */}
+                      {formData.shop_id && formData.type !== "category_offer" && (() => {
                         const shopSubCats = Array.from(new Set(
                           products.filter(p => p.shop_id === formData.shop_id && (p as any).sub_category).map(p => (p as any).sub_category as string)
                         ));

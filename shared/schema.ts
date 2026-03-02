@@ -4,7 +4,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const roleEnum = pgEnum("role", ["admin", "user"]);
-export const couponTypeEnum = pgEnum("coupon_type", ["percentage", "flat", "free_item", "bundle", "flash", "bogo"]);
+export const couponTypeEnum = pgEnum("coupon_type", ["percentage", "flat", "free_item", "bundle", "flash", "bogo", "category_offer"]);
 export const orderStatusEnum = pgEnum("order_status", ["pending", "confirmed", "completed"]);
 
 export const users = pgTable("users", {
@@ -92,6 +92,7 @@ export const coupons = pgTable("coupons", {
   banner_image: text("banner_image"),
   description: text("description"),
   restrict_sub_category: text("restrict_sub_category").array(),
+  category_offer_subtype: text("category_offer_subtype"),
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });
 
