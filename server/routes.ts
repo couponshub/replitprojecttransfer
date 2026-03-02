@@ -1879,6 +1879,90 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
+  // ── Contests ────────────────────────────────────────────────────────────────
+  app.get("/api/contests", async (_req, res) => {
+    try { res.json(await storage.getAllContests()); }
+    catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/contests/:id", async (req, res) => {
+    try {
+      const c = await storage.getContest(req.params.id);
+      if (!c) return res.status(404).json({ error: "Not found" });
+      res.json(c);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/contests/:id/join", authMiddleware, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const { slot_number } = req.body;
+      if (!slot_number) return res.status(400).json({ error: "slot_number required" });
+      const contest = await storage.getContest(req.params.id);
+      if (!contest) return res.status(404).json({ error: "Contest not found" });
+      if (contest.status !== "open") return res.status(400).json({ error: "Contest is not open" });
+      if (slot_number < 1 || slot_number > contest.total_slots) return res.status(400).json({ error: "Invalid slot" });
+      const slot = await storage.joinContest(req.params.id, slot_number, user.id, user.name, user.email);
+      res.json(slot);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.get("/api/contests/:id/my-slot", authMiddleware, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const slot = await storage.getUserContestSlot(req.params.id, user.id);
+      res.json(slot || null);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/vendor/contests", vendorMiddleware, async (req, res) => {
+    try {
+      const vendor = (req as any).vendor;
+      if (!vendor.shop_id) return res.status(400).json({ error: "No shop linked" });
+      const { title, description, prize_description, banner_image, total_slots } = req.body;
+      if (!title) return res.status(400).json({ error: "Title required" });
+      const c = await storage.createContest({
+        shop_id: vendor.shop_id, title, description, prize_description,
+        banner_image: banner_image || null, total_slots: total_slots || 20, status: "open",
+      });
+      res.json(c);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/vendor/contests", vendorMiddleware, async (req, res) => {
+    try {
+      const vendor = (req as any).vendor;
+      if (!vendor.shop_id) return res.status(400).json({ error: "No shop linked" });
+      res.json(await storage.getContestsByShop(vendor.shop_id));
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.patch("/api/vendor/contests/:id", vendorMiddleware, async (req, res) => {
+    try {
+      const vendor = (req as any).vendor;
+      const c = await storage.getContest(req.params.id);
+      if (!c || c.shop_id !== vendor.shop_id) return res.status(403).json({ error: "Forbidden" });
+      const updated = await storage.updateContest(req.params.id, req.body);
+      res.json(updated);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/vendor/contests/:id/draw", vendorMiddleware, async (req, res) => {
+    try {
+      const vendor = (req as any).vendor;
+      const c = await storage.getContest(req.params.id);
+      if (!c || c.shop_id !== vendor.shop_id) return res.status(403).json({ error: "Forbidden" });
+      if (c.status === "completed") return res.status(400).json({ error: "Already drawn" });
+      const updated = await storage.drawWinner(req.params.id);
+      res.json(updated);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.get("/api/admin/contests", adminMiddleware, async (_req, res) => {
+    try { res.json(await storage.getAllContests()); }
+    catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // Site Settings (public read, admin write)
   app.get("/api/settings", async (_req, res) => {
     try { res.json(await storage.getAllSettings()); }

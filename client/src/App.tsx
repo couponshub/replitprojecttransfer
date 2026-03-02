@@ -18,6 +18,7 @@ import CategoriesPage from "@/pages/categories";
 import OrderConfirmPage from "@/pages/order-confirm";
 import MyOrdersPage from "@/pages/my-orders";
 import VendorDashboard from "@/pages/vendor-dashboard";
+import ContestsPage from "@/pages/contests";
 
 
 function Router() {
@@ -54,6 +55,7 @@ function Router() {
       <Route path="/order-confirm" component={OrderConfirmPage} />
       <Route path="/my-orders" component={MyOrdersPage} />
       <Route path="/vendor-dashboard" component={VendorDashboard} />
+      <Route path="/contests" component={ContestsPage} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -4,6 +4,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const roleEnum = pgEnum("role", ["admin", "user"]);
+export const contestStatusEnum = pgEnum("contest_status", ["open", "closed", "completed"]);
 export const couponTypeEnum = pgEnum("coupon_type", ["percentage", "flat", "free_item", "bundle", "flash", "bogo", "category_offer"]);
 export const orderStatusEnum = pgEnum("order_status", ["pending", "confirmed", "completed", "cancelled"]);
 
@@ -174,6 +175,36 @@ export const insertOfflineCouponSchema = createInsertSchema(offlineCoupons).omit
 export type InsertOfflineCoupon = z.infer<typeof insertOfflineCouponSchema>;
 export type OfflineCoupon = typeof offlineCoupons.$inferSelect;
 export type OfflineCouponCode = typeof offlineCouponCodes.$inferSelect;
+
+export const contests = pgTable("contests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  shop_id: varchar("shop_id").references(() => shops.id),
+  title: text("title").notNull(),
+  description: text("description"),
+  prize_description: text("prize_description"),
+  banner_image: text("banner_image"),
+  total_slots: integer("total_slots").notNull().default(20),
+  status: contestStatusEnum("status").notNull().default("open"),
+  winner_slot_number: integer("winner_slot_number"),
+  winner_user_id: varchar("winner_user_id"),
+  winner_user_name: text("winner_user_name"),
+  created_at: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const contestSlots = pgTable("contest_slots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  contest_id: varchar("contest_id").references(() => contests.id),
+  slot_number: integer("slot_number").notNull(),
+  user_id: varchar("user_id").references(() => users.id),
+  user_name: text("user_name").notNull(),
+  user_email: text("user_email"),
+  joined_at: timestamp("joined_at").notNull().default(sql`now()`),
+});
+
+export const insertContestSchema = createInsertSchema(contests).omit({ id: true, created_at: true });
+export type InsertContest = z.infer<typeof insertContestSchema>;
+export type Contest = typeof contests.$inferSelect;
+export type ContestSlot = typeof contestSlots.$inferSelect;
 
 export const insertVendorSchema = createInsertSchema(vendors).omit({ id: true, created_at: true });
 export type InsertVendor = z.infer<typeof insertVendorSchema>;

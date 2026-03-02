@@ -14,8 +14,9 @@ import {
   type Vendor, type InsertVendor,
   type Banner, type InsertBanner,
   type OfflineCoupon, type InsertOfflineCoupon, type OfflineCouponCode,
+  type Contest, type InsertContest, type ContestSlot,
   users, categories, shops, products, coupons, couponProducts, orders, orderItems, vendors, banners,
-  offlineCoupons, offlineCouponCodes
+  offlineCoupons, offlineCouponCodes, contests, contestSlots
 } from "@shared/schema";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -120,6 +121,16 @@ export interface IStorage {
   getSetting(key: string): Promise<string | null>;
   setSetting(key: string, value: string): Promise<void>;
   getAllSettings(): Promise<Record<string, string>>;
+
+  // Contests
+  getAllContests(): Promise<(Contest & { shop?: Shop; slots: ContestSlot[] })[]>;
+  getContest(id: string): Promise<(Contest & { shop?: Shop; slots: ContestSlot[] }) | undefined>;
+  getContestsByShop(shopId: string): Promise<(Contest & { slots: ContestSlot[] })[]>;
+  createContest(data: InsertContest): Promise<Contest>;
+  updateContest(id: string, data: Partial<InsertContest>): Promise<Contest | undefined>;
+  joinContest(contestId: string, slotNumber: number, userId: string, userName: string, userEmail?: string): Promise<ContestSlot>;
+  drawWinner(contestId: string): Promise<Contest | undefined>;
+  getUserContestSlot(contestId: string, userId: string): Promise<ContestSlot | undefined>;
 }
 
 export class PgStorage implements IStorage {
@@ -654,6 +665,79 @@ export class PgStorage implements IStorage {
   async getAllSettings(): Promise<Record<string, string>> {
     const rows = await db.select().from(schema.siteSettings);
     return Object.fromEntries(rows.map(r => [r.key, r.value]));
+  }
+
+  async getAllContests(): Promise<(Contest & { shop?: Shop; slots: ContestSlot[] })[]> {
+    const allContests = await db.select().from(contests).orderBy(desc(contests.created_at));
+    const result: any[] = [];
+    for (const c of allContests) {
+      const shop = c.shop_id ? (await db.select().from(shops).where(eq(shops.id, c.shop_id)).limit(1))[0] : undefined;
+      const slots = await db.select().from(contestSlots).where(eq(contestSlots.contest_id, c.id)).orderBy(contestSlots.slot_number);
+      result.push({ ...c, shop, slots });
+    }
+    return result;
+  }
+
+  async getContest(id: string): Promise<(Contest & { shop?: Shop; slots: ContestSlot[] }) | undefined> {
+    const rows = await db.select().from(contests).where(eq(contests.id, id)).limit(1);
+    if (!rows[0]) return undefined;
+    const c = rows[0];
+    const shop = c.shop_id ? (await db.select().from(shops).where(eq(shops.id, c.shop_id)).limit(1))[0] : undefined;
+    const slots = await db.select().from(contestSlots).where(eq(contestSlots.contest_id, c.id)).orderBy(contestSlots.slot_number);
+    return { ...c, shop, slots };
+  }
+
+  async getContestsByShop(shopId: string): Promise<(Contest & { slots: ContestSlot[] })[]> {
+    const allContests = await db.select().from(contests).where(eq(contests.shop_id, shopId)).orderBy(desc(contests.created_at));
+    const result: any[] = [];
+    for (const c of allContests) {
+      const slots = await db.select().from(contestSlots).where(eq(contestSlots.contest_id, c.id)).orderBy(contestSlots.slot_number);
+      result.push({ ...c, slots });
+    }
+    return result;
+  }
+
+  async createContest(data: InsertContest): Promise<Contest> {
+    const rows = await db.insert(contests).values(data).returning();
+    return rows[0];
+  }
+
+  async updateContest(id: string, data: Partial<InsertContest>): Promise<Contest | undefined> {
+    const rows = await db.update(contests).set(data).where(eq(contests.id, id)).returning();
+    return rows[0];
+  }
+
+  async joinContest(contestId: string, slotNumber: number, userId: string, userName: string, userEmail?: string): Promise<ContestSlot> {
+    const existing = await db.select().from(contestSlots).where(
+      and(eq(contestSlots.contest_id, contestId), eq(contestSlots.slot_number, slotNumber))
+    ).limit(1);
+    if (existing[0]) throw new Error("Slot already taken");
+    const userSlot = await db.select().from(contestSlots).where(
+      and(eq(contestSlots.contest_id, contestId), eq(contestSlots.user_id, userId))
+    ).limit(1);
+    if (userSlot[0]) throw new Error("Already joined this contest");
+    const rows = await db.insert(contestSlots).values({ contest_id: contestId, slot_number: slotNumber, user_id: userId, user_name: userName, user_email: userEmail }).returning();
+    return rows[0];
+  }
+
+  async drawWinner(contestId: string): Promise<Contest | undefined> {
+    const slots = await db.select().from(contestSlots).where(eq(contestSlots.contest_id, contestId));
+    if (slots.length === 0) throw new Error("No participants yet");
+    const winner = slots[Math.floor(Math.random() * slots.length)];
+    const rows = await db.update(contests).set({
+      status: "completed",
+      winner_slot_number: winner.slot_number,
+      winner_user_id: winner.user_id,
+      winner_user_name: winner.user_name,
+    }).where(eq(contests.id, contestId)).returning();
+    return rows[0];
+  }
+
+  async getUserContestSlot(contestId: string, userId: string): Promise<ContestSlot | undefined> {
+    const rows = await db.select().from(contestSlots).where(
+      and(eq(contestSlots.contest_id, contestId), eq(contestSlots.user_id, userId))
+    ).limit(1);
+    return rows[0];
   }
 }
 

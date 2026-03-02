@@ -16,10 +16,10 @@ import {
   Store, Package, Ticket, LogOut, Plus, Edit, Trash2, Save,
   Zap, Tag, Phone, MapPin, Globe, Check, ChevronRight,
   WifiOff, Download, Eye, EyeOff, Upload, Loader2, Image, Link,
-  ShoppingBag, User, IndianRupee, Clock, CheckCircle, X
+  ShoppingBag, User, IndianRupee, Clock, CheckCircle, X, Trophy, Gift, Users
 } from "lucide-react";
 
-type VTab = "shop" | "products" | "coupons" | "offline-coupons" | "orders";
+type VTab = "shop" | "products" | "coupons" | "offline-coupons" | "orders" | "contests";
 
 function getVendorToken() {
   return localStorage.getItem("vendor_token");
@@ -95,6 +95,31 @@ export default function VendorDashboard() {
       toast({ title: "Order status updated" });
     },
     onError: (e: any) => toast({ title: e.message || "Failed to update status", variant: "destructive" }),
+  });
+
+  const { data: vendorContests = [], isLoading: contestsLoading, refetch: refetchContests } = useQuery<any[]>({
+    queryKey: ["/api/vendor/contests"],
+    queryFn: () => vendorFetch("/api/vendor/contests"),
+    enabled: authChecked && tab === "contests",
+  });
+
+  const [showContestForm, setShowContestForm] = useState(false);
+  const [contestForm, setContestForm] = useState({ title: "", description: "", prize_description: "", banner_image: "", total_slots: 20 });
+  const createContestMutation = useMutation({
+    mutationFn: (data: any) => vendorFetch("/api/vendor/contests", { method: "POST", body: JSON.stringify(data) }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/vendor/contests"] }); setShowContestForm(false); setContestForm({ title: "", description: "", prize_description: "", banner_image: "", total_slots: 20 }); toast({ title: "Contest created!" }); },
+    onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
+  });
+  const toggleContestStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      vendorFetch(`/api/vendor/contests/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/vendor/contests"] }); toast({ title: "Status updated" }); },
+    onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
+  });
+  const drawWinnerMutation = useMutation({
+    mutationFn: (id: string) => vendorFetch(`/api/vendor/contests/${id}/draw`, { method: "POST", body: JSON.stringify({}) }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/vendor/contests"] }); toast({ title: "🏆 Winner drawn!" }); },
+    onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
   });
 
   const [shopForm, setShopForm] = useState<any>({});
@@ -280,6 +305,7 @@ export default function VendorDashboard() {
     { id: "coupons", label: "Coupons", icon: Ticket },
     { id: "offline-coupons", label: "Offline Coupons", icon: WifiOff },
     { id: "orders", label: "Orders", icon: ShoppingBag },
+    { id: "contests", label: "Contests", icon: Trophy },
   ];
 
   return (
@@ -1451,6 +1477,166 @@ export default function VendorDashboard() {
                   )}
                 </DialogContent>
               </Dialog>
+            </div>
+          )}
+
+          {tab === "contests" && (
+            <div className="p-4 md:p-8 max-w-3xl mx-auto w-full">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center">
+                    <Trophy className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Contests</h2>
+                    <p className="text-xs text-muted-foreground">Create contests for your customers</p>
+                  </div>
+                </div>
+                <Button onClick={() => setShowContestForm(v => !v)}
+                  className="bg-gradient-to-r from-amber-400 to-orange-500 border-0 rounded-xl shadow-md shadow-amber-500/25 text-sm"
+                  data-testid="button-create-contest">
+                  <Plus className="w-4 h-4 mr-1" /> New Contest
+                </Button>
+              </div>
+
+              {/* Create contest form */}
+              {showContestForm && (
+                <Card className="mb-5 border-amber-200 dark:border-amber-800/50 rounded-2xl overflow-hidden">
+                  <CardContent className="p-5 flex flex-col gap-4">
+                    <p className="text-sm font-bold text-gray-900 dark:text-white">Create New Contest</p>
+                    <div className="grid grid-cols-1 gap-3">
+                      <div>
+                        <Label className="text-xs font-semibold">Contest Title *</Label>
+                        <Input value={contestForm.title} onChange={e => setContestForm(f => ({ ...f, title: e.target.value }))}
+                          placeholder="e.g. Diwali Lucky Draw" className="mt-1 rounded-xl" data-testid="input-contest-title" />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-semibold">Description</Label>
+                        <Textarea value={contestForm.description} onChange={e => setContestForm(f => ({ ...f, description: e.target.value }))}
+                          placeholder="What is this contest about?" className="mt-1 rounded-xl" rows={2} data-testid="input-contest-description" />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-semibold">Prize 🎁</Label>
+                        <Input value={contestForm.prize_description} onChange={e => setContestForm(f => ({ ...f, prize_description: e.target.value }))}
+                          placeholder="e.g. Gift voucher worth ₹500" className="mt-1 rounded-xl" data-testid="input-contest-prize" />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-semibold">Banner Image URL (optional)</Label>
+                        <Input value={contestForm.banner_image} onChange={e => setContestForm(f => ({ ...f, banner_image: e.target.value }))}
+                          placeholder="https://..." className="mt-1 rounded-xl" data-testid="input-contest-banner" />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-semibold">Total Slots</Label>
+                        <Select value={String(contestForm.total_slots)} onValueChange={v => setContestForm(f => ({ ...f, total_slots: Number(v) }))}>
+                          <SelectTrigger className="mt-1 rounded-xl" data-testid="select-contest-slots">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="20">20 Slots</SelectItem>
+                            <SelectItem value="30">30 Slots</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="outline" onClick={() => setShowContestForm(false)} className="rounded-xl">Cancel</Button>
+                      <Button onClick={() => createContestMutation.mutate(contestForm)} disabled={createContestMutation.isPending || !contestForm.title}
+                        className="bg-gradient-to-r from-amber-400 to-orange-500 border-0 rounded-xl" data-testid="button-contest-submit">
+                        {createContestMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Contest"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Contest list */}
+              {contestsLoading ? (
+                <div className="flex flex-col gap-3">
+                  {[1, 2].map(i => <div key={i} className="h-28 rounded-2xl bg-gray-200 dark:bg-gray-800 animate-pulse" />)}
+                </div>
+              ) : vendorContests.length === 0 ? (
+                <div className="text-center py-16 text-muted-foreground">
+                  <Trophy className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                  <p className="text-sm">No contests yet. Create your first contest!</p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {vendorContests.map((c: any) => {
+                    const filled = c.slots?.length || 0;
+                    const pct = Math.round((filled / c.total_slots) * 100);
+                    return (
+                      <Card key={c.id} className="rounded-2xl border-0 shadow-md shadow-black/5" data-testid={`contest-card-${c.id}`}>
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge className={`text-[10px] border-0 ${c.status === "open" ? "bg-emerald-100 text-emerald-700" : c.status === "completed" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"}`}>
+                                  {c.status === "open" ? "🔥 Open" : c.status === "completed" ? "🏆 Completed" : "⏸️ Closed"}
+                                </Badge>
+                              </div>
+                              <h3 className="font-bold text-gray-900 dark:text-white">{c.title}</h3>
+                              {c.prize_description && <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">🎁 {c.prize_description}</p>}
+                            </div>
+                            <div className="text-right shrink-0 ml-3">
+                              <div className="text-xl font-black text-gray-900 dark:text-white">{filled}</div>
+                              <div className="text-[10px] text-muted-foreground">/{c.total_slots} slots</div>
+                            </div>
+                          </div>
+
+                          <div className="h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full mb-3 overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                          </div>
+
+                          {c.status === "completed" && c.winner_user_name && (
+                            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-xl px-3 py-2 mb-3 flex items-center gap-2">
+                              <span className="text-lg">🏆</span>
+                              <div>
+                                <p className="text-xs text-muted-foreground font-semibold">Winner</p>
+                                <p className="text-sm font-bold text-amber-800 dark:text-amber-300">{c.winner_user_name} — Slot #{c.winner_slot_number}</p>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex gap-2 flex-wrap">
+                            {c.status === "open" && (
+                              <>
+                                <Button size="sm" variant="outline" onClick={() => toggleContestStatusMutation.mutate({ id: c.id, status: "closed" })}
+                                  disabled={toggleContestStatusMutation.isPending} className="rounded-xl text-xs h-8">
+                                  ⏸️ Close Contest
+                                </Button>
+                                {filled > 0 && (
+                                  <Button size="sm" onClick={() => drawWinnerMutation.mutate(c.id)}
+                                    disabled={drawWinnerMutation.isPending}
+                                    className="rounded-xl text-xs h-8 bg-gradient-to-r from-amber-400 to-orange-500 border-0"
+                                    data-testid={`button-draw-winner-${c.id}`}>
+                                    {drawWinnerMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : "🎲"} Draw Winner
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                            {c.status === "closed" && (
+                              <>
+                                <Button size="sm" variant="outline" onClick={() => toggleContestStatusMutation.mutate({ id: c.id, status: "open" })}
+                                  disabled={toggleContestStatusMutation.isPending} className="rounded-xl text-xs h-8">
+                                  ▶️ Reopen
+                                </Button>
+                                {filled > 0 && (
+                                  <Button size="sm" onClick={() => drawWinnerMutation.mutate(c.id)}
+                                    disabled={drawWinnerMutation.isPending}
+                                    className="rounded-xl text-xs h-8 bg-gradient-to-r from-amber-400 to-orange-500 border-0"
+                                    data-testid={`button-draw-winner-closed-${c.id}`}>
+                                    🎲 Draw Winner
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 

@@ -18,13 +18,16 @@ A full-stack marketplace for Eluru, AP — discover coupons, offline deals, and 
 - `shops` - Marketplace shops with premium/featured flags, listing_type (products/services/both), business_hours (format: HH:MM-HH:MM), show_on_radar (boolean, default true), marker_color (text, optional custom map marker color)
 - `products` - Products within shops (is_active toggle supported)
 - `coupons` - Discount coupons (percentage, flat, free_item, bogo, flash, category_offer types) with is_active + featured flags; BOGO supports bogo_buy_product_id, bogo_buy_qty, bogo_get_product_id, bogo_get_qty; category_offer uses category_offer_subtype (percentage/flat/free_item) + restrict_sub_category[]
-- `orders` - Customer orders (pending, confirmed, completed)
+- `orders` - Customer orders (pending, confirmed, completed, cancelled); includes `customer_location` (optional GPS "lat,lng")
 - `order_items` - Line items within orders
 - `vendors` - Vendor login accounts (one per shop, separate JWT auth via VENDOR_SECRET)
 - `banners` - Home page banner slides linked to coupons
+- `contests` - Shop contests (open/closed/completed); total_slots (20 or 30), winner_slot_number, winner_user_id, winner_user_name
+- `contest_slots` - Individual slots claimed by users (contest_id, slot_number, user_id, user_name)
 
 ### Key Routes
-- `/` or `/home` - User marketplace homepage
+- `/` or `/home` - User marketplace homepage (has Map Radar, Nearby AI, and Contest buttons)
+- `/contests` - Contests page: banner carousel, slot grid (20/30 boxes), winner reveal
 - `/login` - 4-tab login (Sign In, Create Account, Vendor, Admin)
 - `/category/:id` - Shops filtered by category
 - `/shop/:id` - Shop detail with products and coupons

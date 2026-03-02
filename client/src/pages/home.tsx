@@ -1573,6 +1573,53 @@ function RadarMap({ lat, lng, onClick }: { lat: number | null; lng: number | nul
 }
 
 
+function ContestButton({ onClick }: { onClick: () => void }) {
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <button
+        onClick={onClick}
+        data-testid="button-contest"
+        className="relative w-24 h-24 rounded-full cursor-pointer transition-transform hover:scale-105 active:scale-95"
+        style={{
+          background: "radial-gradient(circle at 40% 35%, rgba(120,53,15,0.97) 0%, rgba(60,10,0,0.99) 100%)",
+          border: "1.5px solid rgba(251,191,36,0.55)",
+          boxShadow: "0 0 28px rgba(251,191,36,0.22), 0 0 64px rgba(245,158,11,0.12), 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)",
+        }}
+      >
+        {[0.88, 0.64, 0.4].map((scale, i) => (
+          <div
+            key={i}
+            className="absolute inset-0 rounded-full"
+            style={{
+              border: `1px solid rgba(251,191,36,${0.1 + i * 0.07})`,
+              transform: `scale(${scale})`,
+              animation: `magicRing ${2 + i * 0.5}s ease-in-out ${i * 0.4}s infinite`,
+            }}
+          />
+        ))}
+        {[0, 1, 2, 3, 4].map(i => (
+          <div
+            key={i}
+            className="absolute inset-0 flex items-center justify-center"
+            style={{ animation: `magicOrbit ${3 + i * 0.7}s linear ${i * 0.6}s infinite` }}
+          >
+            <div style={{ position: "absolute", width: 4, height: 4, borderRadius: "50%", background: `rgba(251,191,36,${0.5 + i * 0.1})`, top: 4, left: "50%", marginLeft: -2 }} />
+          </div>
+        ))}
+        <div className="absolute inset-0 flex items-center justify-center z-10">
+          <div className="flex flex-col items-center">
+            <span style={{ fontSize: 26 }}>🏆</span>
+            <span style={{ fontSize: 7, color: "#fbbf24", fontWeight: 800, letterSpacing: 1, marginTop: -1 }}>CONTEST</span>
+          </div>
+        </div>
+        <div className="absolute inset-0 rounded-full pointer-events-none"
+          style={{ background: "radial-gradient(ellipse at 35% 28%, rgba(255,255,255,0.13) 0%, transparent 60%)" }} />
+      </button>
+      <span className="text-[10px] font-bold tracking-wide text-amber-300/70">Contest</span>
+    </div>
+  );
+}
+
 function MagicAIButton({ active, loading, onClick }: { active: boolean; loading: boolean; onClick: () => void }) {
   return (
     <div className="flex flex-col items-center gap-1.5">
@@ -1849,8 +1896,8 @@ export default function Home() {
             )}
           </div>
 
-          {/* 3D Radar + Magic AI — side by side */}
-          <div className="flex items-end justify-center gap-5 pb-2">
+          {/* Radar + Magic AI + Contest — side by side */}
+          <div className="flex items-end justify-center gap-4 pb-2">
             <div className="flex flex-col items-center gap-1.5">
               <RadarMap
                 lat={userLocation?.lat ?? null}
@@ -1860,6 +1907,7 @@ export default function Home() {
               <span className="text-[10px] font-bold tracking-wide text-teal-200/70">Map Radar</span>
             </div>
             <MagicAIButton active={nearbyMode} loading={nearbyLoading} onClick={handleMagicAI} />
+            <ContestButton onClick={() => navigate("/contests")} />
           </div>
         </div>
       </div>
