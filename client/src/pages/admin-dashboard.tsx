@@ -3351,9 +3351,30 @@ function OfflineCouponsTab({ toast }: { toast: any }) {
 function AdminContestsTab({ toast }: { toast: any }) {
   const [selectedContest, setSelectedContest] = useState<any>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [createForm, setCreateForm] = useState({ shop_id: "", title: "", description: "", prize_description: "", banner_image: "", total_slots: 20, attached_coupon_id: "" });
 
   const { data: allContests = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/admin/contests"],
+  });
+
+  const { data: allShops = [] } = useQuery<any[]>({ queryKey: ["/api/shops"] });
+
+  const { data: shopContestCoupons = [] } = useQuery<any[]>({
+    queryKey: ["/api/admin/shops", createForm.shop_id, "contest-coupons"],
+    queryFn: () => apiRequest("GET", `/api/admin/shops/${createForm.shop_id}/contest-coupons`),
+    enabled: !!createForm.shop_id,
+  });
+
+  const createContestMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/admin/contests", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/contests"] });
+      setShowCreateForm(false);
+      setCreateForm({ shop_id: "", title: "", description: "", prize_description: "", banner_image: "", total_slots: 20, attached_coupon_id: "" });
+      toast({ title: "Contest created!" });
+    },
+    onError: (e: any) => toast({ title: e.message || "Failed", variant: "destructive" }),
   });
 
   const updateStatusMutation = useMutation({
@@ -3380,15 +3401,109 @@ function AdminContestsTab({ toast }: { toast: any }) {
 
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto w-full">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
-          <Trophy className="w-5 h-5 text-white" />
+      <div className="flex items-center justify-between gap-3 mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/30">
+            <Trophy className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-black text-gray-900 dark:text-white">Contests</h2>
+            <p className="text-xs text-muted-foreground">View and manage all shop contests</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-2xl font-black text-gray-900 dark:text-white">Contests</h2>
-          <p className="text-xs text-muted-foreground">View and manage all shop contests across the platform</p>
-        </div>
+        <Button onClick={() => setShowCreateForm(v => !v)}
+          className="rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 border-0 shadow-md shadow-amber-500/25 text-white"
+          data-testid="button-admin-create-contest">
+          <Plus className="w-4 h-4 mr-1" /> New Contest
+        </Button>
       </div>
+
+      {/* Create Contest Form */}
+      {showCreateForm && (
+        <Card className="mb-6 border-amber-200 dark:border-amber-800/50 rounded-2xl overflow-hidden">
+          <CardContent className="p-5">
+            <p className="text-sm font-bold text-gray-900 dark:text-white mb-4">Create New Contest</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="md:col-span-2">
+                <Label className="text-xs font-semibold">Select Shop *</Label>
+                <Select value={createForm.shop_id} onValueChange={v => setCreateForm(f => ({ ...f, shop_id: v, attached_coupon_id: "" }))}>
+                  <SelectTrigger className="mt-1 rounded-xl" data-testid="select-admin-contest-shop">
+                    <SelectValue placeholder="Choose a shop..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(allShops as any[]).map((s: any) => (
+                      <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="md:col-span-2">
+                <Label className="text-xs font-semibold">Contest Title *</Label>
+                <Input value={createForm.title} onChange={e => setCreateForm(f => ({ ...f, title: e.target.value }))}
+                  placeholder="e.g. Diwali Lucky Draw" className="mt-1 rounded-xl" data-testid="input-admin-contest-title" />
+              </div>
+              <div className="md:col-span-2">
+                <Label className="text-xs font-semibold">Description</Label>
+                <Input value={createForm.description} onChange={e => setCreateForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder="What is this contest about?" className="mt-1 rounded-xl" />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold">Prize Description 🎁</Label>
+                <Input value={createForm.prize_description} onChange={e => setCreateForm(f => ({ ...f, prize_description: e.target.value }))}
+                  placeholder="e.g. Gift voucher worth ₹500" className="mt-1 rounded-xl" data-testid="input-admin-contest-prize" />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold">Attach Contest Coupon 🏆 (optional)</Label>
+                {!createForm.shop_id ? (
+                  <div className="mt-1 p-2 rounded-xl bg-gray-50 dark:bg-gray-800 text-xs text-muted-foreground border">Select a shop first</div>
+                ) : shopContestCoupons.length === 0 ? (
+                  <div className="mt-1 p-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 text-xs text-amber-700 border border-amber-200">No contest coupons for this shop</div>
+                ) : (
+                  <Select value={createForm.attached_coupon_id} onValueChange={v => setCreateForm(f => ({ ...f, attached_coupon_id: v === "none" ? "" : v }))}>
+                    <SelectTrigger className="mt-1 rounded-xl" data-testid="select-admin-contest-coupon">
+                      <SelectValue placeholder="Select coupon..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {(shopContestCoupons as any[]).map((cp: any) => (
+                        <SelectItem key={cp.id} value={cp.id}>
+                          {cp.code} — {cp.type === "percentage" ? `${cp.value}% off` : cp.type === "flat" ? `₹${cp.value} off` : cp.type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              <div>
+                <Label className="text-xs font-semibold">Banner Image URL (optional)</Label>
+                <Input value={createForm.banner_image} onChange={e => setCreateForm(f => ({ ...f, banner_image: e.target.value }))}
+                  placeholder="https://..." className="mt-1 rounded-xl" />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold">Total Slots</Label>
+                <Select value={String(createForm.total_slots)} onValueChange={v => setCreateForm(f => ({ ...f, total_slots: Number(v) }))}>
+                  <SelectTrigger className="mt-1 rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="20">20 Slots</SelectItem>
+                    <SelectItem value="30">30 Slots</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end mt-4">
+              <Button variant="outline" onClick={() => setShowCreateForm(false)} className="rounded-xl">Cancel</Button>
+              <Button onClick={() => createContestMutation.mutate({ ...createForm, attached_coupon_id: createForm.attached_coupon_id || null })}
+                disabled={createContestMutation.isPending || !createForm.title || !createForm.shop_id}
+                className="bg-gradient-to-r from-amber-400 to-orange-500 border-0 rounded-xl"
+                data-testid="button-admin-contest-submit">
+                {createContestMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Contest"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">

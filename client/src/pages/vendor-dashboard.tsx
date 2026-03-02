@@ -104,11 +104,16 @@ export default function VendorDashboard() {
   });
 
   const [showContestForm, setShowContestForm] = useState(false);
-  const [contestForm, setContestForm] = useState({ title: "", description: "", prize_description: "", banner_image: "", total_slots: 20 });
+  const [contestForm, setContestForm] = useState({ title: "", description: "", prize_description: "", banner_image: "", total_slots: 20, attached_coupon_id: "" });
+  const { data: contestCoupons = [] } = useQuery<any[]>({
+    queryKey: ["/api/vendor/coupons/contest"],
+    queryFn: () => vendorFetch("/api/vendor/coupons/contest"),
+    enabled: authChecked && tab === "contests",
+  });
   const createContestMutation = useMutation({
     mutationFn: (data: any) => vendorFetch("/api/vendor/contests", { method: "POST", body: JSON.stringify(data) }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/vendor/contests"] }); setShowContestForm(false); setContestForm({ title: "", description: "", prize_description: "", banner_image: "", total_slots: 20 }); toast({ title: "Contest created!" }); },
-    onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/vendor/contests"] }); setShowContestForm(false); setContestForm({ title: "", description: "", prize_description: "", banner_image: "", total_slots: 20, attached_coupon_id: "" }); toast({ title: "Contest created!" }); },
+    onError: (e: any) => toast({ title: e.message || "Failed to create contest", variant: "destructive" }),
   });
   const toggleContestStatusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
@@ -1038,6 +1043,17 @@ export default function VendorDashboard() {
                           <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${couponForm.featured ? "translate-x-[22px]" : "translate-x-0.5"}`} />
                         </button>
                       </div>
+                      <div className="flex items-center justify-between border-t pt-3 border-amber-200 dark:border-amber-800/40">
+                        <div>
+                          <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Contest Coupon 🏆</p>
+                          <p className="text-xs text-muted-foreground">Use this coupon as a contest prize</p>
+                        </div>
+                        <button type="button" onClick={() => setCouponForm((f: any) => ({ ...f, is_contest_coupon: !f.is_contest_coupon }))}
+                          className={`relative w-11 h-6 rounded-full transition-colors focus:outline-none ${couponForm.is_contest_coupon ? "bg-amber-500" : "bg-gray-300 dark:bg-gray-600"}`}
+                          data-testid="toggle-contest-coupon">
+                          <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${couponForm.is_contest_coupon ? "translate-x-[22px]" : "translate-x-0.5"}`} />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Attach Products / Services */}
@@ -1516,9 +1532,31 @@ export default function VendorDashboard() {
                           placeholder="What is this contest about?" className="mt-1 rounded-xl" rows={2} data-testid="input-contest-description" />
                       </div>
                       <div>
-                        <Label className="text-xs font-semibold">Prize 🎁</Label>
+                        <Label className="text-xs font-semibold">Prize Description 🎁</Label>
                         <Input value={contestForm.prize_description} onChange={e => setContestForm(f => ({ ...f, prize_description: e.target.value }))}
                           placeholder="e.g. Gift voucher worth ₹500" className="mt-1 rounded-xl" data-testid="input-contest-prize" />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-semibold">Attach Contest Coupon 🏆 (optional)</Label>
+                        {contestCoupons.length === 0 ? (
+                          <div className="mt-1 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 text-xs text-amber-700 dark:text-amber-400">
+                            No contest coupons yet. Create a coupon and turn on "Contest Coupon" toggle.
+                          </div>
+                        ) : (
+                          <Select value={contestForm.attached_coupon_id} onValueChange={v => setContestForm(f => ({ ...f, attached_coupon_id: v === "none" ? "" : v }))}>
+                            <SelectTrigger className="mt-1 rounded-xl" data-testid="select-contest-coupon">
+                              <SelectValue placeholder="Select a contest coupon..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">None</SelectItem>
+                              {contestCoupons.map((cp: any) => (
+                                <SelectItem key={cp.id} value={cp.id}>
+                                  {cp.code} — {cp.type === "percentage" ? `${cp.value}% off` : cp.type === "flat" ? `₹${cp.value} off` : cp.type}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                       </div>
                       <div>
                         <Label className="text-xs font-semibold">Banner Image URL (optional)</Label>
@@ -1576,6 +1614,9 @@ export default function VendorDashboard() {
                               </div>
                               <h3 className="font-bold text-gray-900 dark:text-white">{c.title}</h3>
                               {c.prize_description && <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">🎁 {c.prize_description}</p>}
+                              {c.attached_coupon_id && (
+                                <p className="text-xs text-violet-600 dark:text-violet-400 mt-0.5">🏷️ Coupon attached</p>
+                              )}
                             </div>
                             <div className="text-right shrink-0 ml-3">
                               <div className="text-xl font-black text-gray-900 dark:text-white">{filled}</div>

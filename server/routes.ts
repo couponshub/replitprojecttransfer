@@ -1649,6 +1649,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // ── Vendor Coupons ───────────────────────────────────────────────────────────
+  app.get("/api/vendor/coupons/contest", vendorMiddleware, async (req, res) => {
+    try {
+      const shopId = (req as any).vendor.shop_id;
+      if (!shopId) return res.json([]);
+      const all = await storage.getCouponsByShop(shopId);
+      res.json(all.filter((c: any) => c.is_contest_coupon));
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   app.get("/api/vendor/coupons", vendorMiddleware, async (req, res) => {
     const shopId = (req as any).vendor.shop_id;
     res.json(await storage.getCouponsByShop(shopId));
@@ -1919,12 +1928,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const vendor = (req as any).vendor;
       if (!vendor.shop_id) return res.status(400).json({ error: "No shop linked" });
-      const { title, description, prize_description, banner_image, total_slots } = req.body;
+      const { title, description, prize_description, banner_image, total_slots, attached_coupon_id } = req.body;
       if (!title) return res.status(400).json({ error: "Title required" });
       const c = await storage.createContest({
-        shop_id: vendor.shop_id, title, description, prize_description,
-        banner_image: banner_image || null, total_slots: total_slots || 20, status: "open",
-      });
+        shop_id: vendor.shop_id, title,
+        description: description || null,
+        prize_description: prize_description || null,
+        banner_image: banner_image || null,
+        attached_coupon_id: attached_coupon_id || null,
+        total_slots: Number(total_slots) || 20,
+        status: "open",
+      } as any);
       res.json(c);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
@@ -1968,6 +1982,31 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const updated = await storage.updateContest(req.params.id, req.body);
       if (!updated) return res.status(404).json({ error: "Not found" });
       res.json(updated);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/admin/shops/:shopId/contest-coupons", adminMiddleware, async (req, res) => {
+    try {
+      const all = await storage.getCouponsByShop(req.params.shopId);
+      res.json(all.filter((c: any) => c.is_contest_coupon));
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/admin/contests", adminMiddleware, async (req, res) => {
+    try {
+      const { shop_id, title, description, prize_description, banner_image, total_slots, attached_coupon_id } = req.body;
+      if (!shop_id) return res.status(400).json({ error: "Shop required" });
+      if (!title) return res.status(400).json({ error: "Title required" });
+      const c = await storage.createContest({
+        shop_id, title,
+        description: description || null,
+        prize_description: prize_description || null,
+        banner_image: banner_image || null,
+        attached_coupon_id: attached_coupon_id || null,
+        total_slots: Number(total_slots) || 20,
+        status: "open",
+      } as any);
+      res.json(c);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 

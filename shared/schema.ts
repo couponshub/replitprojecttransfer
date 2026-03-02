@@ -94,6 +94,7 @@ export const coupons = pgTable("coupons", {
   description: text("description"),
   restrict_sub_category: text("restrict_sub_category").array(),
   category_offer_subtype: text("category_offer_subtype"),
+  is_contest_coupon: boolean("is_contest_coupon").notNull().default(false),
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -182,6 +183,7 @@ export const contests = pgTable("contests", {
   title: text("title").notNull(),
   description: text("description"),
   prize_description: text("prize_description"),
+  attached_coupon_id: varchar("attached_coupon_id"),
   banner_image: text("banner_image"),
   total_slots: integer("total_slots").notNull().default(20),
   status: contestStatusEnum("status").notNull().default("open"),
