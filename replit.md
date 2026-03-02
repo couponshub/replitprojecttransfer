@@ -30,7 +30,7 @@ A full-stack marketplace for Eluru, AP — discover coupons, offline deals, and 
 - `/shop/:id` - Shop detail with products and coupons
 - `/cart` - Shopping cart with coupon application
 - `/profile` - User profile and order history
-- `/ar-camera` - AR Camera view: real-time camera + GPS + compass to show nearby coupon banners in augmented reality
+- `/ar-camera` - AR Street View: 3D virtual city with buildings, roads, sky; shops as colored buildings by category with coupon banners; GPS-based positioning; swipe/compass rotation; 40 filler buildings + 15 shop buildings
 - `/admin-dashboard` - Apple-themed admin panel with sidebar
 
 ### Admin Dashboard Tabs
