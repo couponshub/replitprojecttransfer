@@ -89,11 +89,45 @@ export default function OrderConfirmPage() {
     return encodeURIComponent(lines.join("\n"));
   };
 
+  const buildAdminWhatsAppMessage = () => {
+    const isMulti = order.orders && order.orders.length > 1;
+    if (isMulti) {
+      const lines: string[] = [
+        `🛍️ *New Order — CouponsHub X*`, ``,
+        order.customerName ? `*Customer:* ${order.customerName}` : "",
+        order.customerPhone ? `*Phone:* +91${order.customerPhone}` : "",
+        ``,
+      ];
+      order.orders!.forEach((o: any, idx: number) => {
+        lines.push(`━━━━━━━━━━━━━━━`);
+        lines.push(`*${idx + 1}. ${o.shopName}*`);
+        if (o.orderId) lines.push(`Order ID: #${o.orderId.slice(0, 8).toUpperCase()}`);
+        o.items.forEach((i: any) => {
+          lines.push(i.isFreeItem ? `• ${i.name} ×${i.quantity} — FREE 🎁` : `• ${i.name} ×${i.quantity} — ₹${(i.price * i.quantity).toLocaleString()}`);
+        });
+        if (o.discount > 0) lines.push(`Discount: -₹${o.discount.toFixed(0)}`);
+        if (o.serviceFee > 0) lines.push(`Service fee: ₹${o.serviceFee}`);
+        lines.push(`*Subtotal: ₹${o.finalAmount.toLocaleString()}*`);
+        lines.push(``);
+      });
+      lines.push(`━━━━━━━━━━━━━━━`);
+      lines.push(`*Grand Total: ₹${(order.grandTotal ?? order.finalAmount).toLocaleString()}*`);
+      lines.push(``, `Please confirm. Thank you! 🙏`);
+      return encodeURIComponent(lines.filter(Boolean).join("\n"));
+    }
+    return buildWhatsAppMessage();
+  };
+
   const handleWhatsApp = () => {
-    const phone = (order.shopWhatsapp || "").replace(/\D/g, "");
-    window.open(`https://wa.me/${phone}?text=${buildWhatsAppMessage()}`, "_blank");
-    sessionStorage.removeItem("pendingOrder");
-    navigate("/my-orders");
+    const targetPhone = adminWhatsapp || (order.shopWhatsapp || "").replace(/\D/g, "");
+    const message = adminWhatsapp ? buildAdminWhatsAppMessage() : buildWhatsAppMessage();
+    window.open(`https://wa.me/${targetPhone}?text=${message}`, "_blank");
+    setAdminSent(true);
+    setSentShopIds(prev => {
+      const next = new Set(prev);
+      order.orders?.forEach((o: any) => next.add(o.shopId));
+      return next;
+    });
   };
 
   const handleScreenshotSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -556,21 +590,29 @@ export default function OrderConfirmPage() {
             <IndianRupee className="w-5 h-5 text-white/60" />
           </button>
 
-          {/* WhatsApp */}
-          {order.shopWhatsapp && (
+          {/* WhatsApp — goes to Admin if configured, else to shop */}
+          {(adminWhatsapp || order.shopWhatsapp) && (
             <button
               onClick={handleWhatsApp}
-              className="w-full flex items-center gap-4 bg-[#25D366] hover:bg-[#20b958] text-white rounded-2xl p-5 transition-all hover:shadow-lg hover:shadow-emerald-500/30 hover:-translate-y-0.5 active:translate-y-0"
+              className={`w-full flex items-center gap-4 text-white rounded-2xl p-5 transition-all hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 ${adminSent ? "bg-gray-800 dark:bg-gray-700 hover:shadow-gray-500/20" : "bg-[#25D366] hover:bg-[#20b958] hover:shadow-emerald-500/30"}`}
               data-testid="button-order-whatsapp"
             >
               <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
                 <MessageCircle className="w-6 h-6" />
               </div>
               <div className="text-left flex-1">
-                <p className="font-bold text-base">Order via WhatsApp</p>
-                <p className="text-sm text-white/80">Send order directly to shop</p>
+                <p className="font-bold text-base">
+                  {adminSent ? "Order Sent ✓" : "Order via WhatsApp"}
+                </p>
+                <p className="text-sm text-white/80">
+                  {adminSent
+                    ? "Message sent successfully"
+                    : adminWhatsapp
+                      ? `Send ${order.orders && order.orders.length > 1 ? "all orders" : "order"} to Admin`
+                      : "Send order directly to shop"}
+                </p>
               </div>
-              <Phone className="w-5 h-5 text-white/60" />
+              {!adminSent && <Phone className="w-5 h-5 text-white/60" />}
             </button>
           )}
 
