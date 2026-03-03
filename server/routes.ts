@@ -1006,7 +1006,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/api/auth/google", (req, res) => {
     const clientId = process.env.GOOGLE_CLIENT_ID;
-    if (!clientId) return res.status(503).json({ error: "Google login not configured" });
+    if (!clientId) return res.redirect("/login?error=google_not_configured");
     const domain = (process.env.REPLIT_DOMAINS || "").split(",")[0] || req.get("host") || "localhost";
     const callbackUrl = `https://${domain}/api/auth/google/callback`;
     const params = new URLSearchParams({
@@ -1616,10 +1616,31 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.get("/api/vendor/me", vendorMiddleware, async (req, res) => {
-    const v = req.body;
     const vendor = await storage.getVendorByEmail((req as any).vendor.email);
     if (!vendor) return res.status(404).json({ error: "Not found" });
     res.json({ id: vendor.id, name: vendor.name, email: vendor.email, shop_id: vendor.shop_id });
+  });
+
+  app.patch("/api/vendor/profile", vendorMiddleware, async (req, res) => {
+    try {
+      const vendorId = (req as any).vendor.id;
+      const { name, email, password } = req.body;
+      const updates: Record<string, any> = {};
+      if (name && name.trim()) updates.name = name.trim();
+      if (email && email.trim()) {
+        const existing = await storage.getVendorByEmail(email.trim());
+        if (existing && existing.id !== vendorId) return res.status(400).json({ error: "Email already in use by another vendor" });
+        updates.email = email.trim();
+      }
+      if (password) {
+        if (password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters" });
+        updates.password = await bcrypt.hash(password, 10);
+      }
+      if (Object.keys(updates).length === 0) return res.status(400).json({ error: "Nothing to update" });
+      const updated = await storage.updateVendor(vendorId, updates);
+      if (!updated) return res.status(404).json({ error: "Vendor not found" });
+      res.json({ id: updated.id, name: updated.name, email: updated.email, shop_id: updated.shop_id });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
   // ── Vendor Shop Management ───────────────────────────────────────────────────

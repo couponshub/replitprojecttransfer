@@ -9,14 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Store, Package, Ticket, LogOut, Plus, Edit, Trash2, Save,
   Zap, Tag, Phone, MapPin, Globe, Check, ChevronRight,
   WifiOff, Download, Eye, EyeOff, Upload, Loader2, Image, Link,
-  ShoppingBag, User, IndianRupee, Clock, CheckCircle, X, Trophy, Gift, Users
+  ShoppingBag, User, IndianRupee, Clock, CheckCircle, X, Trophy, Gift, Users, KeyRound
 } from "lucide-react";
 
 type VTab = "shop" | "products" | "coupons" | "offline-coupons" | "orders" | "contests";
@@ -83,6 +83,34 @@ export default function VendorDashboard() {
     enabled: authChecked,
     refetchInterval: tab === "orders" ? 30000 : false,
   });
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [accForm, setAccForm] = useState({ name: "", email: "", password: "", confirm: "" });
+  const [accPwVisible, setAccPwVisible] = useState(false);
+
+  const updateProfileMutation = useMutation({
+    mutationFn: (data: { name?: string; email?: string; password?: string }) =>
+      vendorFetch("/api/vendor/profile", { method: "PATCH", body: JSON.stringify(data) }),
+    onSuccess: (updated: any) => {
+      setVendorInfo((prev: any) => ({ ...prev, name: updated.name, email: updated.email }));
+      setAccountOpen(false);
+      setAccForm({ name: "", email: "", password: "", confirm: "" });
+      toast({ title: "Account updated", description: "Your login details have been saved." });
+    },
+    onError: (e: any) => toast({ title: "Update failed", description: e.message, variant: "destructive" }),
+  });
+
+  const handleSaveAccount = () => {
+    if (accForm.password && accForm.password !== accForm.confirm) {
+      toast({ title: "Passwords don't match", variant: "destructive" }); return;
+    }
+    const payload: any = {};
+    if (accForm.name.trim()) payload.name = accForm.name.trim();
+    if (accForm.email.trim()) payload.email = accForm.email.trim();
+    if (accForm.password) payload.password = accForm.password;
+    if (Object.keys(payload).length === 0) { toast({ title: "No changes made" }); return; }
+    updateProfileMutation.mutate(payload);
+  };
+
   const [selectedVendorOrder, setSelectedVendorOrder] = useState<any>(null);
   const [vendorOrderSearch, setVendorOrderSearch] = useState("");
 
@@ -315,15 +343,104 @@ export default function VendorDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex">
+      {/* Account Settings Modal */}
+      <Dialog open={accountOpen} onOpenChange={setAccountOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="w-4 h-4 text-emerald-500" />
+              Account Settings
+            </DialogTitle>
+            <DialogDescription>Update your vendor login email and password.</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 pt-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="acc-name">Name</Label>
+              <Input
+                id="acc-name"
+                value={accForm.name}
+                onChange={e => setAccForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Your name"
+                data-testid="input-vendor-acc-name"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="acc-email">Login Email</Label>
+              <Input
+                id="acc-email"
+                type="email"
+                value={accForm.email}
+                onChange={e => setAccForm(f => ({ ...f, email: e.target.value }))}
+                placeholder="your@email.com"
+                data-testid="input-vendor-acc-email"
+              />
+            </div>
+            <div className="border-t pt-3">
+              <p className="text-xs text-muted-foreground mb-3">Change password — leave blank to keep current</p>
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="acc-pw">New Password</Label>
+                  <div className="relative">
+                    <Input
+                      id="acc-pw"
+                      type={accPwVisible ? "text" : "password"}
+                      value={accForm.password}
+                      onChange={e => setAccForm(f => ({ ...f, password: e.target.value }))}
+                      placeholder="Min 6 characters"
+                      className="pr-10"
+                      data-testid="input-vendor-acc-password"
+                    />
+                    <button type="button" onClick={() => setAccPwVisible(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                      {accPwVisible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="acc-confirm">Confirm Password</Label>
+                  <Input
+                    id="acc-confirm"
+                    type={accPwVisible ? "text" : "password"}
+                    value={accForm.confirm}
+                    onChange={e => setAccForm(f => ({ ...f, confirm: e.target.value }))}
+                    placeholder="Repeat new password"
+                    data-testid="input-vendor-acc-confirm"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setAccountOpen(false)}>Cancel</Button>
+              <Button
+                className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-600 text-white"
+                onClick={handleSaveAccount}
+                disabled={updateProfileMutation.isPending}
+                data-testid="button-vendor-save-account"
+              >
+                {updateProfileMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <aside className="hidden md:flex flex-col w-60 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 py-6 px-4 gap-2">
         <div className="flex items-center gap-2.5 mb-8 px-2">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shrink-0">
             <Store className="w-5 h-5 text-white" />
           </div>
-          <div className="min-w-0">
-            <p className="font-bold text-sm text-gray-900 dark:text-white truncate">Vendor Panel</p>
+          <div className="min-w-0 flex-1">
+            <p className="font-bold text-sm text-gray-900 dark:text-white truncate">{vendorInfo?.name || "Vendor Panel"}</p>
             <p className="text-[11px] text-muted-foreground truncate">{vendorInfo?.email}</p>
           </div>
+          <button
+            onClick={() => { setAccForm({ name: vendorInfo?.name || "", email: vendorInfo?.email || "", password: "", confirm: "" }); setAccountOpen(true); }}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-all shrink-0"
+            title="Edit account"
+            data-testid="button-vendor-account-settings"
+          >
+            <KeyRound className="w-3.5 h-3.5" />
+          </button>
         </div>
         {NAV.map(item => (
           <button

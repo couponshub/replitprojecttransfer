@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,19 @@ export default function Login() {
     location === "/vendor-login" ? "vendor" : location === "/admin-login" ? "admin" : "login"
   );
   const [loginMethod, setLoginMethod] = useState<"email" | "phone">("email");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get("error");
+    if (error === "google_not_configured") {
+      toast({ title: "Google login not enabled", description: "Admin has not configured Google OAuth credentials yet.", variant: "destructive" });
+    } else if (error === "google_token_failed" || error === "google_failed") {
+      toast({ title: "Google login failed", description: "Something went wrong. Please try email/phone login.", variant: "destructive" });
+    } else if (error === "google_denied") {
+      toast({ title: "Google login cancelled", description: "You declined the Google permission request." });
+    }
+    if (error) window.history.replaceState({}, "", window.location.pathname);
+  }, []);
 
   const [loginForm, setLoginForm] = useState({ email: "", phone: "", password: "" });
   const [registerForm, setRegisterForm] = useState({ name: "", email: "", phone: "", password: "" });
