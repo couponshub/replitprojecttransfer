@@ -825,8 +825,13 @@ export class PgStorage implements IStorage {
     return rows[0];
   }
 
-  async createUserCoupon(data: { user_id: string; coupon_id: string; contest_id: string }): Promise<UserCoupon> {
-    const rows = await db.insert(userCoupons).values(data).returning();
+  async createUserCoupon(data: { user_id: string; coupon_id: string; contest_id?: string | null }): Promise<UserCoupon> {
+    const rows = await db.insert(userCoupons).values({
+      user_id: data.user_id,
+      coupon_id: data.coupon_id,
+      contest_id: data.contest_id || null,
+      is_claimed: false,
+    }).returning();
     return rows[0];
   }
 

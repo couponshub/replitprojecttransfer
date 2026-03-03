@@ -2179,12 +2179,47 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  // ── User Coupons (won from contests) ───────────────────────────────────────
+  // ── User Coupons (won from contests or claimed) ──────────────────────────
   app.get("/api/user/coupons", authMiddleware, async (req, res) => {
     try {
       const userId = (req as any).user.id;
       res.json(await storage.getUserCoupons(userId));
     } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/user/coupons/claim", authMiddleware, async (req, res) => {
+    try {
+      const { couponId } = req.body;
+      const userId = (req as any).user.id;
+
+      const coupon = await storage.getCoupon(couponId);
+      if (!coupon) return res.status(404).json({ error: "Coupon not found" });
+
+      // Logic: Only one coupon per store in "cart" (unclaimed/active status)
+      // If user claims a new coupon from same store, clear existing one.
+      const userCouponsList = await storage.getUserCoupons(userId);
+      // We look for any existing user_coupon from this shop that isn't fully "used" (is_claimed=false in our current schema logic for active coupons)
+      const existingFromShop = userCouponsList.find(uc => uc.coupon?.shop_id === coupon.shop_id && !uc.is_claimed);
+
+      if (existingFromShop) {
+        if (existingFromShop.coupon_id !== couponId) {
+          // Delete old coupon from same shop to clear "cart"
+          await db.delete(userCoupons).where(eq(userCoupons.id, existingFromShop.id));
+        } else {
+          return res.json(existingFromShop);
+        }
+      }
+
+      const userCoupon = await storage.createUserCoupon({
+        user_id: userId,
+        coupon_id: couponId,
+        contest_id: null as any
+      });
+
+      res.json(userCoupon);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to claim coupon" });
+    }
   });
 
   app.post("/api/user/coupons/:id/claim", authMiddleware, async (req, res) => {

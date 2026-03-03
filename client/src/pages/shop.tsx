@@ -156,13 +156,18 @@ export default function ShopPage() {
     }
     setClaimingCoupon(coupon.id);
     try {
+      // 1. Claim the coupon in the backend (this will handle the "one coupon per store" logic)
+      await apiRequest("POST", "/api/user/coupons/claim", { couponId: coupon.id });
+      queryClient.invalidateQueries({ queryKey: ["/api/user/coupons"] });
+
+      // 2. Now validate/apply it to the local cart for the UI experience
       const result = await apiRequest("POST", "/api/coupons/validate", { code: coupon.code, shopId: id });
 
       const hasItemsToAdd = result.items_to_add && result.items_to_add.length > 0;
       const hasPickOne = result.pick_one_items && result.pick_one_items.length > 0;
 
       if (!hasItemsToAdd && !hasPickOne && itemCount === 0) {
-        toast({ title: "Add items to cart first, then claim the coupon!", variant: "destructive" });
+        toast({ title: "Coupon saved! Add items to cart to see your discount.", variant: "default" });
         setClaimingCoupon(null);
         return;
       }
