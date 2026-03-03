@@ -467,12 +467,10 @@ export default function CartPage() {
         totalDisc += freeItems.reduce((s, i) => s + (i.originalPrice || 0) * i.quantity, 0);
 
       } else {
-        // percentage, flat, min_order, category_offer — apply to manual items only
-        const restrictCats = coupon.restrict_sub_category?.length ? coupon.restrict_sub_category : null;
-        const manualItems = getManualItems(sid);
-        const base = restrictCats
-          ? manualItems.filter(i => i.sub_category && restrictCats.includes(i.sub_category)).reduce((s, i) => s + i.price * i.quantity, 0)
-          : manualItems.reduce((s, i) => s + i.price * i.quantity, 0);
+        // percentage, flat, min_order, category_offer — only apply to items that have this couponCode
+        // We do NOT apply to manual items anymore.
+        const targetItems = offerItems;
+        const base = targetItems.reduce((s, i) => s + i.price * i.quantity, 0);
 
         if (coupon.type === "percentage") totalDisc += base * parseFloat(coupon.value) / 100;
         else if (coupon.type === "flat") totalDisc += Math.min(parseFloat(coupon.value), base);
@@ -527,25 +525,12 @@ export default function CartPage() {
         return;
       }
 
-      // ── NEW LOGIC: For non-combo coupons that should have isolated items ──
-      // If it's a percentage/flat/min_order/category_offer, we MOVE matching items 
-      // from "manual" to "offer" by giving them the couponCode.
-      if (["percentage", "flat", "min_order", "category_offer"].includes(result.type)) {
-        const restrictCats = result.restrict_sub_category?.length ? result.restrict_sub_category : null;
-        
-        setItems(prev => {
-          return prev.map(item => {
-            if (item.shop_id === shopId && !item.couponCode) {
-              const catMatch = !restrictCats || (item.sub_category && restrictCats.includes(item.sub_category));
-              if (catMatch) {
-                return { ...item, couponCode: result.code };
-              }
-            }
-            return item;
-          });
-        });
-      }
-
+      // ── NEW LOGIC: Percentage/Flat coupons ONLY apply to their own attached items ──
+      // We do NOT move manual items into the offer box anymore.
+      // If the user wants a discount on manual items, they must use a different coupon type
+      // or we must define the coupon as "applying to manual items" which would mix them.
+      // The user specifically asked: "manual items manual gaane undali, coupon lodhi separate box lo undali"
+      
       applyCoupon(shopId, {
         code: result.code, type: result.type, value: result.value, 
         items_to_add: result.items_to_add, 

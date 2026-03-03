@@ -104,19 +104,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       delete newCoupons[shopId];
       return newCoupons;
     });
-    setItems(prev => {
-      return prev.reduce((acc, item) => {
-        if (item.shop_id === shopId && item.couponCode === code) {
-          // If it's a free item or combo item added by the coupon, remove it entirely
-          if (item.isFreeItem || item.isComboItem) return acc;
-          // If it's a regular item that was moved into the offer box, move it back to manual
-          acc.push({ ...item, couponCode: undefined });
-        } else {
-          acc.push(item);
-        }
-        return acc;
-      }, [] as CartItem[]);
-    });
+    setItems(prev => prev.filter(i => !(i.shop_id === shopId && i.couponCode === code)));
   };
 
   const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
