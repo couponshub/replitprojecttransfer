@@ -1299,19 +1299,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const shop = coupon.shop_id ? await storage.getShop(coupon.shop_id) : null;
       const shopName = shop?.name || "Shop";
 
-      // Attached products (optional, any coupon type)
+      // Attached products / combo items (any coupon type)
       const cpItems = await storage.getCouponProducts(coupon.id);
       if (cpItems.length > 0) {
         for (const cp of cpItems) {
           const qty = Math.max(1, parseInt(String((cp as any).quantity || "1")));
+          const realProduct = await storage.getProduct(cp.product_id || "");
+          const originalPrice = realProduct ? parseFloat(String(realProduct.price || "0")) : 0;
           for (let q = 0; q < qty; q++) {
             items_to_add.push({
               id: cp.product?.id || cp.product_id || "",
-              name: cp.product?.name || "Product",
+              name: cp.product?.name || realProduct?.name || "Product",
               price: parseFloat(cp.custom_price),
-              shop_id: cp.product?.shop_id || coupon.shop_id || "",
+              originalPrice,
+              shop_id: cp.product?.shop_id || realProduct?.shop_id || coupon.shop_id || "",
               shopName,
-            });
+              isComboItem: coupon.type === "combo",
+            } as any);
           }
         }
       }

@@ -49,6 +49,7 @@ const TYPE_COLORS: Record<string, { gradient: string; icon: string }> = {
   flash:           { gradient: "from-orange-500 to-red-500", icon: "⚡" },
   category_offer:  { gradient: "from-violet-600 to-indigo-500", icon: "🏷️" },
   min_order:       { gradient: "from-teal-500 to-cyan-600", icon: "🛒" },
+  combo:           { gradient: "from-orange-500 to-amber-500", icon: "📦" },
 };
 
 function CouponBenefit({ coupon }: { coupon: ShopCoupon }) {
@@ -67,6 +68,7 @@ function CouponBenefit({ coupon }: { coupon: ShopCoupon }) {
     if (sub === "flat") return <span className="text-violet-600 dark:text-violet-400 font-bold">₹{coupon.value} off (category)</span>;
     if (sub === "free_item") return <span className="text-violet-600 dark:text-violet-400 font-bold">Free item (category)</span>;
   }
+  if (coupon.type === "combo") return <span className="text-orange-600 dark:text-orange-400 font-bold">Combo items added at special price</span>;
   return <span className="text-blue-600 dark:text-blue-400 font-bold">Special offer</span>;
 }
 
@@ -185,8 +187,8 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
         <span className="text-xs text-muted-foreground shrink-0">{shopItems.reduce((s, i) => s + i.quantity, 0)} items</span>
       </div>
 
-      {/* Items — show regular/buy items first, then free items below */}
-      {shopItems.filter(i => !i.isFreeItem).map(item => (
+      {/* Items — regular items first, then combo items, then free items */}
+      {shopItems.filter(i => !i.isFreeItem && !i.isComboItem).map(item => (
         <Card key={item.id} className="rounded-2xl border-0 shadow-md" data-testid={`card-cart-item-${item.id}`}>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -216,6 +218,74 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
           </CardContent>
         </Card>
       ))}
+      {/* Combo Offer items — shown in a special section with original price + savings */}
+      {shopItems.filter(i => i.isComboItem).length > 0 && (
+        <div className="flex flex-col gap-2 pl-4 border-l-2 border-orange-300 dark:border-orange-700">
+          <p className="text-[10px] font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider flex items-center gap-1">
+            <Sparkles className="w-3 h-3" /> Combo Offer Items
+          </p>
+          {shopItems.filter(i => i.isComboItem).map(item => {
+            const saving = item.originalPrice && item.originalPrice > item.price
+              ? (item.originalPrice - item.price) * item.quantity
+              : 0;
+            return (
+              <Card key={`${item.id}-combo`} className="rounded-2xl border-0 shadow-md ring-2 ring-orange-300 dark:ring-orange-700 ring-offset-1" data-testid={`card-combo-item-${item.id}`}>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0 bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900/40 dark:to-orange-800/40">
+                      <span className="text-xl">{item.name[0]}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold text-gray-900 dark:text-white text-sm truncate">{item.name}</h3>
+                        <Badge className="bg-orange-500 text-white border-0 text-[10px] px-1.5 py-0">COMBO</Badge>
+                      </div>
+                      {item.sub_category && <p className="text-[10px] text-muted-foreground">{item.sub_category}</p>}
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        {item.originalPrice && item.originalPrice > item.price && (
+                          <span className="text-xs line-through text-muted-foreground">₹{item.originalPrice.toLocaleString()}</span>
+                        )}
+                        <span className="font-bold text-orange-600 dark:text-orange-400 text-sm">₹{item.price.toLocaleString()}</span>
+                        <span className="text-xs text-muted-foreground">× {item.quantity} = ₹{(item.price * item.quantity).toLocaleString()}</span>
+                        {saving > 0 && (
+                          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded">
+                            Save ₹{saving.toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="w-6 text-center font-medium text-sm text-muted-foreground">×{item.quantity}</span>
+                      <button onClick={() => onRemoveItem(item.id)} className="w-7 h-7 rounded-full text-destructive flex items-center justify-center ml-1" data-testid={`button-remove-combo-${item.id}`}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+          {(() => {
+            const comboItems = shopItems.filter(i => i.isComboItem);
+            const totalOriginal = comboItems.reduce((s, i) => s + ((i.originalPrice || i.price) * i.quantity), 0);
+            const totalCombo = comboItems.reduce((s, i) => s + (i.price * i.quantity), 0);
+            const totalSaving = totalOriginal - totalCombo;
+            if (totalSaving <= 0) return null;
+            return (
+              <div className="bg-orange-50 dark:bg-orange-950/30 rounded-xl p-3 flex justify-between items-center">
+                <div>
+                  <p className="text-[10px] font-semibold text-orange-700 dark:text-orange-300">{comboItems.length} item{comboItems.length !== 1 ? "s" : ""} at combo price</p>
+                  <p className="text-[10px] text-muted-foreground">MRP: <span className="line-through">₹{totalOriginal.toLocaleString()}</span></p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-black text-orange-700 dark:text-orange-300">₹{totalCombo.toLocaleString()}</p>
+                  <p className="text-[10px] font-bold text-emerald-600">You save ₹{totalSaving.toLocaleString()}</p>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
       {/* Free items from BOGO/coupon — shown separately below with FREE badge */}
       {shopItems.filter(i => i.isFreeItem).length > 0 && (
         <div className="flex flex-col gap-2 pl-4 border-l-2 border-emerald-300 dark:border-emerald-700">
@@ -491,7 +561,7 @@ export default function CartPage() {
       const newCoupon: AppliedCoupon = { code: result.code, type: result.type, value: result.value, items_to_add: result.items_to_add, restrict_sub_category: result.restrict_sub_category ?? null, bogo_buy_product_name: result.bogo_buy_product_name ?? null, bogo_get_product_name: result.bogo_get_product_name ?? null, category_offer_subtype: result.category_offer_subtype ?? null };
       setAppliedCoupons(prev => ({ ...prev, [shopId]: [...(prev[shopId] || []), newCoupon] }));
       if (result.items_to_add?.length > 0) {
-        addItems(result.items_to_add.map((item: any) => ({ id: item.id, name: item.name, price: item.price, shop_id: item.shop_id, shopName: item.shopName, isFreeItem: item.isFreeItem ?? false, originalPrice: item.originalPrice ?? item.price })));
+        addItems(result.items_to_add.map((item: any) => ({ id: item.id, name: item.name, price: item.price, shop_id: item.shop_id, shopName: item.shopName, isFreeItem: item.isFreeItem ?? false, isComboItem: item.isComboItem ?? false, originalPrice: item.originalPrice })));
       }
       const shopName = items.find(i => i.shop_id === shopId)?.shopName || "shop";
       toast({ title: "🎉 Coupon applied!", description: `${result.code} applied to ${shopName}` });

@@ -17,7 +17,7 @@ A full-stack marketplace for Eluru, AP — discover coupons, offline deals, and 
 - `categories` - Shop categories (Food, Fashion, Electronics, etc.)
 - `shops` - Marketplace shops with premium/featured flags, listing_type (products/services/both), business_hours (format: HH:MM-HH:MM), show_on_radar (boolean, default true), marker_color (text, optional custom map marker color)
 - `products` - Products within shops (is_active toggle supported)
-- `coupons` - Discount coupons (percentage, flat, free_item, bogo, flash, category_offer types) with is_active + featured flags; BOGO supports bogo_buy_product_id, bogo_buy_qty, bogo_get_product_id, bogo_get_qty; category_offer uses category_offer_subtype (percentage/flat/free_item) + restrict_sub_category[]
+- `coupons` - Discount coupons (percentage, flat, free_item, bogo, flash, category_offer, min_order, combo types) with is_active + featured flags; BOGO supports bogo_buy_product_id, bogo_buy_qty, bogo_get_product_id, bogo_get_qty; category_offer uses category_offer_subtype (percentage/flat/free_item) + restrict_sub_category[]; min_order uses min_order_amount + category_offer_subtype (percentage/flat); combo uses coupon_products table with custom_price per item (originalPrice fetched from product for cart savings display)
 - `orders` - Customer orders (pending, confirmed, completed, cancelled); includes `customer_location` (optional GPS "lat,lng")
 - `order_items` - Line items within orders
 - `vendors` - Vendor login accounts (one per shop, separate JWT auth via VENDOR_SECRET)

@@ -9,6 +9,7 @@ export interface CartItem {
   shopName: string;
   quantity: number;
   isFreeItem?: boolean;
+  isComboItem?: boolean;
   originalPrice?: number;
   sub_category?: string;
 }
@@ -35,8 +36,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const shopId = items.length > 0 ? items[0].shop_id : null;
   const uniqueShopIds = Array.from(new Set(items.map(i => i.shop_id)));
 
-  const matchItem = (a: { id: string; shop_id: string; isFreeItem?: boolean }, b: { id: string; shop_id: string; isFreeItem?: boolean }) =>
-    a.id === b.id && a.shop_id === b.shop_id && !!a.isFreeItem === !!b.isFreeItem;
+  const matchItem = (a: { id: string; shop_id: string; isFreeItem?: boolean; isComboItem?: boolean }, b: { id: string; shop_id: string; isFreeItem?: boolean; isComboItem?: boolean }) =>
+    a.id === b.id && a.shop_id === b.shop_id && !!a.isFreeItem === !!b.isFreeItem && !!a.isComboItem === !!b.isComboItem;
 
   const addItem = (item: Omit<CartItem, "quantity">) => {
     setItems(prev => {

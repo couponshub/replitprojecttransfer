@@ -1949,6 +1949,7 @@ export default function AdminDashboard() {
                           { value: "bogo", label: "Buy 1 Get 1", desc: "Buy item, get free item", icon: "🔄" },
                           { value: "category_offer", label: "Category Offer", desc: "Offer on selected categories", icon: "🏷️" },
                           { value: "min_order", label: "Spend & Save", desc: "Min cart value → get discount", icon: "🛒" },
+                          { value: "combo", label: "Combo Offer", desc: "Bundle items at combo price", icon: "📦" },
                         ] as const).map(opt => {
                           const active = (formData.type || "percentage") === opt.value;
                           return (
@@ -2373,7 +2374,94 @@ export default function AdminDashboard() {
                       />
                     </div>
 
-                    {/* Optional Products Section — available for ALL coupon types */}
+                    {/* Combo Offer form — admin */}
+                    {formData.type === "combo" && (
+                      <div className="flex flex-col gap-3 p-3 rounded-xl border-2 border-orange-200 dark:border-orange-800 bg-orange-50/40 dark:bg-orange-950/20">
+                        <p className="text-xs font-bold text-orange-700 dark:text-orange-400">📦 Combo Offer Setup</p>
+                        <p className="text-[10px] text-muted-foreground -mt-1">Products select cheyyi, combo price set cheyyi. Customer claim chestunte anni items cart lo add avutayi.</p>
+                        {!formData.shop_id && <p className="text-xs text-muted-foreground italic">Select a shop above to add combo products</p>}
+                        {formData.shop_id && (
+                          <>
+                            <Input placeholder="Search products..." value={couponProdSearch} onChange={e => setCouponProdSearch(e.target.value)} className="rounded-xl h-8 text-xs" data-testid="input-admin-combo-search" />
+                            <div className="flex flex-col gap-1.5 max-h-52 overflow-y-auto pr-1">
+                              {products.filter(p => p.shop_id === formData.shop_id && (!couponProdSearch || p.name.toLowerCase().includes(couponProdSearch.toLowerCase()))).map(p => {
+                                const existingIdx = bundleItems.findIndex(b => b.product_id === p.id);
+                                const inCombo = existingIdx !== -1;
+                                const comboItem = bundleItems[existingIdx];
+                                const saving = inCombo && comboItem.custom_price && p.price
+                                  ? (parseFloat(String(p.price)) - parseFloat(comboItem.custom_price)) * (comboItem.quantity || 1)
+                                  : 0;
+                                return (
+                                  <div key={p.id} className={`flex flex-col gap-2 p-2.5 rounded-xl border-2 transition-all ${inCombo ? "border-orange-400 bg-orange-50 dark:bg-orange-950/30" : "border-gray-200 dark:border-gray-700"}`} data-testid={`admin-combo-item-${p.id}`}>
+                                    <div className="flex items-center justify-between">
+                                      <div>
+                                        <p className="text-xs font-semibold text-gray-900 dark:text-white">{p.name}</p>
+                                        <p className="text-[10px] text-muted-foreground">MRP: <span className="line-through">₹{Number(p.price).toLocaleString()}</span></p>
+                                      </div>
+                                      {!inCombo ? (
+                                        <button type="button" onClick={() => setBundleItems(prev => [...prev, { product_id: p.id, custom_price: "", name: p.name, quantity: 1 }])}
+                                          className="text-[10px] px-2.5 py-1 rounded-lg border border-orange-400 text-orange-600 hover:bg-orange-100 font-semibold" data-testid={`admin-combo-add-${p.id}`}>+ Add</button>
+                                      ) : (
+                                        <button type="button" onClick={() => setBundleItems(prev => prev.filter(b => b.product_id !== p.id))}
+                                          className="text-[10px] px-2 py-1 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 font-semibold" data-testid={`admin-combo-remove-${p.id}`}>Remove</button>
+                                      )}
+                                    </div>
+                                    {inCombo && (
+                                      <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          <button type="button" onClick={() => setBundleItems(prev => prev.map((b, i) => i === existingIdx ? { ...b, quantity: Math.max(1, (b.quantity || 1) - 1) } : b))}
+                                            className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600 text-xs flex items-center justify-center" data-testid={`admin-combo-qty-dec-${p.id}`}>-</button>
+                                          <span className="text-xs font-bold w-5 text-center">{comboItem.quantity || 1}</span>
+                                          <button type="button" onClick={() => setBundleItems(prev => prev.map((b, i) => i === existingIdx ? { ...b, quantity: (b.quantity || 1) + 1 } : b))}
+                                            className="w-6 h-6 rounded border border-gray-300 dark:border-gray-600 text-xs flex items-center justify-center" data-testid={`admin-combo-qty-inc-${p.id}`}>+</button>
+                                        </div>
+                                        <div className="relative flex-1">
+                                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground font-bold">₹</span>
+                                          <input type="number" min="0" placeholder="Combo price" value={comboItem.custom_price}
+                                            onChange={e => setBundleItems(prev => prev.map((b, i) => i === existingIdx ? { ...b, custom_price: e.target.value } : b))}
+                                            className="w-full text-xs pl-5 pr-2 py-1 rounded-lg border border-orange-300 bg-white dark:bg-gray-900 focus:outline-none focus:ring-1 focus:ring-orange-400"
+                                            data-testid={`admin-combo-price-${p.id}`} />
+                                        </div>
+                                        {saving > 0 && (
+                                          <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded whitespace-nowrap">-₹{saving.toFixed(0)}</span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            {bundleItems.length > 0 && (
+                              <div className="bg-orange-100 dark:bg-orange-900/30 rounded-xl p-3">
+                                {(() => {
+                                  const totalReal = bundleItems.reduce((s, b) => {
+                                    const prod = products.find(p => p.id === b.product_id);
+                                    return s + (parseFloat(String(prod?.price || "0")) * (b.quantity || 1));
+                                  }, 0);
+                                  const totalCombo = bundleItems.reduce((s, b) => s + (parseFloat(b.custom_price || "0") * (b.quantity || 1)), 0);
+                                  const saved = totalReal - totalCombo;
+                                  return (
+                                    <div className="flex justify-between items-center">
+                                      <div>
+                                        <p className="text-[10px] text-orange-700 dark:text-orange-300 font-semibold">{bundleItems.length} item{bundleItems.length !== 1 ? "s" : ""} in combo</p>
+                                        <p className="text-[10px] text-muted-foreground">MRP: <span className="line-through">₹{totalReal.toLocaleString()}</span></p>
+                                      </div>
+                                      <div className="text-right">
+                                        <p className="text-sm font-black text-orange-700 dark:text-orange-300">Combo: ₹{totalCombo.toLocaleString()}</p>
+                                        {saved > 0 && <p className="text-[10px] text-emerald-600 font-bold">Save ₹{saved.toLocaleString()}</p>}
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Optional Products Section — available for non-combo coupon types */}
+                    {formData.type !== "combo" && (
                     <div className="rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 p-4 flex flex-col gap-3">
                       <div className="flex items-center justify-between">
                         <div>
@@ -2466,6 +2554,7 @@ export default function AdminDashboard() {
                         </>
                       )}
                     </div>
+                    )}
 
                     {/* Expiry Date */}
                     <div>
