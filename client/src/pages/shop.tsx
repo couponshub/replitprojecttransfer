@@ -74,7 +74,10 @@ function isShopOpen(hours: string | null | undefined): boolean {
 export default function ShopPage() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
-  const { addItem, items, updateQuantity, itemCount, addItems, removeFreeItemsForShop, applyCoupon } = useCart();
+  const { 
+    addItem, items, updateQuantity, itemCount, addItems, 
+    removeFreeItemsForShop, applyCoupon, appliedCoupons 
+  } = useCart();
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
