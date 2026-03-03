@@ -131,11 +131,21 @@ export default function ShopPage() {
     if (hasItemsToAdd) {
       addItems(result.items_to_add.map((item: any) => ({
         id: item.id, name: item.name, price: item.price,
-        shop_id: item.shop_id, shopName: item.shopName, isFreeItem: item.isFreeItem ?? false,
+        shop_id: item.shop_id, shopName: item.shopName,
+        isFreeItem: item.isFreeItem ?? false,
+        isComboItem: item.isComboItem ?? false,
+        couponCode: result.code,
+        originalPrice: item.originalPrice,
+        sub_category: item.sub_category,
       })));
     }
     if (chosenFreeItem) {
-      addItems([{ id: chosenFreeItem.id, name: chosenFreeItem.name, price: 0, shop_id: chosenFreeItem.shop_id, shopName: chosenFreeItem.shopName || shop?.name || "", isFreeItem: true }]);
+      addItems([{
+        id: chosenFreeItem.id, name: chosenFreeItem.name, price: 0,
+        shop_id: chosenFreeItem.shop_id, shopName: chosenFreeItem.shopName || shop?.name || "",
+        isFreeItem: true, couponCode: result.code,
+        originalPrice: chosenFreeItem.price || chosenFreeItem.originalPrice,
+      }]);
     }
     const parts: string[] = [];
     if (result.type === "percentage" && parseFloat(result.value) > 0) parts.push(`${result.value}% off`);
