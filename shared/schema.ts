@@ -11,7 +11,7 @@ export const orderStatusEnum = pgEnum("order_status", ["pending", "confirmed", "
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
-  email: text("email").notNull().unique(),
+  email: text("email").unique(),
   phone: text("phone"),
   address: text("address"),
   password: text("password").notNull(),

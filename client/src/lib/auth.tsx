@@ -5,7 +5,7 @@ import { queryClient } from "./queryClient";
 interface AuthUser {
   id: string;
   name: string;
-  email: string;
+  email?: string | null;
   phone?: string;
   address?: string;
   role: "admin" | "user";

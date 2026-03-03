@@ -955,21 +955,61 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     console.log("Vendor accounts seeded!");
   }
 
+  // OTP store — phone -> { otp, expiresAt }
+  const otpStore = new Map<string, { otp: string; expiresAt: number }>();
+
   // Auth routes
+  app.post("/api/auth/send-otp", async (req, res) => {
+    try {
+      const { phone } = req.body;
+      if (!phone || String(phone).replace(/\D/g, "").length < 10) return res.status(400).json({ error: "Valid 10-digit mobile number required" });
+      const digits = String(phone).replace(/\D/g, "").slice(-10);
+      const normalized = `+91${digits}`;
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      otpStore.set(normalized, { otp, expiresAt: Date.now() + 10 * 60 * 1000 });
+      console.log(`[OTP] ${normalized} → ${otp}`);
+      res.json({ success: true, otp, message: "OTP sent successfully" });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to send OTP" });
+    }
+  });
+
+  app.post("/api/auth/login-otp", async (req, res) => {
+    try {
+      const { phone, otp } = req.body;
+      if (!phone || !otp) return res.status(400).json({ error: "Mobile number and OTP are required" });
+      const digits = String(phone).replace(/\D/g, "").slice(-10);
+      const normalized = `+91${digits}`;
+      const stored = otpStore.get(normalized);
+      if (!stored) return res.status(400).json({ error: "OTP not sent. Please request OTP first." });
+      if (Date.now() > stored.expiresAt) { otpStore.delete(normalized); return res.status(400).json({ error: "OTP expired. Please request a new one." }); }
+      if (stored.otp !== String(otp)) return res.status(400).json({ error: "Invalid OTP. Please try again." });
+      const user = await storage.getUserByPhone(normalized);
+      if (!user) return res.status(404).json({ error: "No account found with this mobile number. Please register first." });
+      otpStore.delete(normalized);
+      const token = generateToken({ id: user.id, email: user.email || normalized, role: user.role });
+      res.cookie("token", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
+      res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone } });
+    } catch (err) {
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { email, phone, password } = req.body;
-      if ((!email && !phone) || !password) return res.status(400).json({ error: "Email or phone and password required" });
+      if ((!email && !phone) || !password) return res.status(400).json({ error: "Credentials required" });
       let user;
       if (phone) {
-        user = await storage.getUserByPhone(phone);
+        const digits = String(phone).replace(/\D/g, "").slice(-10);
+        user = await storage.getUserByPhone(`+91${digits}`);
       } else {
         user = await storage.getUserByEmail(email);
       }
       if (!user) return res.status(401).json({ error: "Invalid credentials" });
       const valid = await bcrypt.compare(password, user.password);
       if (!valid) return res.status(401).json({ error: "Invalid credentials" });
-      const token = generateToken({ id: user.id, email: user.email, role: user.role });
+      const token = generateToken({ id: user.id, email: user.email || user.phone || "", role: user.role });
       res.cookie("token", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
       res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone } });
     } catch (err) {
@@ -979,15 +1019,27 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/auth/register", async (req, res) => {
     try {
-      const { name, email, phone, password } = req.body;
-      if (!name || !email || !password) return res.status(400).json({ error: "All fields required" });
-      const existing = await storage.getUserByEmail(email);
-      if (existing) return res.status(400).json({ error: "Email already registered" });
+      const { name, email, phone, password, otp } = req.body;
+      if (!name || !phone || !password) return res.status(400).json({ error: "Name, mobile number, and password are required" });
+      if (password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters" });
+      const digits = String(phone).replace(/\D/g, "").slice(-10);
+      const normalized = `+91${digits}`;
+      const stored = otpStore.get(normalized);
+      if (!stored) return res.status(400).json({ error: "Phone not verified. Please send OTP first." });
+      if (Date.now() > stored.expiresAt) { otpStore.delete(normalized); return res.status(400).json({ error: "OTP expired. Please request a new one." }); }
+      if (stored.otp !== String(otp)) return res.status(400).json({ error: "Invalid OTP. Please try again." });
+      const existingPhone = await storage.getUserByPhone(normalized);
+      if (existingPhone) return res.status(400).json({ error: "Mobile number already registered. Please login." });
+      if (email) {
+        const existingEmail = await storage.getUserByEmail(email);
+        if (existingEmail) return res.status(400).json({ error: "Email already registered" });
+      }
       const hashed = await bcrypt.hash(password, 10);
-      const user = await storage.createUser({ name, email, phone: phone || null, password: hashed, role: "user" });
-      const token = generateToken({ id: user.id, email: user.email, role: user.role });
+      const user = await storage.createUser({ name, email: email || null, phone: normalized, password: hashed, role: "user" });
+      otpStore.delete(normalized);
+      const token = generateToken({ id: user.id, email: user.email || normalized, role: user.role });
       res.cookie("token", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
-      res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+      res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone } });
     } catch (err) {
       res.status(500).json({ error: "Registration failed" });
     }
