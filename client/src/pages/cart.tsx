@@ -383,20 +383,31 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
                   {couponLoading ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><Zap className="w-3 h-3 mr-1" />Apply</>}
                 </Button>
               </div>
-              <AvailableShopCoupons shopId={shopId} shopTotal={shopSubtotal} appliedCodes={coupons.map(c => c.code)} onApply={code => { onCouponCodeChange(code); onApplyCoupon(code); }} />
+              <AvailableShopCoupons shopId={shopId} shopTotal={shopSubtotal} appliedCodes={coupons.map(c => c.code)} onApply={onApplyCoupon} />
             </>
           )}
+
           {shopDiscount > 0 && (
-            <p className="text-xs text-emerald-600 font-semibold mt-2 text-center">Total savings: ₹{shopDiscount.toFixed(0)}</p>
+            <div className="mt-3 flex items-center justify-between px-3 py-2 bg-emerald-50 dark:bg-emerald-950/20 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-xs font-medium text-emerald-800 dark:text-emerald-400">Total Store Savings</span>
+              </div>
+              <span className="text-sm font-bold text-emerald-600">₹{shopDiscount.toLocaleString()}</span>
+            </div>
           )}
         </CardContent>
       </Card>
-
-      {/* Per-store subtotal bar */}
-      <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
-        <span className="text-sm text-muted-foreground font-medium">{shopName} subtotal</span>
-        <div className="text-right">
-          {shopDiscount > 0 && <p className="text-xs line-through text-muted-foreground">₹{shopSubtotal.toLocaleString()}</p>}
+      
+      {/* Store Subtotal Summary */}
+      <div className="px-1 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-muted-foreground">Store Subtotal</p>
+          <Separator className="w-8" />
+          <p className="text-xs font-bold text-gray-900 dark:text-white">₹{shopSubtotal.toLocaleString()}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-muted-foreground">Final</p>
           <p className="font-bold text-gray-900 dark:text-white">₹{(shopSubtotal - shopDiscount).toLocaleString()}</p>
         </div>
       </div>
@@ -406,11 +417,10 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
 
 export default function CartPage() {
   const [, navigate] = useLocation();
-  const { items, removeItem, updateQuantity, clearCart, total, addItems, uniqueShopIds } = useCart();
+  const { items, removeItem, updateQuantity, clearCart, total, addItems, uniqueShopIds, appliedCoupons: cartCoupons, removeCoupon, applyCoupon } = useCart();
   const { isAuthenticated, user, updateProfile } = useAuth();
   const { toast } = useToast();
 
-  const [appliedCoupons, setAppliedCoupons] = useState<Record<string, AppliedCoupon[]>>({});
   const [couponCodes, setCouponCodes] = useState<Record<string, string>>({});
   const [couponLoadingMap, setCouponLoadingMap] = useState<Record<string, boolean>>({});
   const [pickOneDialog, setPickOneDialog] = useState<{ open: boolean; items: any[]; shopId: string; couponData: any } | null>(null);
@@ -434,30 +444,12 @@ export default function CartPage() {
     );
   }, []);
 
-  useEffect(() => {
-    const raw = sessionStorage.getItem("pendingCoupon");
-    if (!raw) return;
-    try {
-      const coupon = JSON.parse(raw);
-      sessionStorage.removeItem("pendingCoupon");
-      if (coupon.shop_id) {
-        const entry: AppliedCoupon = { code: coupon.code, type: coupon.type, value: coupon.value, items_to_add: coupon.items_to_add };
-        setAppliedCoupons(prev => {
-          const existing = prev[coupon.shop_id] || [];
-          if (existing.find(c => c.code === coupon.code)) return prev;
-          return { ...prev, [coupon.shop_id]: [...existing, entry] };
-        });
-        setCouponCodes(prev => ({ ...prev, [coupon.shop_id]: "" }));
-      }
-    } catch {}
-  }, []);
-
   const shopGroups = uniqueShopIds.map(sid => ({ shopId: sid, items: items.filter(i => i.shop_id === sid) }));
 
   const getShopSubtotal = (sid: string) => items.filter(i => i.shop_id === sid).reduce((s, i) => s + i.price * i.quantity, 0);
 
   const getShopDiscount = (sid: string): number => {
-    const coupons = appliedCoupons[sid] || [];
+    const coupons = cartCoupons[sid] || [];
     if (coupons.length === 0) return 0;
     const shopItems = items.filter(i => i.shop_id === sid);
     let totalDisc = 0;
@@ -497,7 +489,7 @@ export default function CartPage() {
     return totalDisc;
   };
 
-  const getShopDistance = (sid: string): number | null => {
+  const getShopDistance = (sid: string) => {
     const d = shopDataMap[sid];
     if (!userGPS || !d?.latitude || !d?.longitude) return null;
     return haversineKm(userGPS.lat, userGPS.lon, parseFloat(d.latitude), parseFloat(d.longitude));
@@ -516,7 +508,7 @@ export default function CartPage() {
   const validateCoupon = async (shopId: string, codeOverride?: string) => {
     const code = (codeOverride || couponCodes[shopId] || "").trim().toUpperCase();
     if (!code) return;
-    const existing = appliedCoupons[shopId] || [];
+    const existing = cartCoupons[shopId] || [];
     if (existing.find(c => c.code === code)) {
       toast({ title: "Coupon already applied", variant: "destructive" }); return;
     }
@@ -536,8 +528,14 @@ export default function CartPage() {
         return;
       }
 
-      const newCoupon: AppliedCoupon = { code: result.code, type: result.type, value: result.value, items_to_add: result.items_to_add, restrict_sub_category: result.restrict_sub_category ?? null, bogo_buy_product_name: result.bogo_buy_product_name ?? null, bogo_get_product_name: result.bogo_get_product_name ?? null, category_offer_subtype: result.category_offer_subtype ?? null };
-      setAppliedCoupons(prev => ({ ...prev, [shopId]: [...(prev[shopId] || []), newCoupon] }));
+      applyCoupon(shopId, {
+        code: result.code, type: result.type, value: result.value, 
+        items_to_add: result.items_to_add, 
+        restrict_sub_category: result.restrict_sub_category ?? null, 
+        bogo_buy_product_name: result.bogo_buy_product_name ?? null, 
+        bogo_get_product_name: result.bogo_get_product_name ?? null, 
+        category_offer_subtype: result.category_offer_subtype ?? null 
+      });
       if (result.items_to_add?.length > 0) {
         addItems(result.items_to_add.map((item: any) => ({ id: item.id, name: item.name, price: item.price, shop_id: item.shop_id, shopName: item.shopName, isFreeItem: item.isFreeItem ?? false, isComboItem: item.isComboItem ?? false, originalPrice: item.originalPrice })));
       }
@@ -554,19 +552,26 @@ export default function CartPage() {
     if (!pickOneDialog) return;
     const { shopId, couponData } = pickOneDialog;
     const freeCartItem = { id: chosenItem.id, name: chosenItem.name, price: 0, originalPrice: chosenItem.price, shop_id: chosenItem.shop_id, shopName: couponData.shopName || items.find(i => i.shop_id === shopId)?.shopName || "", isFreeItem: true };
-    const newCoupon: AppliedCoupon = { code: couponData.code, type: couponData.type, value: couponData.value, items_to_add: [freeCartItem], restrict_sub_category: couponData.restrict_sub_category ?? null, bogo_buy_product_name: null, bogo_get_product_name: null, category_offer_subtype: couponData.category_offer_subtype ?? null };
-    setAppliedCoupons(prev => ({ ...prev, [shopId]: [...(prev[shopId] || []), newCoupon] }));
+    applyCoupon(shopId, {
+      code: couponData.code, type: couponData.type, value: couponData.value, 
+      items_to_add: [freeCartItem], 
+      restrict_sub_category: couponData.restrict_sub_category ?? null, 
+      bogo_buy_product_name: null, bogo_get_product_name: null, 
+      category_offer_subtype: couponData.category_offer_subtype ?? null 
+    });
     addItems([freeCartItem]);
     setPickOneDialog(null);
     const shopName = items.find(i => i.shop_id === shopId)?.shopName || "shop";
     toast({ title: "🎉 Free item added!", description: `${chosenItem.name} added free to your cart!` });
   };
 
-  const removeCoupon = (shopId: string, code: string) => {
-    const shopCoupons = appliedCoupons[shopId] || [];
+  const handleRemoveCoupon = (shopId: string, code: string) => {
+    const shopCoupons = cartCoupons[shopId] || [];
     const coupon = shopCoupons.find(c => c.code === code);
-    if (coupon?.items_to_add?.length) coupon.items_to_add.forEach((i: any) => removeItem(i.id));
-    setAppliedCoupons(prev => ({ ...prev, [shopId]: (prev[shopId] || []).filter(c => c.code !== code) }));
+    if (coupon?.items_to_add?.length) {
+      coupon.items_to_add.forEach((i: any) => removeItem(i.id));
+    }
+    removeCoupon(shopId, code);
   };
 
   const doPlaceOrders = async () => {
@@ -583,10 +588,10 @@ export default function CartPage() {
         const order = await apiRequest("POST", "/api/orders", {
           items: shopItems.map(i => ({ product_id: i.id, product_name: i.name, quantity: i.quantity, price: i.price.toString(), is_free_item: i.isFreeItem || false })),
           total_amount: sub.toString(), discount_amount: disc.toString(), final_amount: final.toString(),
-          shop_id: shopId, shop_name: shopItems[0]?.shopName, coupon_code: (appliedCoupons[shopId] || [])[0]?.code || null,
+          shop_id: shopId, shop_name: shopItems[0]?.shopName, coupon_code: (cartCoupons[shopId] || [])[0]?.code || null,
           customer_location: (shareLocation && userGPS) ? `${userGPS.lat},${userGPS.lon}` : null,
         });
-        const shopCouponCodes = (appliedCoupons[shopId] || []).map(c => c.code).join(", ");
+        const shopCouponCodes = (cartCoupons[shopId] || []).map(c => c.code).join(", ");
         placedOrders.push({
           orderId: order?.id, shopId, shopName: shopItems[0]?.shopName || "Shop",
           shopWhatsapp: shopDataMap[shopId]?.whatsapp_number, shopPaymentId: shopDataMap[shopId]?.payment_id, shopPaymentQr: shopDataMap[shopId]?.payment_qr,
@@ -635,14 +640,6 @@ export default function CartPage() {
     }
   };
 
-  const requestGPS = () => {
-    setGpsLoading(true);
-    navigator.geolocation?.getCurrentPosition(
-      pos => { setUserGPS({ lat: pos.coords.latitude, lon: pos.coords.longitude }); setGpsLoading(false); },
-      () => setGpsLoading(false), { timeout: 8000 }
-    );
-  };
-
   if (items.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -684,13 +681,13 @@ export default function CartPage() {
                   <ShopSection
                     shopId={shopId}
                     shopItems={shopItems}
-                    coupons={appliedCoupons[shopId] || []}
+                    coupons={cartCoupons[shopId] || []}
                     couponCode={couponCodes[shopId] || ""}
                     couponLoading={couponLoadingMap[shopId] || false}
                     userGPS={userGPS}
                     onCouponCodeChange={code => setCouponCodes(prev => ({ ...prev, [shopId]: code }))}
                     onApplyCoupon={(codeOverride?: string) => validateCoupon(shopId, codeOverride)}
-                    onRemoveCoupon={(code: string) => removeCoupon(shopId, code)}
+                    onRemoveCoupon={(code: string) => handleRemoveCoupon(shopId, code)}
                     onRemoveItem={removeItem}
                     onUpdateQty={updateQuantity}
                     getShopDiscount={() => getShopDiscount(shopId)}
@@ -702,212 +699,113 @@ export default function CartPage() {
             </div>
 
             {/* Right — summary */}
-            <div className="flex flex-col gap-4">
-              {/* GPS prompt */}
-              {gpsLoading ? (
-                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
-                  <Navigation className="w-3.5 h-3.5 text-blue-500 animate-pulse" />
-                  <span className="text-xs text-blue-600">Getting your location…</span>
-                </div>
-              ) : !userGPS ? (
-                <button onClick={requestGPS} className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-blue-400 transition-colors text-left" data-testid="button-get-location">
-                  <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  <span className="text-xs text-muted-foreground">Enable location for delivery fee (₹15/km)</span>
-                </button>
-              ) : (
-                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800">
-                  <Navigation className="w-3.5 h-3.5 text-emerald-500" />
-                  <span className="text-xs text-emerald-600 font-medium">Location active • delivery auto-calculated</span>
-                </div>
-              )}
-
-              {/* Contact info */}
-              {user && (
-                <Card className="rounded-2xl border-0 shadow-md" data-testid="card-contact-info">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <User className="w-3.5 h-3.5 text-violet-500" />
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Order For</h3>
+            <div className="flex flex-col gap-6">
+              <Card className="rounded-2xl border-0 shadow-lg sticky top-24">
+                <CardContent className="p-6">
+                  <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Order Summary</h2>
+                  <div className="space-y-3">
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Subtotal</span>
+                      <span className="font-medium text-gray-900 dark:text-white">₹{totalSubtotal.toLocaleString()}</span>
                     </div>
-                    <p className="text-sm font-medium text-gray-800 dark:text-gray-200" data-testid="text-order-name">{user.name}</p>
-                    {user.phone && <p className="text-xs text-muted-foreground mt-0.5" data-testid="text-order-phone">+91 {user.phone}</p>}
-                    {user.email && <p className="text-xs text-muted-foreground truncate" data-testid="text-order-email">{user.email}</p>}
+                    {totalDiscount > 0 && (
+                      <div className="flex justify-between text-sm text-emerald-600 font-medium">
+                        <span>Total Savings</span>
+                        <span>- ₹{totalDiscount.toLocaleString()}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>Service Fee (2%)</span>
+                      <span className="font-medium text-gray-900 dark:text-white">₹{serviceFee.toLocaleString()}</span>
+                    </div>
+                    {deliveryFee > 0 && (
+                      <div className="flex justify-between text-sm text-muted-foreground">
+                        <span>Delivery Fee</span>
+                        <span className="font-medium text-gray-900 dark:text-white">₹{deliveryFee.toLocaleString()}</span>
+                      </div>
+                    )}
+                    <Separator className="my-2" />
+                    <div className="flex justify-between text-lg font-black text-gray-900 dark:text-white">
+                      <span>Total</span>
+                      <span>₹{grandTotal.toLocaleString()}</span>
+                    </div>
+
+                    <div className="pt-4 space-y-3">
+                      <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
+                        <input type="checkbox" id="share-loc" checked={shareLocation} onChange={e => setShareLocation(e.target.checked)} className="rounded border-gray-300 text-primary" />
+                        <label htmlFor="share-loc" className="text-xs text-muted-foreground cursor-pointer select-none">Share precise location for delivery</label>
+                      </div>
+
+                      <Button onClick={handlePlaceOrder} disabled={placingOrder} className="w-full h-12 rounded-xl bg-gradient-to-r from-blue-600 to-violet-700 text-lg font-bold gap-2 shadow-lg shadow-blue-500/20" data-testid="button-place-order">
+                        {placingOrder ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><MessageCircle className="w-5 h-5" /> Place Order</>}
+                      </Button>
+                      <p className="text-[10px] text-center text-muted-foreground">Your order will be sent to individual shops via WhatsApp</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {!userGPS && (
+                <Card className="rounded-2xl border-0 shadow-md bg-blue-50/50 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900/30">
+                  <CardContent className="p-4 flex items-center gap-3">
+                    <Navigation className="w-5 h-5 text-blue-600 shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-blue-900 dark:text-blue-300">Enable GPS for delivery fee</p>
+                      <p className="text-[10px] text-blue-700 dark:text-blue-400">Get accurate distance-based delivery estimates</p>
+                    </div>
+                    <Button size="sm" variant="outline" onClick={() => { setGpsLoading(true); navigator.geolocation.getCurrentPosition(pos => { setUserGPS({ lat: pos.coords.latitude, lon: pos.coords.longitude }); setGpsLoading(false); }, () => setGpsLoading(false)); }} className="rounded-lg h-8 text-[10px] bg-white border-blue-200 text-blue-600" data-testid="button-enable-gps">
+                      Enable
+                    </Button>
                   </CardContent>
                 </Card>
               )}
-
-              {/* Order Summary */}
-              <Card className="rounded-2xl border-0 shadow-md">
-                <CardContent className="p-5">
-                  <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Order Summary</h3>
-                  <div className="flex flex-col gap-2.5">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Subtotal ({uniqueShopIds.length} store{uniqueShopIds.length > 1 ? "s" : ""})</span>
-                      <span className="font-medium">₹{totalSubtotal.toLocaleString()}</span>
-                    </div>
-                    {totalDiscount > 0 && (
-                      <div className="flex justify-between items-center py-1.5 px-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
-                        <span className="text-emerald-700 dark:text-emerald-400 text-sm font-semibold flex items-center gap-1.5">
-                          <span className="text-base">🎉</span> You saved
-                        </span>
-                        <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">-₹{totalDiscount.toFixed(0)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-sm">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-muted-foreground">Service fee</span>
-                        <span className="text-[10px] bg-gray-100 dark:bg-gray-800 rounded px-1 py-0.5 text-muted-foreground">2%</span>
-                      </div>
-                      <span className="font-medium">₹{serviceFee.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <div className="flex flex-col">
-                        <span className="text-muted-foreground">Delivery fee</span>
-                        {userGPS && uniqueShopIds.map(sid => {
-                          const dist = getShopDistance(sid);
-                          return dist !== null ? (
-                            <span key={sid} className="text-[10px] text-muted-foreground">
-                              {shopDataMap[sid]?.name || items.find(i => i.shop_id === sid)?.shopName}: {dist.toFixed(1)}km × ₹15 = ₹{Math.round(dist * 15)}
-                            </span>
-                          ) : null;
-                        })}
-                      </div>
-                      {userGPS
-                        ? deliveryFee === 0 ? <span className="font-medium text-emerald-600">Free</span> : <span className="font-medium">₹{deliveryFee.toLocaleString()}</span>
-                        : <span className="text-xs text-muted-foreground">₹15/km</span>
-                      }
-                    </div>
-                    <Separator />
-                    <div className="flex justify-between">
-                      <span className="font-bold text-gray-900 dark:text-white">Total</span>
-                      <div className="text-right">
-                        {totalDiscount > 0 && <div className="text-xs text-muted-foreground line-through">₹{totalSubtotal.toLocaleString()}</div>}
-                        <span className="font-black text-xl text-gray-900 dark:text-white">₹{grandTotal.toLocaleString()}</span>
-                        {totalDiscount > 0 && <div className="text-xs text-emerald-600 font-semibold">You save ₹{totalDiscount.toFixed(0)}!</div>}
-                        {!userGPS && <div className="text-[10px] text-muted-foreground">+ delivery (enable GPS)</div>}
-                      </div>
-                    </div>
-                  </div>
-                  {/* Share location toggle */}
-                  <div
-                    className={`mt-4 flex items-center gap-3 rounded-xl p-3 cursor-pointer border transition-all ${shareLocation ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-300 dark:border-emerald-700" : "bg-gray-50 dark:bg-gray-800/50 border-transparent"}`}
-                    onClick={() => {
-                      if (!shareLocation && !userGPS) {
-                        setGpsLoading(true);
-                        navigator.geolocation?.getCurrentPosition(
-                          pos => { setUserGPS({ lat: pos.coords.latitude, lon: pos.coords.longitude }); setGpsLoading(false); setShareLocation(true); },
-                          () => { setGpsLoading(false); toast({ title: "Could not get GPS location", variant: "destructive" }); }
-                        );
-                      } else {
-                        setShareLocation(v => !v);
-                      }
-                    }}
-                    data-testid="toggle-share-location"
-                  >
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${shareLocation ? "bg-emerald-500" : "bg-gray-200 dark:bg-gray-700"}`}>
-                      <Navigation className={`w-4 h-4 ${shareLocation ? "text-white" : "text-gray-500"}`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white">Share my location</p>
-                      <p className="text-xs text-muted-foreground">Let the shop see your GPS for delivery</p>
-                    </div>
-                    <div className={`w-10 h-5 rounded-full transition-all shrink-0 ${shareLocation ? "bg-emerald-500" : "bg-gray-200 dark:bg-gray-600"}`}>
-                      <div className={`w-4 h-4 bg-white rounded-full mt-0.5 transition-all ${shareLocation ? "ml-5.5" : "ml-0.5"}`} style={{ marginLeft: shareLocation ? "22px" : "2px" }} />
-                    </div>
-                  </div>
-
-                  <Button onClick={handlePlaceOrder} disabled={placingOrder}
-                    className="w-full mt-4 h-12 rounded-xl font-semibold bg-gradient-to-r from-blue-500 to-violet-600 border-0 shadow-lg shadow-blue-500/25 text-base"
-                    data-testid="button-place-order">
-                    {placingOrder
-                      ? <div className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Placing {shopGroups.length > 1 ? "Orders" : "Order"}...</div>
-                      : `Place ${shopGroups.length > 1 ? `${shopGroups.length} Orders` : "Order"} → ₹${grandTotal.toLocaleString()}`}
-                  </Button>
-                  <p className="text-xs text-muted-foreground text-center mt-3">🔒 Secure checkout • 2% service fee applies</p>
-                </CardContent>
-              </Card>
             </div>
           </div>
         </div>
       </div>
 
-      <Dialog open={phoneDialogOpen} onOpenChange={setPhoneDialogOpen}>
-        <DialogContent className="sm:max-w-sm rounded-2xl">
+      <Dialog open={pickOneDialog?.open} onOpenChange={open => !open && setPickOneDialog(null)}>
+        <DialogContent className="max-w-md rounded-3xl p-6">
           <DialogHeader>
-            <div className="flex items-center gap-3 mb-1">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center">
-                <MessageCircle className="w-5 h-5 text-white" />
-              </div>
-              <DialogTitle className="text-lg">Add Mobile Number</DialogTitle>
-            </div>
-            <DialogDescription className="text-sm leading-relaxed">
-              The shop will contact you on WhatsApp to confirm your order. Please add your mobile number before placing the order.
-            </DialogDescription>
+            <DialogTitle className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2"><Gift className="w-5 h-5 text-violet-500" /> Choose Your Free Gift</DialogTitle>
+            <DialogDescription>Pick one of these items for free!</DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col gap-4 mt-2">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="phone-input">Mobile Number</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">+91</span>
-                <Input id="phone-input" type="tel" inputMode="numeric" placeholder="9876543210" value={phoneInput}
-                  onChange={e => setPhoneInput(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                  onKeyDown={e => e.key === "Enter" && handleSavePhone()}
-                  className="h-12 rounded-xl pl-12 text-base" autoFocus data-testid="input-phone-dialog" />
+          <div className="grid gap-3 mt-2 max-h-[60vh] overflow-y-auto pr-1">
+            {pickOneDialog?.items.map((item: any) => (
+              <div key={item.id} onClick={() => handlePickOneFreeItem(item)} className="group relative flex items-center gap-4 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-violet-500 transition-all cursor-pointer shadow-sm hover:shadow-md">
+                <div className="w-16 h-16 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center shrink-0">
+                  <Gift className="w-8 h-8 text-violet-500 opacity-50" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-gray-900 dark:text-white truncate">{item.name}</p>
+                  <p className="text-xs text-muted-foreground line-through">₹{parseFloat(item.price || "0").toLocaleString()}</p>
+                  <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[10px] mt-1">FREE GIFT</Badge>
+                </div>
+                <div className="w-8 h-8 rounded-full border-2 border-gray-200 dark:border-gray-700 group-hover:border-violet-500 group-hover:bg-violet-500 transition-all flex items-center justify-center">
+                  <CheckCircle className="w-5 h-5 text-white opacity-0 group-hover:opacity-100" />
+                </div>
               </div>
-            </div>
-            <div className="flex gap-3">
-              <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setPhoneDialogOpen(false)} data-testid="button-phone-cancel">Cancel</Button>
-              <Button className="flex-1 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 border-0 font-semibold" onClick={handleSavePhone}
-                disabled={phoneSaving || phoneInput.replace(/\D/g, "").length !== 10} data-testid="button-phone-save">
-                {phoneSaving ? <div className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Saving...</div>
-                  : <><Phone className="w-4 h-4 mr-1" />Save & Place Order</>}
-              </Button>
-            </div>
+            ))}
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Pick One Free Item Dialog */}
-      <Dialog open={!!pickOneDialog?.open} onOpenChange={open => { if (!open) setPickOneDialog(null); }}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
+      <Dialog open={phoneDialogOpen} onOpenChange={setPhoneDialogOpen}>
+        <DialogContent className="max-w-sm rounded-3xl p-6">
           <DialogHeader>
-            <div className="flex items-center gap-3 mb-1">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center">
-                <Gift className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <DialogTitle className="text-lg">Pick Your Free Item</DialogTitle>
-                <p className="text-xs text-muted-foreground">Coupon: {pickOneDialog?.couponData?.code}</p>
+            <DialogTitle className="text-xl font-bold">Complete Profile</DialogTitle>
+            <DialogDescription>We need your mobile number to send order updates via WhatsApp.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="phone">WhatsApp Mobile Number</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">+91</span>
+                <Input id="phone" value={phoneInput} onChange={e => setPhoneInput(e.target.value)} placeholder="1234567890" maxLength={10} className="pl-12 rounded-xl h-12 text-lg tracking-widest" data-testid="input-phone" />
               </div>
             </div>
-            <DialogDescription className="text-sm leading-relaxed">
-              Choose one item from the list below — it will be added to your cart for free!
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-3 mt-2 max-h-80 overflow-y-auto pr-1">
-            {pickOneDialog?.items.map((item: any) => (
-              <button
-                key={item.id}
-                onClick={() => handlePickOneFreeItem(item)}
-                className="flex items-center justify-between p-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all text-left group"
-                data-testid={`button-pick-free-item-${item.id}`}
-              >
-                <div className="flex flex-col gap-0.5">
-                  <span className="font-semibold text-sm text-gray-900 dark:text-white group-hover:text-emerald-700 dark:group-hover:text-emerald-400">{item.name}</span>
-                  <span className="text-xs text-muted-foreground line-through">₹{parseFloat(item.price).toLocaleString()}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-900/50 px-2 py-0.5 rounded-full">FREE</span>
-                  <div className="w-7 h-7 rounded-full border-2 border-gray-200 dark:border-gray-700 group-hover:border-emerald-500 group-hover:bg-emerald-500 flex items-center justify-center transition-all">
-                    <div className="w-3 h-3 rounded-full bg-transparent group-hover:bg-white transition-all" />
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-          <div className="mt-2">
-            <Button variant="ghost" className="w-full rounded-xl text-muted-foreground" onClick={() => setPickOneDialog(null)} data-testid="button-pick-free-cancel">
-              Cancel
+            <Button onClick={handleSavePhone} disabled={phoneSaving} className="w-full h-12 rounded-xl bg-gradient-to-r from-blue-600 to-violet-700 text-lg font-bold">
+              {phoneSaving ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : "Save & Continue"}
             </Button>
           </div>
         </DialogContent>

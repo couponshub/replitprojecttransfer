@@ -18,6 +18,9 @@ interface CartContextType {
   items: CartItem[];
   addItem: (item: Omit<CartItem, "quantity">) => void;
   addItems: (items: Omit<CartItem, "quantity">[], silent?: boolean) => void;
+  appliedCoupons: Record<string, any[]>;
+  applyCoupon: (shopId: string, coupon: any) => void;
+  removeCoupon: (shopId: string, code: string) => void;
   removeItem: (id: string) => void;
   removeFreeItemsForShop: (shopId: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
@@ -32,6 +35,7 @@ const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [appliedCoupons, setAppliedCoupons] = useState<Record<string, any[]>>({});
 
   const shopId = items.length > 0 ? items[0].shop_id : null;
   const uniqueShopIds = Array.from(new Set(items.map(i => i.shop_id)));
@@ -77,13 +81,31 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems(prev => prev.map(i => i.id === id ? { ...i, quantity } : i));
   };
 
-  const clearCart = () => setItems([]);
+  const clearCart = () => {
+    setItems([]);
+    setAppliedCoupons({});
+  };
+
+  const applyCoupon = (shopId: string, coupon: any) => {
+    setAppliedCoupons(prev => {
+      const existing = prev[shopId] || [];
+      if (existing.find(c => c.code === coupon.code)) return prev;
+      return { ...prev, [shopId]: [...existing, coupon] };
+    });
+  };
+
+  const removeCoupon = (shopId: string, code: string) => {
+    setAppliedCoupons(prev => ({
+      ...prev,
+      [shopId]: (prev[shopId] || []).filter(c => c.code !== code)
+    }));
+  };
 
   const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
 
   return (
-    <CartContext.Provider value={{ items, addItem, addItems, removeItem, removeFreeItemsForShop, updateQuantity, clearCart, total, itemCount, shopId, uniqueShopIds }}>
+    <CartContext.Provider value={{ items, addItem, addItems, removeItem, removeFreeItemsForShop, updateQuantity, clearCart, total, itemCount, shopId, uniqueShopIds, appliedCoupons, applyCoupon, removeCoupon }}>
       {children}
     </CartContext.Provider>
   );

@@ -74,7 +74,7 @@ function isShopOpen(hours: string | null | undefined): boolean {
 export default function ShopPage() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
-  const { addItem, items, updateQuantity, itemCount, addItems, removeFreeItemsForShop } = useCart();
+  const { addItem, items, updateQuantity, itemCount, addItems, removeFreeItemsForShop, applyCoupon } = useCart();
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -143,7 +143,7 @@ export default function ShopPage() {
     if (chosenFreeItem) parts.push(`${chosenFreeItem.name} added free`);
     else if (result.items_to_add?.some((i: any) => i.isFreeItem)) parts.push("free item added");
     else if (hasItemsToAdd) parts.push(`${result.items_to_add.length} item${result.items_to_add.length > 1 ? "s" : ""} added`);
-    sessionStorage.setItem("pendingCoupon", JSON.stringify({ code: result.code, type: result.type, value: result.value, items_to_add: result.items_to_add }));
+    if (id) { applyCoupon(id, { code: result.code, type: result.type, value: result.value, items_to_add: result.items_to_add, restrict_sub_category: result.restrict_sub_category, category_offer_subtype: result.category_offer_subtype, bogo_buy_product_name: result.bogo_buy_product_name, bogo_get_product_name: result.bogo_get_product_name }); }
     toast({ title: `✓ Coupon "${result.code}" applied!`, description: parts.join(" • ") || "Coupon applied to cart" });
     setTimeout(() => navigate("/cart"), 600);
   };
