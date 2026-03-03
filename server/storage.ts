@@ -124,8 +124,8 @@ export interface IStorage {
   getAllSettings(): Promise<Record<string, string>>;
 
   // Contests
-  getAllContests(): Promise<(Contest & { shop?: Shop; slots: ContestSlot[] })[]>;
-  getContest(id: string): Promise<(Contest & { shop?: Shop; slots: ContestSlot[] }) | undefined>;
+  getAllContests(): Promise<(Contest & { shop?: Shop; slots: ContestSlot[]; attached_coupon?: Coupon })[]>;
+  getContest(id: string): Promise<(Contest & { shop?: Shop; slots: ContestSlot[]; attached_coupon?: Coupon }) | undefined>;
   getContestsByShop(shopId: string): Promise<(Contest & { slots: ContestSlot[] })[]>;
   createContest(data: InsertContest): Promise<Contest>;
   updateContest(id: string, data: Partial<InsertContest>): Promise<Contest | undefined>;
@@ -142,6 +142,8 @@ export interface IStorage {
 
   // User Coupons
   getUserCoupons(userId: string): Promise<(UserCoupon & { coupon?: any; contest?: any })[]>;
+  getUserCoupon(id: string): Promise<UserCoupon | undefined>;
+  getCoupon(id: string): Promise<Coupon | undefined>;
   createUserCoupon(data: { user_id: string; coupon_id: string; contest_id: string }): Promise<UserCoupon>;
   claimUserCoupon(id: string, userId: string): Promise<UserCoupon | undefined>;
 
@@ -683,24 +685,26 @@ export class PgStorage implements IStorage {
     return Object.fromEntries(rows.map(r => [r.key, r.value]));
   }
 
-  async getAllContests(): Promise<(Contest & { shop?: Shop; slots: ContestSlot[] })[]> {
+  async getAllContests(): Promise<(Contest & { shop?: Shop; slots: ContestSlot[]; attached_coupon?: Coupon })[]> {
     const allContests = await db.select().from(contests).orderBy(desc(contests.created_at));
     const result: any[] = [];
     for (const c of allContests) {
       const shop = c.shop_id ? (await db.select().from(shops).where(eq(shops.id, c.shop_id)).limit(1))[0] : undefined;
       const slots = await db.select().from(contestSlots).where(eq(contestSlots.contest_id, c.id)).orderBy(contestSlots.slot_number);
-      result.push({ ...c, shop, slots });
+      const attached_coupon = c.attached_coupon_id ? (await db.select().from(coupons).where(eq(coupons.id, c.attached_coupon_id)).limit(1))[0] : undefined;
+      result.push({ ...c, shop, slots, attached_coupon });
     }
     return result;
   }
 
-  async getContest(id: string): Promise<(Contest & { shop?: Shop; slots: ContestSlot[] }) | undefined> {
+  async getContest(id: string): Promise<(Contest & { shop?: Shop; slots: ContestSlot[]; attached_coupon?: Coupon }) | undefined> {
     const rows = await db.select().from(contests).where(eq(contests.id, id)).limit(1);
     if (!rows[0]) return undefined;
     const c = rows[0];
     const shop = c.shop_id ? (await db.select().from(shops).where(eq(shops.id, c.shop_id)).limit(1))[0] : undefined;
     const slots = await db.select().from(contestSlots).where(eq(contestSlots.contest_id, c.id)).orderBy(contestSlots.slot_number);
-    return { ...c, shop, slots };
+    const attached_coupon = c.attached_coupon_id ? (await db.select().from(coupons).where(eq(coupons.id, c.attached_coupon_id)).limit(1))[0] : undefined;
+    return { ...c, shop, slots, attached_coupon };
   }
 
   async getContestsByShop(shopId: string): Promise<(Contest & { slots: ContestSlot[] })[]> {
@@ -802,6 +806,16 @@ export class PgStorage implements IStorage {
       results.push({ ...uc, coupon, contest });
     }
     return results;
+  }
+
+  async getUserCoupon(id: string): Promise<UserCoupon | undefined> {
+    const rows = await db.select().from(userCoupons).where(eq(userCoupons.id, id)).limit(1);
+    return rows[0];
+  }
+
+  async getCoupon(id: string): Promise<Coupon | undefined> {
+    const rows = await db.select().from(coupons).where(eq(coupons.id, id)).limit(1);
+    return rows[0];
   }
 
   async createUserCoupon(data: { user_id: string; coupon_id: string; contest_id: string }): Promise<UserCoupon> {

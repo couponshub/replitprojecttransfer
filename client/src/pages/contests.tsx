@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Trophy, Lock, Users, ChevronLeft, ChevronRight, Store, Gift, Tag, Sparkles, Download, CheckCircle2, PartyPopper
+  Trophy, Lock, Users, ChevronLeft, ChevronRight, Store, Gift, Tag, Sparkles, Download, CheckCircle2, PartyPopper, Loader2
 } from "lucide-react";
 
 const SLOT_COLORS = [
@@ -64,7 +64,7 @@ function ShopContestCard({ contest, onJoin }: { contest: any; onJoin: () => void
           <div className="flex items-center gap-2 mt-3 p-2 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50">
             <Lock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
             <p className="text-xs font-semibold text-amber-700 dark:text-amber-300 truncate">
-              Prize: {contest.attached_coupon.code} — {contest.attached_coupon.discount_type === "percentage" ? `${contest.attached_coupon.discount_value}% off` : contest.attached_coupon.discount_type === "flat" ? `₹${contest.attached_coupon.discount_value} off` : contest.attached_coupon.discount_type || "Special Coupon"}
+              Prize: {contest.attached_coupon.code} — {contest.attached_coupon.type === "percentage" ? `${contest.attached_coupon.value}% off` : contest.attached_coupon.type === "flat" ? `₹${contest.attached_coupon.value} off` : contest.attached_coupon.type || "Special Coupon"}
             </p>
           </div>
         )}
@@ -99,7 +99,7 @@ function ContestDetailView({ contest, userId, onBack }: { contest: any; userId?:
   const [slotNavIndex, setSlotNavIndex] = useState(0);
 
   const { data: freshContest } = useQuery<any>({
-    queryKey: [`/api/contests/${contest.id}`],
+    queryKey: ["/api/contests", contest.id],
     refetchInterval: 5000,
     initialData: contest,
   });
