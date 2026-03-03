@@ -731,21 +731,6 @@ export default function VendorDashboard() {
                   <DialogHeader><DialogTitle>{editProd ? "Edit Product" : "Add Product"}</DialogTitle></DialogHeader>
                   <div className="flex flex-col gap-4 pb-2">
                     <div><Label className="text-sm">Name *</Label><Input value={prodForm.name} onChange={e => setProdForm((f: any) => ({ ...f, name: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="Product name" data-testid="input-prod-name" /></div>
-                    <div><Label className="text-sm">Price (₹) *</Label><Input type="number" value={prodForm.price} onChange={e => setProdForm((f: any) => ({ ...f, price: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="e.g. 299" data-testid="input-prod-price" /></div>
-                    <div><Label className="text-sm">Description</Label><Textarea value={prodForm.description} onChange={e => setProdForm((f: any) => ({ ...f, description: e.target.value }))} className="mt-1.5 rounded-xl resize-none" rows={2} /></div>
-                    <div>
-                      <Label className="text-sm">Image</Label>
-                      <div className="flex gap-2 mt-1.5">
-                        <Input value={prodForm.image || ""} onChange={e => setProdForm((f: any) => ({ ...f, image: e.target.value }))} className="rounded-xl flex-1" placeholder="https://... or upload →" data-testid="input-prod-image" />
-                        <label className="cursor-pointer">
-                          <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) vendorUploadImage(f, (url) => setProdForm((pf: any) => ({ ...pf, image: url })), setProdImgUploading); }} data-testid="input-prod-image-file" />
-                          <Button type="button" variant="outline" size="sm" className="rounded-xl h-10 px-3 shrink-0" disabled={prodImgUploading} data-testid="button-upload-prod-image">
-                            {prodImgUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                          </Button>
-                        </label>
-                      </div>
-                      {prodForm.image && <img src={prodForm.image} alt="Preview" className="mt-2 w-16 h-16 rounded-xl object-cover" onError={e => { (e.target as any).style.display = "none"; }} />}
-                    </div>
                     <div>
                       <Label className="text-sm">Type</Label>
                       <Select value={prodForm.type} onValueChange={v => setProdForm((f: any) => ({ ...f, type: v }))}>
@@ -756,6 +741,8 @@ export default function VendorDashboard() {
                         </SelectContent>
                       </Select>
                     </div>
+                    <div><Label className="text-sm">Price (₹) *</Label><Input type="number" value={prodForm.price} onChange={e => setProdForm((f: any) => ({ ...f, price: e.target.value }))} className="mt-1.5 rounded-xl" placeholder="e.g. 299" data-testid="input-prod-price" /></div>
+
                     {/* Sub Category */}
                     {(() => {
                       const catName = (shop as any)?.category?.name || "";

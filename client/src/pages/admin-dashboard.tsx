@@ -335,12 +335,9 @@ export default function AdminDashboard() {
       const cleanUrls = productImageUrls.filter(u => u.trim());
       data.images = cleanUrls.length > 0 ? cleanUrls : null;
       if (!data.type) data.type = "product";
-      if (data.type === "service") {
-        data.price = null;
-      } else {
-        if (data.price) data.price = data.price.toString();
-      }
+      if (data.price) data.price = data.price.toString();
     }
+
     if (data.price) data.price = data.price.toString();
     if (type === "coupons") {
       data.coupon_products = bundleItems.map(i => ({ product_id: i.product_id, custom_price: i.custom_price, quantity: i.quantity || 1 }));
@@ -1756,16 +1753,15 @@ export default function AdminDashboard() {
                       <Textarea value={formData.description || ""} onChange={e => setForm("description", e.target.value)} className="mt-1.5 rounded-xl resize-none" rows={2} placeholder="Brief description..." data-testid="input-product-description" />
                     </div>
 
-                    {/* Price — products only */}
-                    {formData.type !== "service" && (
-                      <div>
-                        <Label className="text-xs font-semibold">Price (₹)</Label>
-                        <div className="relative mt-1.5">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">₹</span>
-                          <Input type="number" min="0" value={formData.price || ""} onChange={e => setForm("price", e.target.value)} className="rounded-xl pl-8" placeholder="e.g. 299" data-testid="input-product-price" />
-                        </div>
+                    {/* Price */}
+                    <div>
+                      <Label className="text-xs font-semibold">{formData.type === "service" ? "Service Fee" : "Price"} (₹)</Label>
+                      <div className="relative mt-1.5">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">₹</span>
+                        <Input type="number" min="0" value={formData.price || ""} onChange={e => setForm("price", e.target.value)} className="rounded-xl pl-8" placeholder="e.g. 299" data-testid="input-product-price" />
                       </div>
-                    )}
+                    </div>
+
 
                     {/* Shop */}
                     <div>
