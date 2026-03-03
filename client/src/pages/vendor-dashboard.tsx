@@ -133,6 +133,8 @@ export default function VendorDashboard() {
 
   const [showContestForm, setShowContestForm] = useState(false);
   const [contestForm, setContestForm] = useState({ title: "", description: "", prize_description: "", banner_image: "", total_slots: 20, attached_coupon_id: "", end_time: "" });
+  const [editContest, setEditContest] = useState<any>(null);
+  const [editContestForm, setEditContestForm] = useState({ title: "", description: "", prize_description: "", banner_image: "", total_slots: 20, attached_coupon_id: "", end_time: "" });
   const { data: contestCoupons = [] } = useQuery<any[]>({
     queryKey: ["/api/vendor/coupons/contest"],
     queryFn: () => vendorFetch("/api/vendor/coupons/contest"),
@@ -142,6 +144,11 @@ export default function VendorDashboard() {
     mutationFn: (data: any) => vendorFetch("/api/vendor/contests", { method: "POST", body: JSON.stringify(data) }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/vendor/contests"] }); setShowContestForm(false); setContestForm({ title: "", description: "", prize_description: "", banner_image: "", total_slots: 20, attached_coupon_id: "", end_time: "" }); toast({ title: "Contest created!" }); },
     onError: (e: any) => toast({ title: e.message || "Failed to create contest", variant: "destructive" }),
+  });
+  const updateContestMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => vendorFetch(`/api/vendor/contests/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/vendor/contests"] }); setEditContest(null); toast({ title: "Contest updated!" }); },
+    onError: (e: any) => toast({ title: e.message || "Failed to update contest", variant: "destructive" }),
   });
   const toggleContestStatusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
@@ -1632,6 +1639,73 @@ export default function VendorDashboard() {
                 </Button>
               </div>
 
+              {/* Edit contest form */}
+              {editContest && (
+                <Card className="mb-5 border-blue-200 dark:border-blue-800/50 rounded-2xl overflow-hidden">
+                  <CardContent className="p-5 flex flex-col gap-4">
+                    <p className="text-sm font-bold text-gray-900 dark:text-white">Edit Contest: {editContest.title}</p>
+                    <div className="grid grid-cols-1 gap-3">
+                      <div>
+                        <Label className="text-xs font-semibold">Contest Title *</Label>
+                        <Input value={editContestForm.title} onChange={e => setEditContestForm(f => ({ ...f, title: e.target.value }))}
+                          placeholder="e.g. Diwali Lucky Draw" className="mt-1 rounded-xl" data-testid="input-edit-contest-title" />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-semibold">Description</Label>
+                        <Textarea value={editContestForm.description} onChange={e => setEditContestForm(f => ({ ...f, description: e.target.value }))}
+                          placeholder="What is this contest about?" className="mt-1 rounded-xl" rows={2} />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-semibold">Prize Description</Label>
+                        <Input value={editContestForm.prize_description} onChange={e => setEditContestForm(f => ({ ...f, prize_description: e.target.value }))}
+                          placeholder="e.g. Gift voucher worth ₹500" className="mt-1 rounded-xl" />
+                      </div>
+                      <div>
+                        <Label className="text-xs font-semibold">Attach Contest Coupon (optional)</Label>
+                        {contestCoupons.length === 0 ? (
+                          <div className="mt-1 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/50 text-xs text-amber-700 dark:text-amber-400">
+                            No contest coupons yet. Create a coupon and turn on "Contest Coupon" toggle.
+                          </div>
+                        ) : (
+                          <Select value={editContestForm.attached_coupon_id} onValueChange={v => setEditContestForm(f => ({ ...f, attached_coupon_id: v === "none" ? "" : v }))}>
+                            <SelectTrigger className="mt-1 rounded-xl">
+                              <SelectValue placeholder="Select a contest coupon..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">None</SelectItem>
+                              {contestCoupons.map((cp: any) => (
+                                <SelectItem key={cp.id} value={cp.id}>
+                                  {cp.code} — {cp.type === "percentage" ? `${cp.value}% off` : cp.type === "flat" ? `₹${cp.value} off` : cp.type}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
+                      <div>
+                        <Label className="text-xs font-semibold">Auto-Draw End Time (optional)</Label>
+                        <Input type="datetime-local" value={editContestForm.end_time} onChange={e => setEditContestForm(f => ({ ...f, end_time: e.target.value }))}
+                          className="mt-1 rounded-xl" />
+                        <p className="text-xs text-muted-foreground mt-1">Winner will be auto-drawn at this time</p>
+                      </div>
+                      <div>
+                        <Label className="text-xs font-semibold">Banner Image URL (optional)</Label>
+                        <Input value={editContestForm.banner_image} onChange={e => setEditContestForm(f => ({ ...f, banner_image: e.target.value }))}
+                          placeholder="https://..." className="mt-1 rounded-xl" />
+                      </div>
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="outline" onClick={() => setEditContest(null)} className="rounded-xl">Cancel</Button>
+                      <Button onClick={() => updateContestMutation.mutate({ id: editContest.id, data: { ...editContestForm, attached_coupon_id: editContestForm.attached_coupon_id || null, end_time: editContestForm.end_time || null } })}
+                        disabled={updateContestMutation.isPending || !editContestForm.title}
+                        className="bg-gradient-to-r from-blue-500 to-indigo-600 border-0 rounded-xl" data-testid="button-edit-contest-submit">
+                        {updateContestMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Create contest form */}
               {showContestForm && (
                 <Card className="mb-5 border-amber-200 dark:border-amber-800/50 rounded-2xl overflow-hidden">
@@ -1765,6 +1839,11 @@ export default function VendorDashboard() {
                           )}
 
                           <div className="flex gap-2 flex-wrap">
+                            <Button size="sm" variant="outline" onClick={() => { setEditContest(c); setEditContestForm({ title: c.title || "", description: c.description || "", prize_description: c.prize_description || "", banner_image: c.banner_image || "", total_slots: c.total_slots || 20, attached_coupon_id: c.attached_coupon_id || "", end_time: c.end_time ? new Date(c.end_time).toISOString().slice(0, 16) : "" }); setShowContestForm(false); }}
+                              className="rounded-xl text-xs h-8 text-blue-600 border-blue-200 hover:bg-blue-50 dark:border-blue-800 dark:hover:bg-blue-950/20"
+                              data-testid={`button-edit-contest-${c.id}`}>
+                              Edit
+                            </Button>
                             {c.status === "open" && (
                               <>
                                 <Button size="sm" variant="outline" onClick={() => toggleContestStatusMutation.mutate({ id: c.id, status: "closed" })}

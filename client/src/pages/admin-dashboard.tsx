@@ -3367,6 +3367,8 @@ function AdminContestsTab({ toast }: { toast: any }) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createForm, setCreateForm] = useState({ shop_id: "", title: "", description: "", prize_description: "", banner_image: "", total_slots: 20, attached_coupon_id: "", end_time: "" });
+  const [editContest, setEditContest] = useState<any>(null);
+  const [editForm, setEditForm] = useState({ title: "", description: "", prize_description: "", banner_image: "", total_slots: 20, attached_coupon_id: "", end_time: "" });
 
   const { data: allContests = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/admin/contests"],
@@ -3408,6 +3410,18 @@ function AdminContestsTab({ toast }: { toast: any }) {
     mutationFn: (id: string) => apiRequest("DELETE", `/api/admin/contests/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/admin/contests"] }); toast({ title: "Contest deleted" }); setSelectedContest(null); },
     onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const editContestMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => apiRequest("PATCH", `/api/admin/contests/${id}`, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/admin/contests"] }); setEditContest(null); toast({ title: "Contest updated!" }); },
+    onError: (e: any) => toast({ title: e.message || "Failed", variant: "destructive" }),
+  });
+
+  const { data: editShopCoupons = [] } = useQuery<any[]>({
+    queryKey: ["/api/admin/shops", editContest?.shop_id, "contest-coupons"],
+    queryFn: () => apiRequest("GET", `/api/admin/shops/${editContest?.shop_id}/contest-coupons`),
+    enabled: !!editContest?.shop_id,
   });
 
   const filtered = statusFilter === "all" ? allContests : allContests.filter((c: any) => c.status === statusFilter);
@@ -3531,6 +3545,72 @@ function AdminContestsTab({ toast }: { toast: any }) {
         </Card>
       )}
 
+      {/* Edit Contest Form */}
+      {editContest && (
+        <Card className="mb-6 border-blue-200 dark:border-blue-800/50 rounded-2xl overflow-hidden">
+          <CardContent className="p-5">
+            <p className="text-sm font-bold text-gray-900 dark:text-white mb-4">Edit Contest: {editContest.title}</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="md:col-span-2">
+                <Label className="text-xs font-semibold">Contest Title *</Label>
+                <Input value={editForm.title} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))}
+                  placeholder="e.g. Diwali Lucky Draw" className="mt-1 rounded-xl" data-testid="input-admin-edit-contest-title" />
+              </div>
+              <div className="md:col-span-2">
+                <Label className="text-xs font-semibold">Description</Label>
+                <Input value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder="What is this contest about?" className="mt-1 rounded-xl" />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold">Prize Description</Label>
+                <Input value={editForm.prize_description} onChange={e => setEditForm(f => ({ ...f, prize_description: e.target.value }))}
+                  placeholder="e.g. Gift voucher worth ₹500" className="mt-1 rounded-xl" />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold">Attach Contest Coupon (optional)</Label>
+                {editShopCoupons.length === 0 ? (
+                  <div className="mt-1 p-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 text-xs text-amber-700 border border-amber-200">No contest coupons for this shop</div>
+                ) : (
+                  <Select value={editForm.attached_coupon_id} onValueChange={v => setEditForm(f => ({ ...f, attached_coupon_id: v === "none" ? "" : v }))}>
+                    <SelectTrigger className="mt-1 rounded-xl">
+                      <SelectValue placeholder="Select coupon..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {(editShopCoupons as any[]).map((cp: any) => (
+                        <SelectItem key={cp.id} value={cp.id}>
+                          {cp.code} — {cp.type === "percentage" ? `${cp.value}% off` : cp.type === "flat" ? `₹${cp.value} off` : cp.type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              <div>
+                <Label className="text-xs font-semibold">Auto-Draw End Time (optional)</Label>
+                <Input type="datetime-local" value={editForm.end_time} onChange={e => setEditForm(f => ({ ...f, end_time: e.target.value }))}
+                  className="mt-1 rounded-xl" />
+                <p className="text-xs text-muted-foreground mt-1">Winner auto-drawn at this time</p>
+              </div>
+              <div>
+                <Label className="text-xs font-semibold">Banner Image URL (optional)</Label>
+                <Input value={editForm.banner_image} onChange={e => setEditForm(f => ({ ...f, banner_image: e.target.value }))}
+                  placeholder="https://..." className="mt-1 rounded-xl" />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end mt-4">
+              <Button variant="outline" onClick={() => setEditContest(null)} className="rounded-xl">Cancel</Button>
+              <Button onClick={() => editContestMutation.mutate({ id: editContest.id, data: { ...editForm, attached_coupon_id: editForm.attached_coupon_id || null, end_time: editForm.end_time || null } })}
+                disabled={editContestMutation.isPending || !editForm.title}
+                className="bg-gradient-to-r from-blue-500 to-indigo-600 border-0 rounded-xl"
+                data-testid="button-admin-edit-contest-submit">
+                {editContestMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Stats row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         {[
@@ -3634,6 +3714,11 @@ function AdminContestsTab({ toast }: { toast: any }) {
 
                     {/* Actions */}
                     <div className="flex flex-col gap-2 shrink-0">
+                      <Button size="sm" variant="outline" onClick={() => { setEditContest(c); setEditForm({ title: c.title || "", description: c.description || "", prize_description: c.prize_description || "", banner_image: c.banner_image || "", total_slots: c.total_slots || 20, attached_coupon_id: c.attached_coupon_id || "", end_time: c.end_time ? new Date(c.end_time).toISOString().slice(0, 16) : "" }); setShowCreateForm(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                        className="rounded-xl text-xs h-8 text-blue-600 border-blue-200 hover:bg-blue-50 dark:border-blue-800 dark:hover:bg-blue-950/20"
+                        data-testid={`button-admin-edit-contest-${c.id}`}>
+                        Edit
+                      </Button>
                       <Button size="sm" variant="outline" onClick={() => setSelectedContest(selectedContest?.id === c.id ? null : c)}
                         className="rounded-xl text-xs h-8" data-testid={`button-admin-view-contest-${c.id}`}>
                         {selectedContest?.id === c.id ? "Hide" : "Participants"}
