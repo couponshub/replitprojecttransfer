@@ -1046,9 +1046,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.get("/api/auth/me", authMiddleware, async (req, res) => {
-    const user = await storage.getUser((req as any).user.id);
-    if (!user) return res.status(404).json({ error: "User not found" });
-    res.json({ id: user.id, name: user.name, email: user.email, phone: user.phone, address: user.address, role: user.role });
+    try {
+      const user = await storage.getUser((req as any).user.id);
+      if (!user) {
+        res.clearCookie("token");
+        return res.status(401).json({ error: "User not found" });
+      }
+      res.json({ id: user.id, name: user.name, email: user.email, phone: user.phone, address: user.address, role: user.role });
+    } catch (err) {
+      res.status(401).json({ error: "Unauthorized" });
+    }
   });
 
   app.get("/api/auth/google", (req, res) => {

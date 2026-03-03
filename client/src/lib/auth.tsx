@@ -41,9 +41,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (storedToken) {
       setToken(storedToken);
       fetch("/api/auth/me", {
-        headers: { Authorization: `Bearer ${storedToken}` }
+        headers: { 
+          "Authorization": `Bearer ${storedToken}`,
+          "Cache-Control": "no-cache",
+          "Pragma": "no-cache"
+        }
       })
-        .then(r => r.ok ? r.json() : null)
+        .then(r => {
+          if (r.status === 401) {
+             localStorage.removeItem("coupons_hub_token");
+             setToken(null);
+             return null;
+          }
+          return r.ok ? r.json() : null;
+        })
         .then(data => { if (data) setUser(data); })
         .finally(() => setLoading(false));
     } else {
