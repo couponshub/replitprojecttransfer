@@ -111,10 +111,39 @@ function ContestDetailView({ contest, userId, onBack }: { contest: any; userId?:
 
   const claimMutation = useMutation({
     mutationFn: (ucId: string) => apiRequest("POST", `/api/user/coupons/${ucId}/claim`, {}),
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/user/coupons"] });
       queryClient.invalidateQueries({ queryKey: ["/api/user/my-downloads"] });
-      toast({ title: "Prize claimed!", description: "Check My Coupons to use it." });
+      toast({ title: "Prize claimed!", description: "Coupon claimed and added to your collection." });
+      
+      // Auto-download logic
+      if (data.coupon) {
+        const coupon = data.coupon;
+        const text = `
+--------------------------
+      COUPONS HUB X
+--------------------------
+CONTEST PRIZE COUPON
+--------------------------
+Contest: ${c.title}
+Shop: ${c.shop?.name || "Local Shop"}
+Code: ${coupon.code}
+Value: ${coupon.type === "percentage" ? coupon.value + "% off" : "₹" + coupon.value + " off"}
+Expiry: ${coupon.expiry_date ? new Date(coupon.expiry_date).toLocaleDateString() : "No expiry"}
+--------------------------
+Show this at the shop to redeem.
+--------------------------
+`;
+        const blob = new Blob([text], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Prize_Coupon_${coupon.code}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
     },
     onError: (e: any) => toast({ title: e.message || "Could not claim", variant: "destructive" }),
   });

@@ -2122,9 +2122,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/user/coupons/:id/claim", authMiddleware, async (req, res) => {
     try {
       const userId = (req as any).user.id;
-      const uc = await storage.claimUserCoupon(req.params.id, userId);
-      if (!uc) return res.status(404).json({ error: "Not found" });
-      res.json(uc);
+      const uc = await storage.getUserCoupon(req.params.id);
+      if (!uc || uc.user_id !== userId) return res.status(403).json({ error: "Forbidden" });
+      const updated = await storage.claimUserCoupon(req.params.id, userId);
+      if (!updated) return res.status(404).json({ error: "Not found" });
+      
+      // Fetch full coupon details for auto-download
+      const coupon = await storage.getCoupon(uc.coupon_id!);
+      res.json({ ...updated, coupon });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 

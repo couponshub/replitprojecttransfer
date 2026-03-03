@@ -33,14 +33,50 @@ export default function MyCouponsPage() {
 
   const claimMutation = useMutation({
     mutationFn: (id: string) => apiRequest("POST", `/api/user/coupons/${id}/claim`),
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/user/coupons"] });
       toast({ title: "Coupon claimed!", description: "You can now use this coupon on your next order." });
+      
+      // Auto-download logic
+      if (data.coupon) {
+        const coupon = data.coupon;
+        const text = `
+--------------------------
+      COUPONS HUB X
+--------------------------
+PRIZE COUPON
+--------------------------
+Shop: ${ucIdShopMap[id] || "Local Shop"}
+Code: ${coupon.code}
+Value: ${coupon.type === "percentage" ? coupon.value + "% off" : "₹" + coupon.value + " off"}
+Expiry: ${coupon.expiry_date ? new Date(coupon.expiry_date).toLocaleDateString() : "No expiry"}
+--------------------------
+Show this at the shop to redeem.
+--------------------------
+`;
+        const blob = new Blob([text], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Prize_Coupon_${coupon.code}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
     },
     onError: (err: any) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     },
   });
+
+  const ucIdShopMap: Record<string, string> = {};
+  if (userCoupons) {
+    userCoupons.forEach(uc => {
+      if (uc.contest?.shop?.name) ucIdShopMap[uc.id] = uc.contest.shop.name;
+      else if (uc.coupon?.shop?.name) ucIdShopMap[uc.id] = uc.coupon.shop.name;
+    });
+  }
 
   if (!user) {
     return (
