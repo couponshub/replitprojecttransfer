@@ -13,6 +13,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 export default function Login() {
   const [location, navigate] = useLocation();
   const { toast } = useToast();
+  const { login } = useAuth();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [tab, setTab] = useState<"login" | "register" | "admin" | "vendor">(
@@ -37,16 +38,9 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: loginForm.phone, password: loginForm.password }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Login failed");
-      localStorage.setItem("coupons_hub_token", data.token);
-      toast({ title: `Welcome back, ${data.user.name}!` });
-      if (data.user.role === "admin") navigate("/admin-dashboard");
+      const user = await login({ phone: loginForm.phone, password: loginForm.password });
+      toast({ title: `Welcome back, ${user.name}!` });
+      if (user.role === "admin") navigate("/admin-dashboard");
       else navigate("/home");
     } catch (err: any) {
       toast({ title: err.message, variant: "destructive" });
@@ -68,8 +62,7 @@ export default function Login() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Registration failed");
       localStorage.setItem("coupons_hub_token", data.token);
-      toast({ title: `Welcome to CouponsHub X, ${data.user.name}!` });
-      navigate("/home");
+      window.location.href = "/home";
     } catch (err: any) {
       toast({ title: err.message, variant: "destructive" });
     } finally {
@@ -98,11 +91,8 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: adminForm.email, password: adminForm.password }) });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Login failed");
-      if (data.user.role !== "admin") { toast({ title: "This account does not have admin access", variant: "destructive" }); return; }
-      localStorage.setItem("coupons_hub_token", data.token);
+      const user = await login({ email: adminForm.email, password: adminForm.password });
+      if (user.role !== "admin") { toast({ title: "This account does not have admin access", variant: "destructive" }); return; }
       toast({ title: "Welcome back, Admin!" });
       navigate("/admin-dashboard");
     } catch (err: any) {
