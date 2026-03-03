@@ -17,7 +17,7 @@ import { queryClient } from "@/lib/queryClient";
 import {
   ShoppingCart, Trash2, Plus, Minus, Tag, CheckCircle, ArrowLeft,
   Gift, Sparkles, ChevronDown, Percent, Zap, X,
-  Phone, User, MessageCircle, MapPin, Navigation
+  Phone, User, MessageCircle, MapPin, Navigation, Package
 } from "lucide-react";
 import type { Coupon, Shop } from "@shared/schema";
 
@@ -242,6 +242,7 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
         const offerItems = shopItems.filter(i => i.couponCode === c.code);
         const comboItems = offerItems.filter(i => i.isComboItem);
         const freeItems = offerItems.filter(i => i.isFreeItem);
+        const paidOfferItems = offerItems.filter(i => !i.isFreeItem && !i.isComboItem);
         const comboMRP = comboItems.reduce((s, i) => s + i.price * i.quantity, 0);
         const comboPrice = c.type === "combo" ? parseFloat(c.value) : 0;
         const comboSaved = Math.max(0, comboMRP - comboPrice);
@@ -277,6 +278,28 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
                 <X className="w-3 h-3" /> Remove
               </button>
             </div>
+
+            {/* BOGO / Paid items in offer */}
+            {paidOfferItems.length > 0 && (
+              <div className="flex flex-col gap-2 p-3">
+                <p className="text-[10px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wider flex items-center gap-1">
+                  <Package className="w-3 h-3" /> {c.type === "bogo" ? "Buy Items" : "Included Items"}
+                </p>
+                {paidOfferItems.map((item, idx) => (
+                  <div key={`${item.id}-paid-${idx}`} className="flex items-center gap-3 px-1">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-violet-100 dark:bg-violet-900/30">
+                      <span className="text-sm">{item.name[0]}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-gray-800 dark:text-white truncate">{item.name}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-xs font-bold text-primary">₹{item.price.toLocaleString()} × {item.quantity}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Combo items */}
             {comboItems.length > 0 && (
@@ -553,7 +576,15 @@ export default function CartPage() {
         }));
         addItems(itemsWithCode, true);
       } else if (result.type === "bogo") {
-        const bogoItem = {
+        const buyItem = {
+          id: result.bogo_buy_product_id!,
+          name: result.bogo_buy_product_name || "Product",
+          price: parseFloat(result.bogo_buy_product_price || "0"),
+          shop_id: shopId,
+          shopName: items.find(i => i.shop_id === shopId)?.shopName || "shop",
+          couponCode: result.code
+        };
+        const getItem = {
           id: result.free_item_product_id!,
           name: result.free_item_product_name || "Free Item",
           price: 0,
@@ -563,7 +594,7 @@ export default function CartPage() {
           isFreeItem: true,
           couponCode: result.code
         };
-        addItems([bogoItem], true);
+        addItems([buyItem, getItem], true);
       }
       const shopName = items.find(i => i.shop_id === shopId)?.shopName || "shop";
       toast({ title: "🎉 Coupon applied!", description: `${result.code} applied to ${shopName}` });
