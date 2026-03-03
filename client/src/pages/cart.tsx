@@ -350,8 +350,6 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
                            return freeItem ? `Free: ${freeItem.name}` : "Free item added";
                          })() :
                          c.type === "combo" ? (() => {
-                           const comboItems = shopItems.filter(i => i.isComboItem);
-                           const comboMRP = comboItems.reduce((s, i) => s + i.price * i.quantity, 0);
                            const comboPrice = parseFloat(c.value);
                            const saved = Math.max(0, shopSubtotal - comboPrice);
                            return `Combo offer ₹${comboPrice.toLocaleString()} · You save ₹${saved.toLocaleString()}`;
@@ -384,17 +382,19 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
                   <Input placeholder="Enter coupon code"
                     value={couponCode}
                     onChange={e => onCouponCodeChange(e.target.value.toUpperCase())}
-                    className="pl-7 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 font-mono uppercase tracking-wider h-9 text-sm"
-                    onKeyDown={e => e.key === "Enter" && onApplyCoupon()}
-                    data-testid={`input-coupon-code-${shopId}`} />
+                    className="pl-8 rounded-xl h-9 text-xs font-mono"
+                    data-testid={`input-coupon-${shopId}`}
+                    disabled={couponLoading} />
                 </div>
-                <Button onClick={() => onApplyCoupon()} disabled={couponLoading || !couponCode}
-                  className="rounded-xl shrink-0 bg-gradient-to-r from-blue-500 to-violet-600 border-0 h-9 text-sm px-4"
+                <Button onClick={() => onApplyCoupon()} size="sm" disabled={couponLoading || !couponCode}
+                  className="rounded-xl h-9 px-4 text-xs font-bold bg-violet-600 hover:bg-violet-700 shadow-sm"
                   data-testid={`button-apply-coupon-${shopId}`}>
-                  {couponLoading ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><Zap className="w-3 h-3 mr-1" />Apply</>}
+                  {couponLoading ? <Zap className="w-3 h-3 animate-pulse" /> : "Apply"}
                 </Button>
               </div>
-              <AvailableShopCoupons shopId={shopId} shopTotal={shopSubtotal} appliedCodes={coupons.map(c => c.code)} onApply={onApplyCoupon} />
+              <AvailableShopCoupons shopId={shopId} shopTotal={shopSubtotal}
+                appliedCodes={coupons.map(c => c.code)}
+                onApply={onApplyCoupon} />
             </>
           )}
 
@@ -558,7 +558,23 @@ export default function CartPage() {
         category_offer_subtype: result.category_offer_subtype ?? null 
       });
       if (result.items_to_add?.length > 0) {
-        addItems(result.items_to_add.map((item: any) => ({ id: item.id, name: item.name, price: item.price, shop_id: item.shop_id, shopName: item.shopName, isFreeItem: item.isFreeItem ?? false, isComboItem: item.isComboItem ?? false, originalPrice: item.originalPrice })));
+        const itemsWithCode = result.items_to_add.map((item: any) => ({
+          ...item,
+          couponCode: result.code
+        }));
+        addItems(itemsWithCode, true);
+      } else if (result.type === "bogo") {
+        const bogoItem = {
+          id: result.free_item_product_id!,
+          name: result.free_item_product_name || "Free Item",
+          price: 0,
+          originalPrice: result.free_item_product_price ? parseFloat(result.free_item_product_price) : 0,
+          shop_id: shopId,
+          shopName: items.find(i => i.shop_id === shopId)?.shopName || "shop",
+          isFreeItem: true,
+          couponCode: result.code
+        };
+        addItems([bogoItem], true);
       }
       const shopName = items.find(i => i.shop_id === shopId)?.shopName || "shop";
       toast({ title: "🎉 Coupon applied!", description: `${result.code} applied to ${shopName}` });
@@ -572,7 +588,16 @@ export default function CartPage() {
   const handlePickOneFreeItem = (chosenItem: any) => {
     if (!pickOneDialog) return;
     const { shopId, couponData } = pickOneDialog;
-    const freeCartItem = { id: chosenItem.id, name: chosenItem.name, price: 0, originalPrice: chosenItem.price, shop_id: chosenItem.shop_id, shopName: couponData.shopName || items.find(i => i.shop_id === shopId)?.shopName || "", isFreeItem: true };
+    const freeCartItem = { 
+      id: chosenItem.id, 
+      name: chosenItem.name, 
+      price: 0, 
+      originalPrice: chosenItem.price, 
+      shop_id: chosenItem.shop_id, 
+      shopName: couponData.shopName || items.find(i => i.shop_id === shopId)?.shopName || "", 
+      isFreeItem: true,
+      couponCode: couponData.code
+    };
     applyCoupon(shopId, {
       code: couponData.code, type: couponData.type, value: couponData.value, 
       items_to_add: [freeCartItem], 
@@ -580,18 +605,13 @@ export default function CartPage() {
       bogo_buy_product_name: null, bogo_get_product_name: null, 
       category_offer_subtype: couponData.category_offer_subtype ?? null 
     });
-    addItems([freeCartItem]);
+    addItems([freeCartItem], true);
     setPickOneDialog(null);
     const shopName = items.find(i => i.shop_id === shopId)?.shopName || "shop";
     toast({ title: "🎉 Free item added!", description: `${chosenItem.name} added free to your cart!` });
   };
 
   const handleRemoveCoupon = (shopId: string, code: string) => {
-    const shopCoupons = cartCoupons[shopId] || [];
-    const coupon = shopCoupons.find(c => c.code === code);
-    if (coupon?.items_to_add?.length) {
-      coupon.items_to_add.forEach((i: any) => removeItem(i.id));
-    }
     removeCoupon(shopId, code);
   };
 
@@ -697,140 +717,147 @@ export default function CartPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left — per-store sections */}
             <div className="lg:col-span-2 flex flex-col gap-6">
-              {shopGroups.map(({ shopId, items: shopItems }, idx) => (
-                <div key={shopId}>
-                  <ShopSection
-                    shopId={shopId}
-                    shopItems={shopItems}
-                    coupons={cartCoupons[shopId] || []}
-                    couponCode={couponCodes[shopId] || ""}
-                    couponLoading={couponLoadingMap[shopId] || false}
-                    userGPS={userGPS}
-                    onCouponCodeChange={code => setCouponCodes(prev => ({ ...prev, [shopId]: code }))}
-                    onApplyCoupon={(codeOverride?: string) => validateCoupon(shopId, codeOverride)}
-                    onRemoveCoupon={(code: string) => handleRemoveCoupon(shopId, code)}
-                    onRemoveItem={removeItem}
-                    onUpdateQty={updateQuantity}
-                    getShopDiscount={() => getShopDiscount(shopId)}
-                    onShopData={data => setShopDataMap(prev => ({ ...prev, [shopId]: data }))}
-                  />
-                  {idx < shopGroups.length - 1 && <div className="border-b-2 border-dashed border-gray-200 dark:border-gray-700 mt-4" />}
-                </div>
+              {shopGroups.map(({ shopId, items: shopItems }) => (
+                <ShopSection key={shopId} shopId={shopId} shopItems={shopItems}
+                  coupons={cartCoupons[shopId] || []}
+                  couponCode={couponCodes[shopId] || ""}
+                  couponLoading={couponLoadingMap[shopId] || false}
+                  userGPS={userGPS}
+                  onCouponCodeChange={(code) => setCouponCodes(prev => ({ ...prev, [shopId]: code }))}
+                  onApplyCoupon={(codeOverride) => validateCoupon(shopId, codeOverride)}
+                  onRemoveCoupon={(code) => handleRemoveCoupon(shopId, code)}
+                  onRemoveItem={removeItem}
+                  onUpdateQty={updateQuantity}
+                  getShopDiscount={() => getShopDiscount(shopId)}
+                  onShopData={(data) => setShopDataMap(prev => ({ ...prev, [shopId]: data }))} />
               ))}
             </div>
 
-            {/* Right — summary */}
-            <div className="flex flex-col gap-6">
-              <Card className="rounded-2xl border-0 shadow-lg sticky top-24">
+            {/* Right — Order Summary */}
+            <div className="flex flex-col gap-4">
+              <Card className="rounded-3xl border-0 shadow-lg sticky top-20 overflow-hidden bg-white dark:bg-gray-900">
+                <div className="bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-4">
+                  <h2 className="text-white font-bold flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5" /> Order Summary
+                  </h2>
+                </div>
                 <CardContent className="p-6">
-                  <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Order Summary</h2>
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>Subtotal</span>
+                  <div className="space-y-4">
+                    <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+                      <span>Cart Subtotal</span>
                       <span className="font-medium text-gray-900 dark:text-white">₹{totalSubtotal.toLocaleString()}</span>
                     </div>
+
                     {totalDiscount > 0 && (
-                      <div className="flex justify-between text-sm text-emerald-600 font-medium">
-                        <span>Total Savings</span>
+                      <div className="flex justify-between text-sm text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-50 dark:bg-emerald-950/20 px-3 py-2 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
+                        <span className="flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> Total Savings</span>
                         <span>- ₹{totalDiscount.toLocaleString()}</span>
                       </div>
                     )}
-                    <div className="flex justify-between text-sm text-muted-foreground">
-                      <span>Service Fee (2%)</span>
+
+                    <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+                      <span className="flex items-center gap-1">Service Fee <Badge variant="outline" className="text-[9px] h-4">2%</Badge></span>
                       <span className="font-medium text-gray-900 dark:text-white">₹{serviceFee.toLocaleString()}</span>
                     </div>
-                    {deliveryFee > 0 && (
-                      <div className="flex justify-between text-sm text-muted-foreground">
-                        <span>Delivery Fee</span>
-                        <span className="font-medium text-gray-900 dark:text-white">₹{deliveryFee.toLocaleString()}</span>
-                      </div>
-                    )}
-                    <Separator className="my-2" />
-                    <div className="flex justify-between text-lg font-black text-gray-900 dark:text-white">
-                      <span>Total</span>
-                      <span>₹{grandTotal.toLocaleString()}</span>
+
+                    <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+                      <span className="flex items-center gap-1">Delivery Fee {deliveryFee === 0 && <Badge className="bg-emerald-500 text-white text-[9px] h-4">FREE</Badge>}</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{userGPS ? `₹${deliveryFee.toLocaleString()}` : "Enable GPS"}</span>
                     </div>
 
-                    <div className="pt-4 space-y-3">
-                      <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
-                        <input type="checkbox" id="share-loc" checked={shareLocation} onChange={e => setShareLocation(e.target.checked)} className="rounded border-gray-300 text-primary" />
-                        <label htmlFor="share-loc" className="text-xs text-muted-foreground cursor-pointer select-none">Share precise location for delivery</label>
+                    {!userGPS && (
+                      <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 p-3 rounded-2xl flex items-center gap-2">
+                        <Navigation className="w-4 h-4 text-amber-600 shrink-0" />
+                        <p className="text-[10px] text-amber-700 dark:text-amber-400 font-medium">Enable location for accurate delivery fee</p>
+                      </div>
+                    )}
+
+                    <Separator className="bg-gray-100 dark:bg-gray-800" />
+                    <div className="flex justify-between items-center py-2">
+                      <span className="text-lg font-bold text-gray-900 dark:text-white">Grand Total</span>
+                      <div className="text-right">
+                        <span className="text-2xl font-black text-primary">₹{grandTotal.toLocaleString()}</span>
+                        <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mt-0.5">Inclusive of taxes</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-3 pt-2">
+                      <div className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-800">
+                        <Checkbox id="location" checked={shareLocation} onCheckedChange={(v) => setShareLocation(!!v)} className="rounded-lg h-5 w-5 border-2 border-gray-300 dark:border-gray-600" />
+                        <label htmlFor="location" className="text-[11px] text-gray-600 dark:text-gray-400 leading-tight cursor-pointer">
+                          Share my GPS location with vendor for faster delivery
+                        </label>
                       </div>
 
-                      <Button onClick={handlePlaceOrder} disabled={placingOrder} className="w-full h-12 rounded-xl bg-gradient-to-r from-blue-600 to-violet-700 text-lg font-bold gap-2 shadow-lg shadow-blue-500/20" data-testid="button-place-order">
-                        {placingOrder ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><MessageCircle className="w-5 h-5" /> Place Order</>}
+                      <Button onClick={handlePlaceOrder} disabled={placingOrder} size="lg" className="w-full rounded-2xl h-14 bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 shadow-xl shadow-indigo-500/20 text-base font-bold gap-2">
+                        {placingOrder ? <Zap className="w-5 h-5 animate-pulse" /> : <MessageCircle className="w-5 h-5" />}
+                        {placingOrder ? "Placing Order..." : "Place Order via WhatsApp"}
                       </Button>
-                      <p className="text-[10px] text-center text-muted-foreground">Your order will be sent to individual shops via WhatsApp</p>
+                      <p className="text-[10px] text-center text-muted-foreground px-4">By placing order, you agree to our Terms and Conditions.</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-
-              {!userGPS && (
-                <Card className="rounded-2xl border-0 shadow-md bg-blue-50/50 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900/30">
-                  <CardContent className="p-4 flex items-center gap-3">
-                    <Navigation className="w-5 h-5 text-blue-600 shrink-0" />
-                    <div className="flex-1">
-                      <p className="text-xs font-bold text-blue-900 dark:text-blue-300">Enable GPS for delivery fee</p>
-                      <p className="text-[10px] text-blue-700 dark:text-blue-400">Get accurate distance-based delivery estimates</p>
-                    </div>
-                    <Button size="sm" variant="outline" onClick={() => { setGpsLoading(true); navigator.geolocation.getCurrentPosition(pos => { setUserGPS({ lat: pos.coords.latitude, lon: pos.coords.longitude }); setGpsLoading(false); }, () => setGpsLoading(false)); }} className="rounded-lg h-8 text-[10px] bg-white border-blue-200 text-blue-600" data-testid="button-enable-gps">
-                      Enable
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
             </div>
           </div>
         </div>
       </div>
 
-      <Dialog open={pickOneDialog?.open} onOpenChange={open => !open && setPickOneDialog(null)}>
-        <DialogContent className="max-w-md rounded-3xl p-6">
+      {/* Pick One Free Item Dialog */}
+      <Dialog open={!!pickOneDialog} onOpenChange={(v) => !v && setPickOneDialog(null)}>
+        <DialogContent className="rounded-3xl max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-xl font-black text-gray-900 dark:text-white flex items-center gap-2"><Gift className="w-5 h-5 text-violet-500" /> Choose Your Free Gift</DialogTitle>
-            <DialogDescription>Pick one of these items for free!</DialogDescription>
+            <DialogTitle className="text-center text-xl font-bold flex items-center justify-center gap-2">
+              <Sparkles className="w-5 h-5 text-violet-500" /> Pick Your Free Item
+            </DialogTitle>
+            <DialogDescription className="text-center text-xs">Choose one item to add free with your coupon</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-3 mt-2 max-h-[60vh] overflow-y-auto pr-1">
-            {pickOneDialog?.items.map((item: any) => (
-              <div key={item.id} onClick={() => handlePickOneFreeItem(item)} className="group relative flex items-center gap-4 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-violet-500 transition-all cursor-pointer shadow-sm hover:shadow-md">
-                <div className="w-16 h-16 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center shrink-0">
-                  <Gift className="w-8 h-8 text-violet-500 opacity-50" />
+          <div className="grid grid-cols-1 gap-3 py-4">
+            {pickOneDialog?.items.map(item => (
+              <button key={item.id} onClick={() => handlePickOneFreeItem(item)} className="group flex items-center gap-3 p-3 rounded-2xl border-2 border-gray-100 dark:border-gray-800 hover:border-violet-500 hover:bg-violet-50/50 dark:hover:bg-violet-950/20 transition-all text-left">
+                <div className="w-12 h-12 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center shrink-0 group-hover:bg-violet-100 dark:group-hover:bg-violet-900/40">
+                  <Gift className="w-6 h-6 text-violet-500" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-gray-900 dark:text-white truncate">{item.name}</p>
-                  <p className="text-xs text-muted-foreground line-through">₹{parseFloat(item.price || "0").toLocaleString()}</p>
-                  <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[10px] mt-1">FREE GIFT</Badge>
+                  <p className="font-bold text-sm text-gray-900 dark:text-white truncate">{item.name}</p>
+                  <p className="text-[10px] text-muted-foreground line-through">₹{item.price}</p>
                 </div>
-                <div className="w-8 h-8 rounded-full border-2 border-gray-200 dark:border-gray-700 group-hover:border-violet-500 group-hover:bg-violet-500 transition-all flex items-center justify-center">
-                  <CheckCircle className="w-5 h-5 text-white opacity-0 group-hover:opacity-100" />
+                <div className="w-8 h-8 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Plus className="w-4 h-4 text-violet-600" />
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </DialogContent>
       </Dialog>
 
+      {/* Profile/Phone Dialog */}
       <Dialog open={phoneDialogOpen} onOpenChange={setPhoneDialogOpen}>
-        <DialogContent className="max-w-sm rounded-3xl p-6">
+        <DialogContent className="rounded-3xl max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold">Complete Profile</DialogTitle>
-            <DialogDescription>We need your mobile number to send order updates via WhatsApp.</DialogDescription>
+            <DialogTitle className="text-center text-xl font-bold">Add Mobile Number</DialogTitle>
+            <DialogDescription className="text-center text-xs">Need for WhatsApp order placement</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="flex flex-col gap-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="phone">WhatsApp Mobile Number</Label>
+              <Label className="text-xs font-semibold ml-1">WhatsApp Number</Label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">+91</span>
-                <Input id="phone" value={phoneInput} onChange={e => setPhoneInput(e.target.value)} placeholder="1234567890" maxLength={10} className="pl-12 rounded-xl h-12 text-lg tracking-widest" data-testid="input-phone" />
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input placeholder="Enter 10-digit number" value={phoneInput} onChange={e => setPhoneInput(e.target.value)} className="pl-10 rounded-2xl h-12 text-sm" type="tel" maxLength={10} />
               </div>
             </div>
-            <Button onClick={handleSavePhone} disabled={phoneSaving} className="w-full h-12 rounded-xl bg-gradient-to-r from-blue-600 to-violet-700 text-lg font-bold">
-              {phoneSaving ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : "Save & Continue"}
+            <Button onClick={handleSavePhone} disabled={phoneSaving} className="rounded-2xl h-12 font-bold text-sm">
+              {phoneSaving ? "Saving..." : "Save & Continue"}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+function Checkbox({ id, checked, onCheckedChange, className }: { id: string; checked: boolean; onCheckedChange: (v: boolean) => void; className?: string }) {
+  return (
+    <input type="checkbox" id={id} checked={checked} onChange={(e) => onCheckedChange(e.target.checked)} className={className} />
   );
 }

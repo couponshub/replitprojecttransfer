@@ -12,6 +12,7 @@ export interface CartItem {
   isComboItem?: boolean;
   originalPrice?: number;
   sub_category?: string;
+  couponCode?: string;
 }
 
 interface CartContextType {
@@ -40,13 +41,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const shopId = items.length > 0 ? items[0].shop_id : null;
   const uniqueShopIds = Array.from(new Set(items.map(i => i.shop_id)));
 
-  const matchItem = (a: { id: string; shop_id: string; isFreeItem?: boolean; isComboItem?: boolean }, b: { id: string; shop_id: string; isFreeItem?: boolean; isComboItem?: boolean }) =>
-    a.id === b.id && a.shop_id === b.shop_id && !!a.isFreeItem === !!b.isFreeItem && !!a.isComboItem === !!b.isComboItem;
+  const matchItem = (a: { id: string; shop_id: string; isFreeItem?: boolean; isComboItem?: boolean; couponCode?: string }, b: { id: string; shop_id: string; isFreeItem?: boolean; isComboItem?: boolean; couponCode?: string }) =>
+    a.id === b.id && a.shop_id === b.shop_id && !!a.isFreeItem === !!b.isFreeItem && !!a.isComboItem === !!b.isComboItem && a.couponCode === b.couponCode;
 
   const addItem = (item: Omit<CartItem, "quantity">) => {
     setItems(prev => {
+      // Regular items (no couponCode) merge. Items with couponCode are always unique per-coupon.
       const existing = prev.find(i => matchItem(i, item));
-      if (existing) {
+      if (existing && !item.couponCode) {
         return prev.map(i => matchItem(i, item) ? { ...i, quantity: i.quantity + 1 } : i);
       }
       return [...prev, { ...item, quantity: 1 }];
@@ -58,7 +60,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       let updated = [...prev];
       for (const item of newItems) {
         const existing = updated.find(i => matchItem(i, item));
-        if (existing) {
+        if (existing && !item.couponCode) {
           updated = updated.map(i => matchItem(i, item) ? { ...i, quantity: i.quantity + 1 } : i);
         } else {
           updated = [...updated, { ...item, quantity: 1 }];
@@ -99,6 +101,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       ...prev,
       [shopId]: (prev[shopId] || []).filter(c => c.code !== code)
     }));
+    setItems(prev => prev.filter(i => !(i.shop_id === shopId && i.couponCode === code)));
   };
 
   const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
