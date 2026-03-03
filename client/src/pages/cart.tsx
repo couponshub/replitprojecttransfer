@@ -329,6 +329,16 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
               </div>
             )}
 
+            {/* Free item informational savings badge */}
+            {freeItems.length > 0 && (
+              <div className="mx-3 mb-3 flex items-center gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-950/20 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
+                <Gift className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                  You saved ₹{freeItems.reduce((s, i) => s + (i.originalPrice || 0) * i.quantity, 0).toLocaleString()} with free item!
+                </span>
+              </div>
+            )}
+
             {/* Discount-only coupon (no items added) */}
             {offerItems.length === 0 && discountLabel && (
               <div className="flex items-center gap-2 px-4 py-3">
@@ -463,9 +473,8 @@ export default function CartPage() {
         totalDisc += Math.max(0, comboMRP - comboPrice);
 
       } else if (coupon.type === "free_item" || coupon.type === "bogo") {
-        // Discount = original price of free items (price is stored as 0, originalPrice is MRP)
-        const freeItems = offerItems.filter(i => i.isFreeItem);
-        totalDisc += freeItems.reduce((s, i) => s + (i.originalPrice || 0) * i.quantity, 0);
+        // Free items already have price=0 so the subtotal is already correct.
+        // No additional deduction from grand total — the savings is shown informational in the offer box.
 
       } else {
         // percentage, flat, min_order, category_offer — only apply to items that have this couponCode
@@ -585,7 +594,7 @@ export default function CartPage() {
     const freeCartItem = { 
       id: chosenItem.id, 
       name: chosenItem.name, 
-      price: chosenItem.price, 
+      price: 0, 
       originalPrice: chosenItem.price, 
       shop_id: chosenItem.shop_id, 
       shopName: couponData.shopName || items.find(i => i.shop_id === shopId)?.shopName || "", 
