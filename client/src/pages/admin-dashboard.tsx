@@ -1762,6 +1762,14 @@ export default function AdminDashboard() {
                       </div>
                     </div>
 
+                    {/* Duration — services only */}
+                    {formData.type === "service" && (
+                      <div>
+                        <Label className="text-xs font-semibold">Service Duration (Optional)</Label>
+                        <Input value={formData.duration || ""} onChange={e => setForm("duration", e.target.value)} className="mt-1.5 rounded-xl" placeholder="e.g. 30 mins, 1 hour" data-testid="input-product-duration" />
+                      </div>
+                    )}
+
 
                     {/* Shop */}
                     <div>

@@ -69,6 +69,7 @@ export const products = pgTable("products", {
   grams: text("grams"),
   quantity: text("quantity"),
   size: text("size"),
+  duration: text("duration"),
   is_active: boolean("is_active").notNull().default(true),
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });

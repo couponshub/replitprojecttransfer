@@ -489,11 +489,12 @@ export default function ShopPage() {
                     <CardContent className="p-4 flex flex-col flex-1">
                       <h3 className="font-semibold text-sm text-gray-900 dark:text-white line-clamp-1">{product.name}</h3>
                       <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{product.description}</p>
-                      {((product as any).grams || (product as any).size || (product as any).quantity) && (
+                      {((product as any).grams || (product as any).size || (product as any).quantity || (product as any).duration) && (
                         <div className="flex flex-wrap gap-1 mt-1.5">
                           {(product as any).grams && <span className="text-[10px] bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-md text-muted-foreground">{(product as any).grams}</span>}
                           {(product as any).quantity && <span className="text-[10px] bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-md text-muted-foreground">{(product as any).quantity}</span>}
                           {(product as any).size && <span className="text-[10px] bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-md text-muted-foreground">{(product as any).size}</span>}
+                          {(product as any).duration && <span className="text-[10px] bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-md text-blue-600 dark:text-blue-400 font-medium">{(product as any).duration}</span>}
                         </div>
                       )}
                       <div className="flex items-center justify-between mt-auto pt-3">
