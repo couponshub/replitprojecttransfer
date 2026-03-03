@@ -372,7 +372,7 @@ export default function AdminDashboard() {
     const matchesSearch = !couponSearch ||
       c.code.toLowerCase().includes(couponSearch.toLowerCase()) ||
       c.shop?.name?.toLowerCase().includes(couponSearch.toLowerCase());
-    const matchesShop = !couponShopFilter || c.shop_id === couponShopFilter;
+    const matchesShop = !couponShopFilter || couponShopFilter === "all_shops" || c.shop_id === couponShopFilter;
     return matchesSearch && matchesShop;
   }).map(c => ({ ...c, name: c.code })), couponSort).map(c => ({ ...c }));
   const couponShops = Array.from(new Map(coupons.filter(c => c.shop).map(c => [c.shop_id, c.shop])).entries()).map(([id, shop]) => ({ id, name: (shop as any)?.name || "" })).sort((a, b) => a.name.localeCompare(b.name));
@@ -1859,32 +1859,31 @@ export default function AdminDashboard() {
           {activeTab === "coupons" && (
             <div className="flex flex-col gap-4">
               <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div className="relative flex-1 min-w-[160px] max-w-xs">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                  <Input value={couponSearch} onChange={e => setCouponSearch(e.target.value)} placeholder="Search by code..." className="pl-8 rounded-xl h-9 text-sm" data-testid="input-coupon-search" />
+                <div className="flex flex-col gap-3 flex-1 min-w-[280px]">
+                  <div className="relative max-w-xs">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <Input value={couponSearch} onChange={e => setCouponSearch(e.target.value)} placeholder="Search by code or value..." className="pl-8 rounded-xl h-9 text-sm" data-testid="input-coupon-search" />
+                  </div>
+                  <div className="relative max-w-xs">
+                    <Store className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <Select value={couponShopFilter} onValueChange={setCouponShopFilter}>
+                      <SelectTrigger className="pl-8 rounded-xl h-9 text-sm bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-800" data-testid="select-coupon-shop">
+                        <SelectValue placeholder="Filter by Shop" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl">
+                        <SelectItem value="all_shops">All Shops</SelectItem>
+                        {couponShops.map(shop => (
+                          <SelectItem key={shop.id} value={shop.id}>{shop.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <Button onClick={() => openCreate({ is_active: true, type: "percentage" })} size="sm" className="rounded-xl gap-2 bg-gradient-to-r from-blue-500 to-violet-600 shadow-lg shadow-blue-500/25 shrink-0" data-testid="button-create-coupon">
                   <Plus className="w-4 h-4" /> Add Coupon
                 </Button>
               </div>
-              {/* Shop filter chips */}
-              <div className="flex flex-wrap gap-1.5 items-center">
-                <span className="text-xs text-muted-foreground font-medium shrink-0">Shop:</span>
-                <button
-                  onClick={() => setCouponShopFilter("")}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${!couponShopFilter ? "bg-blue-600 text-white border-blue-600" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-400"}`}
-                  data-testid="button-coupon-shop-all"
-                >All</button>
-                {couponShops.map(shop => (
-                  <button
-                    key={shop.id}
-                    onClick={() => setCouponShopFilter(couponShopFilter === shop.id ? "" : shop.id)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all truncate max-w-[140px] ${couponShopFilter === shop.id ? "bg-violet-600 text-white border-violet-600" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-violet-400"}`}
-                    data-testid={`button-coupon-shop-filter-${shop.id}`}
-                    title={shop.name}
-                  >{shop.name}</button>
-                ))}
-              </div>
+
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground font-medium">Sort:</span>
                 <button onClick={() => setCouponSort(couponSort === "az" ? "none" : "az")} className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${couponSort === "az" ? "bg-blue-600 text-white border-blue-600" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-400"}`} data-testid="button-coupon-sort-az"><ArrowUpAZ className="w-3 h-3" /> A→Z</button>
