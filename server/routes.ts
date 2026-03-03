@@ -2211,7 +2211,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (existingFromShop) {
         if (existingFromShop.coupon_id !== couponId) {
           // Delete old coupon from same shop to clear "cart"
-          await db.delete(userCoupons).where(eq(userCoupons.id, existingFromShop.id));
+          await storage.deleteUserCoupon(existingFromShop.id);
         } else {
           return res.json(existingFromShop);
         }
