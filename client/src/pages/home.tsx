@@ -6,13 +6,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Crown, ChevronRight, Star, MapPin, Percent, ChevronLeft, Search, Mic, X, LocateFixed, Navigation, Zap, Download, WifiOff, Ticket, ChevronDown, BookMarked, CheckCircle2, Clock } from "lucide-react";
+import { Crown, ChevronRight, Star, MapPin, Percent, ChevronLeft, Search, Mic, X, LocateFixed, Navigation, Zap, Download, WifiOff, Ticket, ChevronDown, BookMarked, CheckCircle2, Clock, History, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/lib/cart";
 import { useAuth } from "@/lib/auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Category, Shop, Coupon, Banner, Product, OfflineCoupon } from "@shared/schema";
 import { getCategoryIconComponent, getCategoryBg } from "@/components/CategoryIcons";
+import { recordShopView, recordCategoryView, useUserHistory } from "@/lib/history";
 
 type BannerWithCoupon = Banner & { coupon?: Coupon & { shop?: Shop } };
 
@@ -427,7 +428,7 @@ function CategoryCard({ category, index }: { category: Category; index: number }
   const bgClass = getCategoryBg(category.name);
   return (
     <div
-      onClick={() => navigate(`/category/${category.id}`)}
+      onClick={() => { recordCategoryView(category.id); navigate(`/category/${category.id}`); }}
       className="flex flex-col items-center gap-2 cursor-pointer group shrink-0"
       data-testid={`card-category-${category.id}`}
     >
@@ -503,7 +504,7 @@ const CATEGORY_FALLBACK_EMOJI: Record<string, string> = {
   "entertainment": "🎬", "travel": "🏨", "home & living": "🛋️",
 };
 
-function ShopLogoCircle({ shop }: { shop: Shop & { category?: Category } }) {
+function ShopLogoCircle({ shop, onView }: { shop: Shop & { category?: Category }; onView?: () => void }) {
   const [, navigate] = useLocation();
   const [logoErr, setLogoErr] = useState(false);
   const catKey = (shop.category?.name || "").toLowerCase();
@@ -517,7 +518,7 @@ function ShopLogoCircle({ shop }: { shop: Shop & { category?: Category } }) {
   return (
     <button
       type="button"
-      onClick={() => navigate(`/shop/${shop.id}`)}
+      onClick={() => { recordShopView(shop.id, shop.category_id || undefined); onView?.(); navigate(`/shop/${shop.id}`); }}
       className="flex flex-col items-center gap-2 shrink-0 w-16 group"
       data-testid={`logo-shop-${shop.id}`}
     >
@@ -1699,6 +1700,7 @@ export default function Home() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; address: string } | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
   const [nearbyMode, setNearbyMode] = useState(false);
+  const { recentShopIds, topCategoryIds, hasHistory, recordShop, recordCategory } = useUserHistory();
   const [nearbyPos, setNearbyPos] = useState<{ lat: number; lng: number } | null>(null);
   const [nearbyLoading, setNearbyLoading] = useState(false);
   const [selectedMapCoupon, setSelectedMapCoupon] = useState<any>(null);
@@ -1924,6 +1926,32 @@ export default function Home() {
         </div>
       )}
 
+      {/* Recently Viewed Shops — only shown if user has history and not in nearby mode */}
+      {!nearbyMode && hasHistory && recentShopIds.length > 0 && (() => {
+        const allPoolShops = [...featuredShops, ...topShopsData];
+        const seen = new Set<string>();
+        const recentShops = recentShopIds
+          .map(id => allPoolShops.find(s => s.id === id))
+          .filter((s): s is Shop & { category?: Category } => !!s && !seen.has(s.id) && !!seen.add(s.id))
+          .slice(0, 8);
+        if (recentShops.length === 0) return null;
+        return (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-5 pb-1" data-testid="section-recently-viewed">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <History className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                <h2 className="text-base font-semibold text-gray-700 dark:text-gray-300">Recently Viewed</h2>
+              </div>
+            </div>
+            <div className="flex gap-4 overflow-x-auto pb-1 scrollbar-hide">
+              {recentShops.map(shop => (
+                <ShopLogoCircle key={shop.id} shop={shop} onView={() => recordShop(shop.id, shop.category_id || undefined)} />
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Nearby Mode Active Banner */}
       {nearbyMode && nearbyPos && (
         <div className="sticky top-0 z-40 w-full" style={{ background: "linear-gradient(90deg, #78350f 0%, #92400e 50%, #78350f 100%)" }}>
@@ -1984,7 +2012,7 @@ export default function Home() {
                 return (
                   <button
                     key={cat.id}
-                    onClick={() => navigate(`/category/${cat.id}`)}
+                    onClick={() => { recordCategoryView(cat.id); navigate(`/category/${cat.id}`); }}
                     className="flex flex-col items-center gap-1.5 group"
                     data-testid={`card-top-category-${cat.id}`}
                   >
@@ -2052,6 +2080,41 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* For You — Personalized Recommendations */}
+      {!nearbyMode && hasHistory && topCategoryIds.length > 0 && (() => {
+        const shownTopIds = new Set((topShopsData.length > 0 ? topShopsData : featuredShops).map(s => s.id));
+        const allPool = [...featuredShops, ...topShopsData];
+        const forYouShops = allPool
+          .filter(s => topCategoryIds.includes(s.category_id || "") && !shownTopIds.has(s.id))
+          .filter((s, idx, arr) => arr.findIndex(x => x.id === s.id) === idx)
+          .slice(0, 8);
+        const forYouCoupons = displayActiveCoupons
+          .filter(c => topCategoryIds.includes((c as any).shop?.category_id || ""))
+          .slice(0, 4);
+        if (forYouShops.length === 0 && forYouCoupons.length === 0) return null;
+        return (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5" data-testid="section-for-you">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="w-5 h-5 text-violet-500" />
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">For You</h2>
+              <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">— based on your browsing</span>
+            </div>
+            {forYouShops.length > 0 && (
+              <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
+                {forYouShops.map(shop => (
+                  <ShopLogoCircle key={shop.id} shop={shop} onView={() => recordShop(shop.id, shop.category_id || undefined)} />
+                ))}
+              </div>
+            )}
+            {forYouCoupons.length > 0 && (
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {forYouCoupons.map(c => <CouponCard key={c.id} coupon={c} />)}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Top Coupons / Offline Coupons Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 pb-16">

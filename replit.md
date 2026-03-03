@@ -88,6 +88,15 @@ A full-stack marketplace for Eluru, AP — discover coupons, offline deals, and 
 - **Admin**: admin@marketplace.com / Admin@123
 - **User**: aarav@example.com / User@123 (phone: 9876543210)
 
+## Personalization
+- `client/src/lib/history.ts` — localStorage-based user browsing history tracker
+  - Tracks recently viewed shops (up to 20) and categories (up to 10)
+  - `useUserHistory()` hook: exposes `recentShopIds`, `topCategoryIds`, `hasHistory`, `recordShop`, `recordCategory`
+  - `recordShopView()` / `recordCategoryView()` — standalone functions for direct use
+- Home page **Recently Viewed** section: shows shops the user has viewed recently (appears above categories, hidden until history exists)
+- Home page **For You** section: shows shops + coupons from the user's most-visited categories (appears above coupons section, hidden until history exists)
+- Both sections hidden on first visit; automatically appear as user browses
+
 ## Design
 - Colorful Apple-inspired minimal UI with frosted glass sidebar
 - Plus Jakarta Sans typography
