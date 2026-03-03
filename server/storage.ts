@@ -239,8 +239,6 @@ export class PgStorage implements IStorage {
   }
 
   async updateShop(id: string, shop: Partial<InsertShop>): Promise<Shop | undefined> {
-    const updateData = { ...shop };
-    if (updateData.delivery_fee_amount !== undefined) updateData.delivery_fee_amount = updateData.delivery_fee_amount?.toString();
     const result = await db.update(shops).set(shop).where(eq(shops.id, id)).returning();
     return result[0];
   }
@@ -827,13 +825,8 @@ export class PgStorage implements IStorage {
     return rows[0];
   }
 
-  async createUserCoupon(data: { user_id: string; coupon_id: string; contest_id?: string | null }): Promise<UserCoupon> {
-    const rows = await db.insert(userCoupons).values({
-      user_id: data.user_id,
-      coupon_id: data.coupon_id,
-      contest_id: data.contest_id || null,
-      is_claimed: false,
-    }).returning();
+  async createUserCoupon(data: { user_id: string; coupon_id: string; contest_id: string }): Promise<UserCoupon> {
+    const rows = await db.insert(userCoupons).values(data).returning();
     return rows[0];
   }
 

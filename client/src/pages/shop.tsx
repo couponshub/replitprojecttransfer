@@ -74,7 +74,7 @@ function isShopOpen(hours: string | null | undefined): boolean {
 export default function ShopPage() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
-  const { addItem, items, updateQuantity, itemCount, addItems, removeFreeItemsForShop, applyCoupon, appliedCoupons, removeItem } = useCart();
+  const { addItem, items, updateQuantity, itemCount, addItems, removeFreeItemsForShop, applyCoupon } = useCart();
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -125,23 +125,13 @@ export default function ShopPage() {
   const finishCouponClaim = (result: any, chosenFreeItem?: any) => {
     const hasItemsToAdd = result.items_to_add && result.items_to_add.length > 0;
     const hasFreeItems = (result.items_to_add || []).some((i: any) => i.isFreeItem) || !!chosenFreeItem;
-    
-    // Clear items from previous coupon for this shop
-    if (id) {
-      const prevCoupon = (appliedCoupons[id] || [])[0];
-      if (prevCoupon?.items_to_add?.length) {
-        prevCoupon.items_to_add.forEach((i: any) => removeItem(i.id));
-      }
+    if (hasFreeItems && id) {
       removeFreeItemsForShop(id);
     }
-
     if (hasItemsToAdd) {
       addItems(result.items_to_add.map((item: any) => ({
         id: item.id, name: item.name, price: item.price,
-        shop_id: item.shop_id, shopName: item.shopName, 
-        isFreeItem: item.isFreeItem ?? false,
-        isComboItem: item.isComboItem ?? false,
-        originalPrice: item.originalPrice
+        shop_id: item.shop_id, shopName: item.shopName, isFreeItem: item.isFreeItem ?? false,
       })));
     }
     if (chosenFreeItem) {
@@ -166,20 +156,13 @@ export default function ShopPage() {
     }
     setClaimingCoupon(coupon.id);
     try {
-      // 1. Claim the coupon in the backend (this will handle the "one coupon per store" logic)
-      const res = await apiRequest("POST", "/api/user/coupons/claim", { couponId: coupon.id });
-      const claimResult = await res.json();
-      queryClient.invalidateQueries({ queryKey: ["/api/user/coupons"] });
-
-      // 2. Now validate/apply it to the local cart for the UI experience
-      const valRes = await apiRequest("POST", "/api/coupons/validate", { code: coupon.code, shopId: id });
-      const result = await valRes.json();
+      const result = await apiRequest("POST", "/api/coupons/validate", { code: coupon.code, shopId: id });
 
       const hasItemsToAdd = result.items_to_add && result.items_to_add.length > 0;
       const hasPickOne = result.pick_one_items && result.pick_one_items.length > 0;
 
       if (!hasItemsToAdd && !hasPickOne && itemCount === 0) {
-        toast({ title: "Coupon saved! Add items to cart to see your discount.", variant: "default" });
+        toast({ title: "Add items to cart first, then claim the coupon!", variant: "destructive" });
         setClaimingCoupon(null);
         return;
       }

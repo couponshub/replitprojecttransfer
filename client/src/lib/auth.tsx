@@ -5,7 +5,7 @@ import { queryClient } from "./queryClient";
 interface AuthUser {
   id: string;
   name: string;
-  email?: string | null;
+  email: string;
   phone?: string;
   address?: string;
   role: "admin" | "user";
@@ -41,20 +41,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (storedToken) {
       setToken(storedToken);
       fetch("/api/auth/me", {
-        headers: { 
-          "Authorization": `Bearer ${storedToken}`,
-          "Cache-Control": "no-cache",
-          "Pragma": "no-cache"
-        }
+        headers: { Authorization: `Bearer ${storedToken}` }
       })
-        .then(r => {
-          if (r.status === 401) {
-             localStorage.removeItem("coupons_hub_token");
-             setToken(null);
-             return null;
-          }
-          return r.ok ? r.json() : null;
-        })
+        .then(r => r.ok ? r.json() : null)
         .then(data => { if (data) setUser(data); })
         .finally(() => setLoading(false));
     } else {

@@ -539,32 +539,6 @@ export default function VendorDashboard() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <Label className="text-sm">Shop Name</Label>
-                            <div className="grid grid-cols-2 gap-4 mb-4 mt-2">
-                              <div className="flex items-center justify-between p-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
-                                <div className="space-y-0.5">
-                                  <Label className="text-sm">Delivery Fee</Label>
-                                  <p className="text-[10px] text-muted-foreground">Enable delivery charges</p>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => setShopForm({ ...shopForm, delivery_fee_enabled: !shopForm.delivery_fee_enabled })}
-                                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${shopForm.delivery_fee_enabled ? "bg-emerald-600" : "bg-gray-200 dark:bg-gray-700"}`}
-                                >
-                                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${shopForm.delivery_fee_enabled ? "translate-x-6" : "translate-x-1"}`} />
-                                </button>
-                              </div>
-                              <div className="flex flex-col gap-1.5">
-                                <Label className="text-sm">Fee Amount (₹)</Label>
-                                <Input
-                                  type="number"
-                                  placeholder="0.00"
-                                  value={shopForm.delivery_fee_amount || ""}
-                                  onChange={e => setShopForm({ ...shopForm, delivery_fee_amount: e.target.value })}
-                                  disabled={!shopForm.delivery_fee_enabled}
-                                  className="h-10 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                                />
-                              </div>
-                            </div>
                             <Input value={shopForm.name || ""} onChange={e => setShopForm((f: any) => ({ ...f, name: e.target.value }))} className="mt-1.5 rounded-xl" data-testid="input-vendor-shop-name" />
                           </div>
                           <div>
