@@ -99,6 +99,10 @@ function AvailableShopCoupons({ shopId, shopTotal, appliedCodes, onApply }: { sh
             const colors = TYPE_COLORS[coupon.type] || TYPE_COLORS.percentage;
             const expired = coupon.expiry_date && new Date(coupon.expiry_date) < new Date();
             const isApplied = appliedCodes.includes(coupon.code);
+            const usageLimit = (coupon as any).usage_limit;
+            const usageCount = (coupon as any).usage_count ?? 0;
+            const usageRemaining = usageLimit ? Math.max(0, usageLimit - usageCount) : null;
+            const isExhausted = usageLimit && usageCount >= usageLimit;
             return (
               <div key={coupon.id} className="relative rounded-xl overflow-hidden border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900" data-testid={`avail-coupon-${coupon.id}`}>
                 <div className={`absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r ${colors.gradient}`} />
@@ -110,14 +114,21 @@ function AvailableShopCoupons({ shopId, shopTotal, appliedCodes, onApply }: { sh
                     {coupon.type !== "free_item" && !expired && shopTotal > 0 && (
                       <p className="text-[10px] text-emerald-600">Saves ₹{coupon.type === "percentage" ? Math.floor(shopTotal * parseFloat(coupon.value as string) / 100) : Math.min(parseFloat(coupon.value as string), shopTotal)}</p>
                     )}
+                    {usageRemaining !== null && !isExhausted && (
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">{usageRemaining} of {usageLimit} uses left</p>
+                    )}
+                    {isExhausted && (
+                      <p className="text-[10px] text-red-500 font-semibold">No uses left</p>
+                    )}
                   </div>
-                  {!expired && !isApplied && appliedCodes.length < 3 && (
+                  {!expired && !isApplied && !isExhausted && appliedCodes.length < 3 && (
                     <button onClick={() => { onApply(coupon.code); setOpen(false); }}
                       className={`px-2.5 py-1 rounded-lg text-[11px] font-bold text-white bg-gradient-to-r ${colors.gradient} shrink-0`}
                       data-testid={`button-apply-avail-${coupon.id}`}>Apply</button>
                   )}
                   {isApplied && <Badge className="bg-emerald-100 text-emerald-700 border-0 text-[10px] shrink-0">✓ Applied</Badge>}
                   {expired && <Badge className="bg-gray-100 text-gray-500 border-0 text-[10px] shrink-0">Expired</Badge>}
+                  {isExhausted && !isApplied && <Badge className="bg-red-100 text-red-600 border-0 text-[10px] shrink-0">Full</Badge>}
                 </div>
               </div>
             );

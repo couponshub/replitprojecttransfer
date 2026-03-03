@@ -1897,6 +1897,11 @@ export default function AdminDashboard() {
                             </div>
                             <p className="text-xs text-muted-foreground mt-1.5">
                               {typeLabel[coupon.type] || coupon.type} &middot; {coupon.shop?.name}
+                              {(coupon as any).usage_limit && (
+                                <span className={`ml-2 font-medium ${((coupon as any).usage_count ?? 0) >= (coupon as any).usage_limit ? "text-red-500" : "text-amber-600 dark:text-amber-400"}`}>
+                                  · {Math.max(0, (coupon as any).usage_limit - ((coupon as any).usage_count ?? 0))} / {(coupon as any).usage_limit} left
+                                </span>
+                              )}
                             </p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
@@ -2555,6 +2560,19 @@ export default function AdminDashboard() {
                     <div>
                       <Label className="text-xs font-semibold">Expiry Date (optional)</Label>
                       <Input type="date" value={formData.expiry_date ? new Date(formData.expiry_date).toISOString().split("T")[0] : ""} onChange={e => setForm("expiry_date", e.target.value || null)} className="mt-1.5 rounded-xl" data-testid="input-coupon-expiry" />
+                    </div>
+
+                    {/* Usage Limit */}
+                    <div>
+                      <Label className="text-xs font-semibold">Usage Limit (optional)</Label>
+                      <p className="text-[11px] text-muted-foreground mb-1.5">Max number of times this coupon can be claimed. Leave blank for unlimited.</p>
+                      <Input type="number" min="1" value={formData.usage_limit || ""} onChange={e => setForm("usage_limit", e.target.value ? parseInt(e.target.value) : null)} className="mt-1.5 rounded-xl" placeholder="e.g. 10 (unlimited if blank)" data-testid="input-coupon-usage-limit" />
+                      {formData.usage_limit && (
+                        <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1 font-medium">
+                          Only {formData.usage_limit} customers can use this coupon
+                          {formData.usage_count > 0 && ` · ${formData.usage_count} used so far`}
+                        </p>
+                      )}
                     </div>
 
                     {/* Banner Image */}

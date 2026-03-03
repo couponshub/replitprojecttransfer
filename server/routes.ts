@@ -1286,6 +1286,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(400).json({ error: "Coupon has expired" });
       }
 
+      // Usage limit check
+      if (coupon.usage_limit !== null && coupon.usage_limit !== undefined) {
+        const usageCount = coupon.usage_count ?? 0;
+        if (usageCount >= coupon.usage_limit) {
+          return res.status(400).json({ error: "This coupon has reached its usage limit and is no longer available" });
+        }
+      }
+
       // Min order amount check
       if (coupon.min_order_amount) {
         const minAmt = parseFloat(coupon.min_order_amount);
@@ -1386,7 +1394,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
 
-      res.json({ ...coupon, items_to_add, pick_one_items, bogo_buy_product_name, bogo_get_product_name });
+      const usageRemaining = (coupon.usage_limit !== null && coupon.usage_limit !== undefined)
+        ? Math.max(0, coupon.usage_limit - (coupon.usage_count ?? 0))
+        : null;
+      res.json({ ...coupon, items_to_add, pick_one_items, bogo_buy_product_name, bogo_get_product_name, usage_remaining: usageRemaining });
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
 
@@ -1504,6 +1515,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           order_id: "",
         }))
       );
+      // Increment coupon usage count if a coupon was used
+      if (coupon_code && shop_id) {
+        try { await storage.incrementCouponUsage(coupon_code, shop_id); } catch {}
+      }
       res.json(order);
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });

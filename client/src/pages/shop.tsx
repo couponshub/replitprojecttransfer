@@ -399,11 +399,16 @@ export default function ShopPage() {
                       {coupon.expiry_date && (
                         <p className="text-[10px] text-muted-foreground">Valid until {new Date(coupon.expiry_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
                       )}
+                      {(coupon as any).usage_limit && (
+                        <p className="text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                          {Math.max(0, (coupon as any).usage_limit - ((coupon as any).usage_count ?? 0))} of {(coupon as any).usage_limit} uses remaining
+                        </p>
+                      )}
                       <Button
                         size="sm"
                         onClick={() => handleClaimCoupon(coupon)}
-                        disabled={claimingCoupon === coupon.id}
-                        className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 border-0 gap-2 text-white h-8 text-xs mt-0.5"
+                        disabled={claimingCoupon === coupon.id || ((coupon as any).usage_limit && ((coupon as any).usage_count ?? 0) >= (coupon as any).usage_limit)}
+                        className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 border-0 gap-2 text-white h-8 text-xs mt-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
                         data-testid={`button-claim-coupon-${coupon.id}`}
                       >
                         <Zap className="w-3 h-3" />

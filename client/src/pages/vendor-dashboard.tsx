@@ -207,7 +207,7 @@ export default function VendorDashboard() {
 
   const [couponDialog, setCouponDialog] = useState(false);
   const [editCoupon, setEditCoupon] = useState<any>(null);
-  const EMPTY_COUPON_FORM = { code: "", type: "percentage", value: "", is_active: true, featured: false, is_contest_coupon: false, free_item_product_id: null, free_item_qty: 1, free_item_products: [] as string[], bogo_buy_product_id: null as string | null, bogo_buy_qty: 1, bogo_get_product_id: null as string | null, bogo_get_qty: 1, min_order_amount: null, category_offer_subtype: "percentage", expiry_date: "", description: "", banner_image: "", restrict_sub_category: null };
+  const EMPTY_COUPON_FORM = { code: "", type: "percentage", value: "", is_active: true, featured: false, is_contest_coupon: false, free_item_product_id: null, free_item_qty: 1, free_item_products: [] as string[], bogo_buy_product_id: null as string | null, bogo_buy_qty: 1, bogo_get_product_id: null as string | null, bogo_get_qty: 1, min_order_amount: null, category_offer_subtype: "percentage", expiry_date: "", description: "", banner_image: "", restrict_sub_category: null, usage_limit: null as number | null };
   const [couponForm, setCouponForm] = useState<any>(EMPTY_COUPON_FORM);
   const [couponProdSearch, setCouponProdSearch] = useState("");
   const [freeItemCatFilter, setFreeItemCatFilter] = useState<string[]>([]);
@@ -851,10 +851,11 @@ export default function VendorDashboard() {
                           <p className="text-xs text-muted-foreground">
                             {coupon.type === "percentage" ? `${coupon.value}% off` : coupon.type === "flat" ? `₹${coupon.value} off` : "Free item"}
                             {coupon.expiry_date && ` · Expires ${new Date(coupon.expiry_date).toLocaleDateString("en-IN")}`}
+                            {(coupon as any).usage_limit && ` · ${Math.max(0, (coupon as any).usage_limit - ((coupon as any).usage_count ?? 0))} / ${(coupon as any).usage_limit} remaining`}
                           </p>
                         </div>
                         <div className="flex gap-1 shrink-0">
-                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => { resetCouponDialog(); setEditCoupon(coupon); setCouponForm({ code: coupon.code, type: coupon.type, value: coupon.value, is_active: coupon.is_active, featured: coupon.featured || false, is_contest_coupon: coupon.is_contest_coupon || false, free_item_product_id: coupon.free_item_product_id || null, free_item_qty: coupon.free_item_qty || 1, free_item_products: coupon.free_item_products || [], bogo_buy_product_id: coupon.bogo_buy_product_id || null, bogo_buy_qty: coupon.bogo_buy_qty || 1, bogo_get_product_id: coupon.bogo_get_product_id || null, bogo_get_qty: coupon.bogo_get_qty || 1, min_order_amount: coupon.min_order_amount || null, category_offer_subtype: coupon.category_offer_subtype || "percentage", expiry_date: coupon.expiry_date ? new Date(coupon.expiry_date).toISOString().split("T")[0] : "", description: coupon.description || "", banner_image: coupon.banner_image || "", restrict_sub_category: coupon.restrict_sub_category || null }); if (coupon.coupon_products && Array.isArray(coupon.coupon_products)) { setBundleItems(coupon.coupon_products.map((cp: any) => ({ product_id: cp.product_id || cp.id, name: cp.name || "", custom_price: cp.custom_price || "", quantity: cp.quantity || 1 }))); } setCouponDialog(true); }} data-testid={`button-edit-coupon-${coupon.id}`}>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => { resetCouponDialog(); setEditCoupon(coupon); setCouponForm({ code: coupon.code, type: coupon.type, value: coupon.value, is_active: coupon.is_active, featured: coupon.featured || false, is_contest_coupon: coupon.is_contest_coupon || false, free_item_product_id: coupon.free_item_product_id || null, free_item_qty: coupon.free_item_qty || 1, free_item_products: coupon.free_item_products || [], bogo_buy_product_id: coupon.bogo_buy_product_id || null, bogo_buy_qty: coupon.bogo_buy_qty || 1, bogo_get_product_id: coupon.bogo_get_product_id || null, bogo_get_qty: coupon.bogo_get_qty || 1, min_order_amount: coupon.min_order_amount || null, category_offer_subtype: coupon.category_offer_subtype || "percentage", expiry_date: coupon.expiry_date ? new Date(coupon.expiry_date).toISOString().split("T")[0] : "", description: coupon.description || "", banner_image: coupon.banner_image || "", restrict_sub_category: coupon.restrict_sub_category || null, usage_limit: (coupon as any).usage_limit ?? null }); if (coupon.coupon_products && Array.isArray(coupon.coupon_products)) { setBundleItems(coupon.coupon_products.map((cp: any) => ({ product_id: cp.product_id || cp.id, name: cp.name || "", custom_price: cp.custom_price || "", quantity: cp.quantity || 1 }))); } setCouponDialog(true); }} data-testid={`button-edit-coupon-${coupon.id}`}>
                             <Edit className="w-3 h-3" />
                           </Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => deleteCouponMutation.mutate(coupon.id)} data-testid={`button-delete-coupon-${coupon.id}`}>
@@ -1258,6 +1259,18 @@ export default function VendorDashboard() {
                     <div>
                       <Label className="text-xs font-semibold">Expiry Date</Label>
                       <Input type="date" value={couponForm.expiry_date || ""} onChange={e => setCouponForm((f: any) => ({ ...f, expiry_date: e.target.value || null }))} className="mt-1.5 rounded-xl" data-testid="input-coupon-expiry" />
+                    </div>
+
+                    {/* Usage Limit */}
+                    <div>
+                      <Label className="text-xs font-semibold">Usage Limit (optional)</Label>
+                      <p className="text-[11px] text-muted-foreground mb-1.5">Maximum number of times this coupon can be claimed. Leave blank for unlimited.</p>
+                      <Input type="number" min="1" value={couponForm.usage_limit || ""} onChange={e => setCouponForm((f: any) => ({ ...f, usage_limit: e.target.value ? parseInt(e.target.value) : null }))} className="mt-1.5 rounded-xl" placeholder="e.g. 10 (leave blank for unlimited)" data-testid="input-coupon-usage-limit" />
+                      {couponForm.usage_limit && (
+                        <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-1 font-medium">
+                          Only {couponForm.usage_limit} customers can use this coupon
+                        </p>
+                      )}
                     </div>
 
                     {/* Active + Featured toggles */}

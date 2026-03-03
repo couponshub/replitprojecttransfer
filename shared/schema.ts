@@ -96,6 +96,8 @@ export const coupons = pgTable("coupons", {
   restrict_sub_category: text("restrict_sub_category").array(),
   category_offer_subtype: text("category_offer_subtype"),
   is_contest_coupon: boolean("is_contest_coupon").notNull().default(false),
+  usage_limit: integer("usage_limit"),
+  usage_count: integer("usage_count").notNull().default(0),
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });
 

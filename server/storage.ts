@@ -64,6 +64,7 @@ export interface IStorage {
   getCouponsByShop(shopId: string): Promise<Coupon[]>;
   createCoupon(coupon: InsertCoupon): Promise<Coupon>;
   updateCoupon(id: string, coupon: Partial<InsertCoupon>): Promise<Coupon | undefined>;
+  incrementCouponUsage(code: string, shopId: string): Promise<void>;
   deleteCoupon(id: string): Promise<void>;
   getActiveCoupons(): Promise<(Coupon & { shop?: Shop })[]>;
 
@@ -315,6 +316,12 @@ export class PgStorage implements IStorage {
   async updateCoupon(id: string, coupon: Partial<InsertCoupon>): Promise<Coupon | undefined> {
     const result = await db.update(coupons).set(coupon).where(eq(coupons.id, id)).returning();
     return result[0];
+  }
+
+  async incrementCouponUsage(code: string, shopId: string): Promise<void> {
+    await db.update(coupons)
+      .set({ usage_count: sql`${coupons.usage_count} + 1` })
+      .where(and(eq(coupons.code, code), eq(coupons.shop_id, shopId)));
   }
 
   async deleteCoupon(id: string): Promise<void> {
