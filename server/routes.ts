@@ -1306,11 +1306,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           const qty = Math.max(1, parseInt(String((cp as any).quantity || "1")));
           const realProduct = await storage.getProduct(cp.product_id || "");
           const originalPrice = realProduct ? parseFloat(String(realProduct.price || "0")) : 0;
+          // For combo type: add items at original MRP price (discount applied as coupon.value difference in cart)
+          const itemPrice = coupon.type === "combo" ? originalPrice : parseFloat(cp.custom_price);
           for (let q = 0; q < qty; q++) {
             items_to_add.push({
               id: cp.product?.id || cp.product_id || "",
               name: cp.product?.name || realProduct?.name || "Product",
-              price: parseFloat(cp.custom_price),
+              price: itemPrice,
               originalPrice,
               shop_id: cp.product?.shop_id || realProduct?.shop_id || coupon.shop_id || "",
               shopName,
