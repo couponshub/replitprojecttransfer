@@ -411,7 +411,11 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
 
 export default function CartPage() {
   const [, navigate] = useLocation();
-  const { items, removeItem, updateQuantity, clearCart, total, addItems, uniqueShopIds, appliedCoupons: cartCoupons, removeCoupon, applyCoupon } = useCart();
+  const { 
+    items, removeItem, updateQuantity, clearCart, total, addItems, 
+    uniqueShopIds, appliedCoupons: cartCoupons, removeCoupon, applyCoupon,
+    removeFreeItemsForShop 
+  } = useCart();
   const { isAuthenticated, user, updateProfile } = useAuth();
   const { toast } = useToast();
 
