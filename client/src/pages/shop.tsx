@@ -164,6 +164,18 @@ export default function ShopPage() {
       navigate("/login");
       return;
     }
+
+    // Check if any coupon is already applied for this shop
+    const existingCoupons = appliedCoupons[id || ""] || [];
+    if (existingCoupons.length > 0) {
+      toast({ 
+        title: "Coupon already active", 
+        description: "Please remove the current coupon from your cart before claiming a new one from this store.",
+        variant: "destructive" 
+      });
+      return;
+    }
+
     setClaimingCoupon(coupon.id);
     try {
       const result = await apiRequest("POST", "/api/coupons/validate", { code: coupon.code, shopId: id });
