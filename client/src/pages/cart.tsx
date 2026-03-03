@@ -468,35 +468,25 @@ export default function CartPage() {
 
   const getShopSubtotal = (sid: string) => items.filter(i => i.shop_id === sid).reduce((s, i) => s + i.price * i.quantity, 0);
 
-  const getShopDiscount = (sid: string): number => {
-    const coupons = cartCoupons[sid] || [];
-    if (coupons.length === 0) return 0;
-    const shopItems = items.filter(i => i.shop_id === sid);
-    let totalDisc = 0;
-    let runningSubtotal = getShopSubtotal(sid);
-    
-    // First, handle combo coupons specifically.
-    const comboCoupon = coupons.find(c => c.type === "combo");
-    if (comboCoupon) {
-      const comboPrice = parseFloat(comboCoupon.value);
-      // Logic: The final price for these items should be exactly the combo price.
-      // The discount is the difference between current subtotal and intended combo price.
-      const comboDisc = Math.max(0, runningSubtotal - comboPrice);
-      totalDisc += comboDisc;
-      runningSubtotal = Math.max(0, runningSubtotal - comboDisc);
+  const calculateShopDiscount = (sid: string, sItems: CartItem[], sCoupons: AppliedCoupon[]) => {
+    let d = 0;
+    const sSubtotal = sItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
+    for (const c of sCoupons) {
+      if (c.type === "percentage") d += Math.round(sSubtotal * parseFloat(c.value) / 100);
+      else if (c.type === "flat") d += Math.min(parseFloat(c.value), sSubtotal);
+      else if (c.type === "min_order") {
+        const minAmt = (c as any).min_order_amount || 0;
+        if (sSubtotal >= parseFloat(minAmt)) {
+          if (c.category_offer_subtype === "flat") d += Math.min(parseFloat(c.value), sSubtotal);
+          else d += Math.round(sSubtotal * parseFloat(c.value) / 100);
+        }
+      } else if (c.type === "free_item" || c.type === "bogo") {
+        const freeItems = (c as any).items_to_add || [];
+        d += freeItems.reduce((s: number, i: any) => s + (parseFloat(i.originalPrice || i.price || "0") * (i.quantity || 1)), 0);
+      }
     }
-
-    // Then handle other coupons
-    for (const coupon of coupons) {
-      if (coupon.type === "combo") continue;
-      
-      const restrictCats = coupon.restrict_sub_category && coupon.restrict_sub_category.length > 0 ? coupon.restrict_sub_category : null;
-      const base = restrictCats
-        ? shopItems.filter(i => i.sub_category && restrictCats.includes(i.sub_category)).reduce((s, i) => s + i.price * i.quantity, 0)
-        : runningSubtotal;
-      
-      let disc = 0;
-      if (coupon.type === "percentage") disc = base * parseFloat(coupon.value) / 100;
+    return d;
+  };
       else if (coupon.type === "flat") disc = Math.min(parseFloat(coupon.value), base);
       else if (coupon.type === "bogo" || coupon.type === "free_item") {
         const freeItems = (coupon.items_to_add || []).filter((i: any) => i.isFreeItem);

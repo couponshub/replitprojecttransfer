@@ -131,7 +131,10 @@ export default function ShopPage() {
     if (hasItemsToAdd) {
       addItems(result.items_to_add.map((item: any) => ({
         id: item.id, name: item.name, price: item.price,
-        shop_id: item.shop_id, shopName: item.shopName, isFreeItem: item.isFreeItem ?? false,
+        shop_id: item.shop_id, shopName: item.shopName, 
+        isFreeItem: item.isFreeItem ?? false,
+        isComboItem: item.isComboItem ?? false,
+        originalPrice: item.originalPrice
       })));
     }
     if (chosenFreeItem) {
