@@ -48,12 +48,19 @@ const TYPE_COLORS: Record<string, { gradient: string; icon: string }> = {
   free_item:       { gradient: "from-violet-500 to-purple-500", icon: "🎁" },
   flash:           { gradient: "from-orange-500 to-red-500", icon: "⚡" },
   category_offer:  { gradient: "from-violet-600 to-indigo-500", icon: "🏷️" },
+  min_order:       { gradient: "from-teal-500 to-cyan-600", icon: "🛒" },
 };
 
 function CouponBenefit({ coupon }: { coupon: ShopCoupon }) {
   if (coupon.type === "percentage") return <span className="text-emerald-600 dark:text-emerald-400 font-bold">{coupon.value}% off</span>;
   if (coupon.type === "flat") return <span className="text-emerald-600 dark:text-emerald-400 font-bold">₹{coupon.value} flat off</span>;
   if (coupon.type === "free_item") return <span className="text-violet-600 dark:text-violet-400 font-bold">Free item added</span>;
+  if (coupon.type === "min_order") {
+    const sub = (coupon as any).category_offer_subtype || "percentage";
+    const minAmt = (coupon as any).min_order_amount;
+    if (sub === "flat") return <span className="text-teal-600 dark:text-teal-400 font-bold">Spend ₹{Number(minAmt).toLocaleString()} → ₹{coupon.value} off</span>;
+    return <span className="text-teal-600 dark:text-teal-400 font-bold">Spend ₹{Number(minAmt).toLocaleString()} → {coupon.value}% off</span>;
+  }
   if (coupon.type === "category_offer") {
     const sub = (coupon as any).category_offer_subtype;
     if (sub === "percentage") return <span className="text-violet-600 dark:text-violet-400 font-bold">{coupon.value}% off (category)</span>;
@@ -277,8 +284,16 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
                     <div>
                       <p className="text-xs font-black text-emerald-700 dark:text-emerald-400 tracking-wide">{c.code}</p>
                       <p className="text-[10px] text-emerald-600">
-                        {c.type === "percentage" ? `${c.value}% off` :
-                         c.type === "flat" ? `₹${c.value} off` :
+                        {c.type === "percentage" ? `${c.value}% off — You saved ₹${Math.round(shopSubtotal * parseFloat(c.value) / 100).toLocaleString()}` :
+                         c.type === "flat" ? `₹${c.value} off — You saved ₹${Math.min(parseFloat(c.value), shopSubtotal).toLocaleString()}` :
+                         c.type === "min_order" ? (() => {
+                           const saved = c.category_offer_subtype === "flat"
+                             ? Math.min(parseFloat(c.value), shopSubtotal)
+                             : Math.round(shopSubtotal * parseFloat(c.value) / 100);
+                           return c.category_offer_subtype === "flat"
+                             ? `Spend & Save — ₹${c.value} off · You saved ₹${saved.toLocaleString()}`
+                             : `Spend & Save — ${c.value}% off · You saved ₹${saved.toLocaleString()}`;
+                         })() :
                          c.type === "bogo" ? (
                            c.bogo_buy_product_name && c.bogo_get_product_name
                              ? `Buy ${c.bogo_buy_product_name} → Get ${c.bogo_get_product_name} FREE`
@@ -295,7 +310,7 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
                            if (c.category_offer_subtype === "free_item") return `Free item on ${cats}`;
                            return `Category offer on ${cats}`;
                          })() : "Coupon applied"}
-                        {c.type !== "category_offer" && c.restrict_sub_category && c.restrict_sub_category.length > 0 && <span className="text-orange-500 ml-1"> · {c.restrict_sub_category.join(", ")}</span>}
+                        {c.type !== "category_offer" && c.type !== "min_order" && c.restrict_sub_category && c.restrict_sub_category.length > 0 && <span className="text-orange-500 ml-1"> · {c.restrict_sub_category.join(", ")}</span>}
                       </p>
                     </div>
                   </div>
@@ -416,6 +431,9 @@ export default function CartPage() {
       else if (coupon.type === "bogo" || coupon.type === "free_item") {
         const freeItems = (coupon.items_to_add || []).filter((i: any) => i.isFreeItem);
         disc = freeItems.reduce((s: number, i: any) => s + (parseFloat(i.originalPrice || i.price || "0")), 0);
+      } else if (coupon.type === "min_order") {
+        if (coupon.category_offer_subtype === "flat") disc = Math.min(parseFloat(coupon.value), base);
+        else disc = base * parseFloat(coupon.value) / 100;
       } else if (coupon.type === "category_offer") {
         const catBase = restrictCats ? base : 0;
         if (coupon.category_offer_subtype === "percentage") disc = catBase * parseFloat(coupon.value) / 100;
@@ -680,9 +698,11 @@ export default function CartPage() {
                       <span className="font-medium">₹{totalSubtotal.toLocaleString()}</span>
                     </div>
                     {totalDiscount > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-emerald-600">Coupon discounts</span>
-                        <span className="font-medium text-emerald-600">-₹{totalDiscount.toFixed(0)}</span>
+                      <div className="flex justify-between items-center py-1.5 px-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+                        <span className="text-emerald-700 dark:text-emerald-400 text-sm font-semibold flex items-center gap-1.5">
+                          <span className="text-base">🎉</span> You saved
+                        </span>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">-₹{totalDiscount.toFixed(0)}</span>
                       </div>
                     )}
                     <div className="flex justify-between text-sm">

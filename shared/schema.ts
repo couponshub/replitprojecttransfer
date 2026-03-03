@@ -5,7 +5,7 @@ import { z } from "zod";
 
 export const roleEnum = pgEnum("role", ["admin", "user"]);
 export const contestStatusEnum = pgEnum("contest_status", ["open", "closed", "completed"]);
-export const couponTypeEnum = pgEnum("coupon_type", ["percentage", "flat", "free_item", "bundle", "flash", "bogo", "category_offer"]);
+export const couponTypeEnum = pgEnum("coupon_type", ["percentage", "flat", "free_item", "bundle", "flash", "bogo", "category_offer", "min_order"]);
 export const orderStatusEnum = pgEnum("order_status", ["pending", "confirmed", "completed", "cancelled"]);
 
 export const users = pgTable("users", {

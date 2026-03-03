@@ -207,7 +207,7 @@ export default function VendorDashboard() {
 
   const [couponDialog, setCouponDialog] = useState(false);
   const [editCoupon, setEditCoupon] = useState<any>(null);
-  const EMPTY_COUPON_FORM = { code: "", type: "percentage", value: "", is_active: true, featured: false, is_contest_coupon: false, free_item_product_id: null, free_item_qty: 1, free_item_products: [] as string[], bogo_buy_product_id: null as string | null, bogo_buy_qty: 1, bogo_get_product_id: null as string | null, bogo_get_qty: 1, min_order_amount: null, expiry_date: "", description: "", banner_image: "", restrict_sub_category: null };
+  const EMPTY_COUPON_FORM = { code: "", type: "percentage", value: "", is_active: true, featured: false, is_contest_coupon: false, free_item_product_id: null, free_item_qty: 1, free_item_products: [] as string[], bogo_buy_product_id: null as string | null, bogo_buy_qty: 1, bogo_get_product_id: null as string | null, bogo_get_qty: 1, min_order_amount: null, category_offer_subtype: "percentage", expiry_date: "", description: "", banner_image: "", restrict_sub_category: null };
   const [couponForm, setCouponForm] = useState<any>(EMPTY_COUPON_FORM);
   const [couponProdSearch, setCouponProdSearch] = useState("");
   const [freeItemCatFilter, setFreeItemCatFilter] = useState<string[]>([]);
@@ -854,7 +854,7 @@ export default function VendorDashboard() {
                           </p>
                         </div>
                         <div className="flex gap-1 shrink-0">
-                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => { resetCouponDialog(); setEditCoupon(coupon); setCouponForm({ code: coupon.code, type: coupon.type, value: coupon.value, is_active: coupon.is_active, featured: coupon.featured || false, is_contest_coupon: coupon.is_contest_coupon || false, free_item_product_id: coupon.free_item_product_id || null, free_item_qty: coupon.free_item_qty || 1, free_item_products: coupon.free_item_products || [], bogo_buy_product_id: coupon.bogo_buy_product_id || null, bogo_buy_qty: coupon.bogo_buy_qty || 1, bogo_get_product_id: coupon.bogo_get_product_id || null, bogo_get_qty: coupon.bogo_get_qty || 1, min_order_amount: coupon.min_order_amount || null, expiry_date: coupon.expiry_date ? new Date(coupon.expiry_date).toISOString().split("T")[0] : "", description: coupon.description || "", banner_image: coupon.banner_image || "", restrict_sub_category: coupon.restrict_sub_category || null }); if (coupon.coupon_products && Array.isArray(coupon.coupon_products)) { setBundleItems(coupon.coupon_products.map((cp: any) => ({ product_id: cp.product_id || cp.id, name: cp.name || "", custom_price: cp.custom_price || "", quantity: cp.quantity || 1 }))); } setCouponDialog(true); }} data-testid={`button-edit-coupon-${coupon.id}`}>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => { resetCouponDialog(); setEditCoupon(coupon); setCouponForm({ code: coupon.code, type: coupon.type, value: coupon.value, is_active: coupon.is_active, featured: coupon.featured || false, is_contest_coupon: coupon.is_contest_coupon || false, free_item_product_id: coupon.free_item_product_id || null, free_item_qty: coupon.free_item_qty || 1, free_item_products: coupon.free_item_products || [], bogo_buy_product_id: coupon.bogo_buy_product_id || null, bogo_buy_qty: coupon.bogo_buy_qty || 1, bogo_get_product_id: coupon.bogo_get_product_id || null, bogo_get_qty: coupon.bogo_get_qty || 1, min_order_amount: coupon.min_order_amount || null, category_offer_subtype: coupon.category_offer_subtype || "percentage", expiry_date: coupon.expiry_date ? new Date(coupon.expiry_date).toISOString().split("T")[0] : "", description: coupon.description || "", banner_image: coupon.banner_image || "", restrict_sub_category: coupon.restrict_sub_category || null }); if (coupon.coupon_products && Array.isArray(coupon.coupon_products)) { setBundleItems(coupon.coupon_products.map((cp: any) => ({ product_id: cp.product_id || cp.id, name: cp.name || "", custom_price: cp.custom_price || "", quantity: cp.quantity || 1 }))); } setCouponDialog(true); }} data-testid={`button-edit-coupon-${coupon.id}`}>
                             <Edit className="w-3 h-3" />
                           </Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={() => deleteCouponMutation.mutate(coupon.id)} data-testid={`button-delete-coupon-${coupon.id}`}>
@@ -881,10 +881,11 @@ export default function VendorDashboard() {
                           { value: "flat", label: "₹ Flat Off", desc: "Fixed amount off", icon: "₹" },
                           { value: "free_item", label: "Free Item", desc: "User picks 1 free item", icon: "🎁" },
                           { value: "bogo", label: "Buy 1 Get 1", desc: "Buy item, get free item", icon: "🔄" },
+                          { value: "min_order", label: "Spend & Save", desc: "Min cart value → get discount", icon: "🛒" },
                         ] as const).map(opt => {
                           const active = (couponForm.type || "percentage") === opt.value;
                           return (
-                            <button key={opt.value} type="button" onClick={() => setCouponForm((f: any) => ({ ...f, type: opt.value, free_item_product_id: null }))}
+                            <button key={opt.value} type="button" onClick={() => setCouponForm((f: any) => ({ ...f, type: opt.value, free_item_product_id: null, category_offer_subtype: opt.value === "min_order" ? (f.category_offer_subtype || "percentage") : f.category_offer_subtype }))}
                               data-testid={`coupon-type-${opt.value}`}
                               className={`flex flex-col items-start gap-0.5 p-3 rounded-xl border-2 text-left transition-all ${active ? "border-pink-500 bg-pink-50 dark:bg-pink-950/30" : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"}`}>
                               <span className="text-base leading-none mb-1">{opt.icon}</span>
@@ -1068,6 +1069,53 @@ export default function VendorDashboard() {
                               <span className="w-8 text-center text-sm font-bold tabular-nums" data-testid="text-bogo-qty">{couponForm.bogo_get_qty || 1}</span>
                               <button type="button" onClick={() => setCouponForm((f: any) => ({ ...f, bogo_get_qty: Math.min(10, (f.bogo_get_qty || 1) + 1) }))} className="w-7 h-7 rounded-lg border border-gray-200 dark:border-gray-700 flex items-center justify-center text-sm font-bold" data-testid="button-bogo-qty-inc">+</button>
                             </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Min Order (Spend & Save) form */}
+                    {couponForm.type === "min_order" && (
+                      <div className="flex flex-col gap-3 p-3 rounded-xl border-2 border-teal-200 dark:border-teal-800 bg-teal-50/40 dark:bg-teal-950/20">
+                        <Label className="text-xs font-semibold text-teal-700 dark:text-teal-400">🛒 Spend & Save Setup</Label>
+                        <p className="text-[10px] text-muted-foreground -mt-1">Customer needs to spend a minimum amount to get a discount. Cart lo savings clearly chupistundi.</p>
+                        {/* Min order amount — required */}
+                        <div>
+                          <Label className="text-xs font-semibold">Minimum Cart Value (₹) <span className="text-red-500">*</span></Label>
+                          <div className="relative mt-1.5">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">₹</span>
+                            <Input type="number" min="1" value={couponForm.min_order_amount || ""} onChange={e => setCouponForm((f: any) => ({ ...f, min_order_amount: e.target.value || null }))} className="rounded-xl pl-8" placeholder="e.g. 5000" data-testid="input-min-order-amount" />
+                          </div>
+                        </div>
+                        {/* Discount type toggle */}
+                        <div>
+                          <Label className="text-xs font-semibold">Discount Type</Label>
+                          <div className="grid grid-cols-2 gap-2 mt-1.5">
+                            {[{ v: "percentage", label: "% Percentage" }, { v: "flat", label: "₹ Flat Amount" }].map(opt => (
+                              <button key={opt.v} type="button" onClick={() => setCouponForm((f: any) => ({ ...f, category_offer_subtype: opt.v }))}
+                                className={`p-2.5 rounded-xl border-2 text-xs font-semibold transition-all ${(couponForm.category_offer_subtype || "percentage") === opt.v ? "border-teal-500 bg-teal-50 dark:bg-teal-950/30 text-teal-700 dark:text-teal-400" : "border-gray-200 dark:border-gray-700 text-muted-foreground hover:border-teal-300"}`}
+                                data-testid={`min-order-subtype-${opt.v}`}>{opt.label}</button>
+                            ))}
+                          </div>
+                        </div>
+                        {/* Discount value */}
+                        <div>
+                          <Label className="text-xs font-semibold">{(couponForm.category_offer_subtype || "percentage") === "percentage" ? "Discount (%)" : "Discount (₹)"}</Label>
+                          <div className="relative mt-1.5">
+                            {(couponForm.category_offer_subtype || "percentage") === "flat" && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">₹</span>}
+                            <Input type="number" min="1" value={couponForm.value} onChange={e => setCouponForm((f: any) => ({ ...f, value: e.target.value }))} className={`rounded-xl ${(couponForm.category_offer_subtype || "percentage") === "flat" ? "pl-8" : "pr-8"}`} placeholder={(couponForm.category_offer_subtype || "percentage") === "percentage" ? "e.g. 10" : "e.g. 500"} data-testid="input-min-order-value" />
+                            {(couponForm.category_offer_subtype || "percentage") === "percentage" && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">%</span>}
+                          </div>
+                        </div>
+                        {/* Preview */}
+                        {couponForm.min_order_amount && couponForm.value && (
+                          <div className="bg-teal-100 dark:bg-teal-900/30 rounded-xl p-3 text-center">
+                            <p className="text-xs font-semibold text-teal-800 dark:text-teal-300">
+                              ₹{Number(couponForm.min_order_amount).toLocaleString()} spend chesinappudu →{" "}
+                              {(couponForm.category_offer_subtype || "percentage") === "percentage"
+                                ? `${couponForm.value}% off (save ₹${Math.round(Number(couponForm.min_order_amount) * Number(couponForm.value) / 100).toLocaleString()}+)`
+                                : `₹${Number(couponForm.value).toLocaleString()} off`}
+                            </p>
                           </div>
                         )}
                       </div>

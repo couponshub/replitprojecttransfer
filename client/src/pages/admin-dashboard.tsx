@@ -1948,13 +1948,14 @@ export default function AdminDashboard() {
                           { value: "free_item", label: "Free Item", desc: "User picks 1 free item", icon: "🎁" },
                           { value: "bogo", label: "Buy 1 Get 1", desc: "Buy item, get free item", icon: "🔄" },
                           { value: "category_offer", label: "Category Offer", desc: "Offer on selected categories", icon: "🏷️" },
+                          { value: "min_order", label: "Spend & Save", desc: "Min cart value → get discount", icon: "🛒" },
                         ] as const).map(opt => {
                           const active = (formData.type || "percentage") === opt.value;
                           return (
                             <button
                               key={opt.value}
                               type="button"
-                              onClick={() => setForm("type", opt.value)}
+                              onClick={() => { setForm("type", opt.value); if (opt.value === "min_order") setForm("category_offer_subtype", formData.category_offer_subtype || "percentage"); }}
                               data-testid={`coupon-type-${opt.value}`}
                               className={`flex flex-col items-start gap-0.5 p-3 rounded-xl border-2 text-left transition-all ${active ? "border-blue-500 bg-blue-50 dark:bg-blue-950/30" : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"}`}
                             >
@@ -2309,6 +2310,53 @@ export default function AdminDashboard() {
                             <Input type="number" min="0" value={formData.min_order_amount || ""} onChange={e => setForm("min_order_amount", e.target.value || null)} className="rounded-xl pl-7 h-9 text-sm" placeholder="e.g. 500" data-testid="input-cat-offer-min-order" />
                           </div>
                         </div>
+                      </div>
+                    )}
+
+                    {/* Min Order / Spend & Save form */}
+                    {formData.type === "min_order" && (
+                      <div className="flex flex-col gap-3 p-3 rounded-xl border-2 border-teal-200 dark:border-teal-800 bg-teal-50/40 dark:bg-teal-950/20">
+                        <Label className="text-xs font-semibold text-teal-700 dark:text-teal-400">🛒 Spend & Save Setup</Label>
+                        <p className="text-[10px] text-muted-foreground -mt-1">Customer needs to spend a minimum amount to get a discount. Cart lo savings clearly chupistundi.</p>
+                        {/* Min order amount */}
+                        <div>
+                          <Label className="text-xs font-semibold">Minimum Cart Value (₹) <span className="text-red-500">*</span></Label>
+                          <div className="relative mt-1.5">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">₹</span>
+                            <Input type="number" min="1" value={formData.min_order_amount || ""} onChange={e => setForm("min_order_amount", e.target.value || null)} className="rounded-xl pl-8" placeholder="e.g. 5000" data-testid="input-min-order-amount-admin" />
+                          </div>
+                        </div>
+                        {/* Discount type */}
+                        <div>
+                          <Label className="text-xs font-semibold">Discount Type</Label>
+                          <div className="grid grid-cols-2 gap-2 mt-1.5">
+                            {[{ v: "percentage", label: "% Percentage" }, { v: "flat", label: "₹ Flat Amount" }].map(opt => (
+                              <button key={opt.v} type="button" onClick={() => setForm("category_offer_subtype", opt.v)}
+                                className={`p-2.5 rounded-xl border-2 text-xs font-semibold transition-all ${(formData.category_offer_subtype || "percentage") === opt.v ? "border-teal-500 bg-teal-50 dark:bg-teal-950/30 text-teal-700 dark:text-teal-400" : "border-gray-200 dark:border-gray-700 text-muted-foreground hover:border-teal-300"}`}
+                                data-testid={`admin-min-order-subtype-${opt.v}`}>{opt.label}</button>
+                            ))}
+                          </div>
+                        </div>
+                        {/* Discount value */}
+                        <div>
+                          <Label className="text-xs font-semibold">{(formData.category_offer_subtype || "percentage") === "percentage" ? "Discount (%)" : "Discount (₹)"}</Label>
+                          <div className="relative mt-1.5">
+                            {(formData.category_offer_subtype || "percentage") === "flat" && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">₹</span>}
+                            <Input type="number" min="1" value={formData.value || ""} onChange={e => setForm("value", e.target.value)} className={`rounded-xl ${(formData.category_offer_subtype || "percentage") === "flat" ? "pl-8" : "pr-8"}`} placeholder={(formData.category_offer_subtype || "percentage") === "percentage" ? "e.g. 10" : "e.g. 500"} data-testid="input-min-order-value-admin" />
+                            {(formData.category_offer_subtype || "percentage") === "percentage" && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-muted-foreground">%</span>}
+                          </div>
+                        </div>
+                        {/* Preview */}
+                        {formData.min_order_amount && formData.value && (
+                          <div className="bg-teal-100 dark:bg-teal-900/30 rounded-xl p-3 text-center">
+                            <p className="text-xs font-semibold text-teal-800 dark:text-teal-300">
+                              ₹{Number(formData.min_order_amount).toLocaleString()} spend chesinappudu →{" "}
+                              {(formData.category_offer_subtype || "percentage") === "percentage"
+                                ? `${formData.value}% off (save ₹${Math.round(Number(formData.min_order_amount) * Number(formData.value) / 100).toLocaleString()}+)`
+                                : `₹${Number(formData.value).toLocaleString()} off`}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     )}
 
