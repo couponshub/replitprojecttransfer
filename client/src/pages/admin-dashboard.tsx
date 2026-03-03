@@ -368,11 +368,14 @@ export default function AdminDashboard() {
   const filteredProducts = applySortAZ(products
     .filter(p => !filterShopId || p.shop_id === filterShopId)
     .filter(p => !productSearch || p.name.toLowerCase().includes(productSearch.toLowerCase()) || p.shop?.name?.toLowerCase().includes(productSearch.toLowerCase())), productSort);
-  const filteredCoupons = applySortAZ(coupons.filter(c =>
-    !couponSearch ||
-    c.code.toLowerCase().includes(couponSearch.toLowerCase()) ||
-    c.shop?.name?.toLowerCase().includes(couponSearch.toLowerCase())
-  ).map(c => ({ ...c, name: c.code })), couponSort).map(c => ({ ...c }));
+  const filteredCoupons = applySortAZ(coupons.filter(c => {
+    const matchesSearch = !couponSearch ||
+      c.code.toLowerCase().includes(couponSearch.toLowerCase()) ||
+      c.shop?.name?.toLowerCase().includes(couponSearch.toLowerCase());
+    const matchesShop = !couponShopFilter || c.shop_id === couponShopFilter;
+    return matchesSearch && matchesShop;
+  }).map(c => ({ ...c, name: c.code })), couponSort).map(c => ({ ...c }));
+  const couponShops = Array.from(new Map(coupons.filter(c => c.shop).map(c => [c.shop_id, c.shop])).entries()).map(([id, shop]) => ({ id, name: (shop as any)?.name || "" })).sort((a, b) => a.name.localeCompare(b.name));
   const filteredShops = applySortAZ(shops
     .filter(s => !filterCategoryId || s.category_id === filterCategoryId)
     .filter(s => !shopSearch || s.name.toLowerCase().includes(shopSearch.toLowerCase())), shopSort);
@@ -1858,17 +1861,46 @@ export default function AdminDashboard() {
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="relative flex-1 min-w-[160px] max-w-xs">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                  <Input value={couponSearch} onChange={e => setCouponSearch(e.target.value)} placeholder="Search coupons or shops..." className="pl-8 rounded-xl h-9 text-sm" data-testid="input-coupon-search" />
+                  <Input value={couponSearch} onChange={e => setCouponSearch(e.target.value)} placeholder="Search by code..." className="pl-8 rounded-xl h-9 text-sm" data-testid="input-coupon-search" />
                 </div>
                 <Button onClick={() => openCreate({ is_active: true, type: "percentage" })} size="sm" className="rounded-xl gap-2 bg-gradient-to-r from-blue-500 to-violet-600 shadow-lg shadow-blue-500/25 shrink-0" data-testid="button-create-coupon">
                   <Plus className="w-4 h-4" /> Add Coupon
                 </Button>
               </div>
+              {/* Shop filter chips */}
+              <div className="flex flex-wrap gap-1.5 items-center">
+                <span className="text-xs text-muted-foreground font-medium shrink-0">Shop:</span>
+                <button
+                  onClick={() => setCouponShopFilter("")}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${!couponShopFilter ? "bg-blue-600 text-white border-blue-600" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-400"}`}
+                  data-testid="button-coupon-shop-all"
+                >All</button>
+                {couponShops.map(shop => (
+                  <button
+                    key={shop.id}
+                    onClick={() => setCouponShopFilter(couponShopFilter === shop.id ? "" : shop.id)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all truncate max-w-[140px] ${couponShopFilter === shop.id ? "bg-violet-600 text-white border-violet-600" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-violet-400"}`}
+                    data-testid={`button-coupon-shop-filter-${shop.id}`}
+                    title={shop.name}
+                  >{shop.name}</button>
+                ))}
+              </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground font-medium">Sort:</span>
                 <button onClick={() => setCouponSort(couponSort === "az" ? "none" : "az")} className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${couponSort === "az" ? "bg-blue-600 text-white border-blue-600" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-400"}`} data-testid="button-coupon-sort-az"><ArrowUpAZ className="w-3 h-3" /> A→Z</button>
                 <button onClick={() => setCouponSort(couponSort === "za" ? "none" : "za")} className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all ${couponSort === "za" ? "bg-violet-600 text-white border-violet-600" : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-violet-400"}`} data-testid="button-coupon-sort-za"><ArrowDownAZ className="w-3 h-3" /> Z→A</button>
+                {(couponSearch || couponShopFilter) && (
+                  <button onClick={() => { setCouponSearch(""); setCouponShopFilter(""); }} className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border border-red-200 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all" data-testid="button-coupon-clear-filter">
+                    Clear filters
+                  </button>
+                )}
               </div>
+              {couponShopFilter && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-violet-50 dark:bg-violet-950/20 rounded-xl border border-violet-200 dark:border-violet-800/30">
+                  <span className="text-xs text-violet-700 dark:text-violet-300 font-medium">Showing coupons for: <strong>{couponShops.find(s => s.id === couponShopFilter)?.name}</strong></span>
+                  <span className="ml-auto text-xs text-muted-foreground">{filteredCoupons.length} coupon{filteredCoupons.length !== 1 ? "s" : ""}</span>
+                </div>
+              )}
               <Card className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900">
                 <CardContent className="p-0">
                   <div className="flex flex-col divide-y divide-gray-100 dark:divide-gray-800">

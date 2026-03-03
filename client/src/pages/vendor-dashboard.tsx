@@ -16,7 +16,7 @@ import {
   Store, Package, Ticket, LogOut, Plus, Edit, Trash2, Save,
   Zap, Tag, Phone, MapPin, Globe, Check, ChevronRight,
   WifiOff, Download, Eye, EyeOff, Upload, Loader2, Image, Link,
-  ShoppingBag, User, IndianRupee, Clock, CheckCircle, X, Trophy, Gift, Users, KeyRound
+  ShoppingBag, User, IndianRupee, Clock, CheckCircle, X, Trophy, Gift, Users, KeyRound, Search
 } from "lucide-react";
 
 type VTab = "shop" | "products" | "coupons" | "offline-coupons" | "orders" | "contests";
@@ -210,6 +210,7 @@ export default function VendorDashboard() {
   const EMPTY_COUPON_FORM = { code: "", type: "percentage", value: "", is_active: true, featured: false, is_contest_coupon: false, free_item_product_id: null, free_item_qty: 1, free_item_products: [] as string[], bogo_buy_product_id: null as string | null, bogo_buy_qty: 1, bogo_get_product_id: null as string | null, bogo_get_qty: 1, min_order_amount: null, category_offer_subtype: "percentage", expiry_date: "", description: "", banner_image: "", restrict_sub_category: null, usage_limit: null as number | null };
   const [couponForm, setCouponForm] = useState<any>(EMPTY_COUPON_FORM);
   const [couponProdSearch, setCouponProdSearch] = useState("");
+  const [couponSearch, setCouponSearch] = useState("");
   const [freeItemCatFilter, setFreeItemCatFilter] = useState<string[]>([]);
   const [bundleItems, setBundleItems] = useState<{ product_id: string; name: string; custom_price: string; quantity: number }[]>([]);
 
@@ -806,7 +807,7 @@ export default function VendorDashboard() {
           {/* ── Coupons Tab ── */}
           {tab === "coupons" && (
             <div>
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center justify-between mb-4">
                 <div>
                   <h1 className="text-xl font-bold text-gray-900 dark:text-white">Coupons</h1>
                   <p className="text-sm text-muted-foreground">{coupons.length} coupon{coupons.length !== 1 ? "s" : ""}</p>
@@ -814,6 +815,16 @@ export default function VendorDashboard() {
                 <Button size="sm" onClick={() => { resetCouponDialog(); setCouponDialog(true); }} className="rounded-xl gap-2 bg-gradient-to-r from-pink-500 to-rose-600 border-0" data-testid="button-add-coupon">
                   <Plus className="w-3.5 h-3.5" /> Add
                 </Button>
+              </div>
+              <div className="relative mb-5">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                <Input
+                  value={couponSearch}
+                  onChange={e => setCouponSearch(e.target.value)}
+                  placeholder="Search by coupon code..."
+                  className="pl-8 rounded-xl h-9 text-sm"
+                  data-testid="input-vendor-coupon-search"
+                />
               </div>
 
               {couponsLoading ? (
@@ -823,9 +834,14 @@ export default function VendorDashboard() {
                   <Ticket className="w-10 h-10 mx-auto mb-3 opacity-20" />
                   <p>No coupons yet. Add your first one!</p>
                 </div>
+              ) : coupons.filter((c: any) => !couponSearch || c.code.toLowerCase().includes(couponSearch.toLowerCase())).length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Search className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                  <p className="text-sm">No coupons match "{couponSearch}"</p>
+                </div>
               ) : (
                 <div className="flex flex-col gap-3">
-                  {coupons.map((coupon: any) => (
+                  {coupons.filter((c: any) => !couponSearch || c.code.toLowerCase().includes(couponSearch.toLowerCase())).map((coupon: any) => (
                     <Card key={coupon.id} className="border-0 shadow-md rounded-2xl" data-testid={`card-coupon-${coupon.id}`}>
                       <CardContent className="p-4 flex items-center gap-4">
                         <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-sm shrink-0 ${coupon.type === "free_item" ? "bg-gradient-to-br from-violet-500 to-purple-600" : "bg-gradient-to-br from-pink-500 to-rose-600"}`}>
