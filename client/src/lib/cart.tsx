@@ -133,6 +133,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const removeFreeItemsForShop = (shopId: string) => {
+    setItems(prev => prev.filter(i => !(i.shop_id === shopId && i.isFreeItem)));
+  };
+
   const clearCart = () => {
     setItems([]);
     setAppliedCoupons({});
