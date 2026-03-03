@@ -265,9 +265,7 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <span className="w-6 text-center font-medium text-sm text-muted-foreground">×{item.quantity}</span>
-                    <button onClick={() => onRemoveItem(item.id)} className="w-7 h-7 rounded-full text-destructive flex items-center justify-center ml-1" data-testid={`button-remove-combo-${item.id}`}>
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <span className="text-[9px] text-orange-500 font-semibold ml-1">Remove coupon to delete</span>
                   </div>
                 </div>
               </CardContent>
@@ -296,9 +294,7 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <span className="w-6 text-center font-medium text-sm text-muted-foreground">×{item.quantity}</span>
-                    <button onClick={() => onRemoveItem(item.id)} className="w-7 h-7 rounded-full text-destructive flex items-center justify-center ml-1" data-testid={`button-remove-${item.id}`}>
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <span className="text-[9px] text-emerald-600 font-semibold ml-1">Remove coupon to delete</span>
                   </div>
                 </div>
               </CardContent>

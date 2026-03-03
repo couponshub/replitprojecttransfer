@@ -63,7 +63,7 @@ if (supabase) {
     }
   })();
 }
-import { insertUserSchema, insertCategorySchema, insertShopSchema, insertProductSchema, insertCouponSchema, users, categories, shops, products, coupons, orders, orderItems, vendors, offlineCoupons } from "@shared/schema";
+import { insertUserSchema, insertCategorySchema, insertShopSchema, insertProductSchema, insertCouponSchema, users, categories, shops, products, coupons, orders, orderItems, vendors, offlineCoupons, userCoupons } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 
 const JWT_SECRET = process.env.SESSION_SECRET || "coupons-hub-secret-key";
