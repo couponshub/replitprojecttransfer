@@ -12,6 +12,7 @@ import { useCart } from "@/lib/cart";
 import { useAuth } from "@/lib/auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Category, Shop, Coupon, Banner, Product, OfflineCoupon } from "@shared/schema";
+import { getCategoryIconComponent, getCategoryBg } from "@/components/CategoryIcons";
 
 type BannerWithCoupon = Banner & { coupon?: Coupon & { shop?: Shop } };
 
@@ -422,17 +423,21 @@ function getCategoryIcon(name: string): string {
 
 function CategoryCard({ category, index }: { category: Category; index: number }) {
   const [, navigate] = useLocation();
+  const IconComponent = getCategoryIconComponent(category.name);
+  const bgClass = getCategoryBg(category.name);
   return (
     <div
       onClick={() => navigate(`/category/${category.id}`)}
       className="flex flex-col items-center gap-2 cursor-pointer group shrink-0"
       data-testid={`card-category-${category.id}`}
     >
-      <div className={`w-[72px] h-[72px] rounded-[20px] bg-gradient-to-br ${CATEGORY_COLORS[index % CATEGORY_COLORS.length]} flex items-center justify-center text-2xl shadow-md transition-transform group-hover:scale-105 overflow-hidden`}>
-        {(category as any).image ? (
-          <img src={(category as any).image} alt={category.name} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+      <div className={`w-[72px] h-[72px] rounded-[20px] border ${bgClass} flex items-center justify-center shadow-sm transition-all group-hover:scale-105 group-hover:shadow-md overflow-hidden p-2`}>
+        {(category as any).image && (category as any).image.startsWith("http") ? (
+          <img src={(category as any).image} alt={category.name} className="w-full h-full object-cover rounded-[12px]" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+        ) : IconComponent ? (
+          <IconComponent />
         ) : (
-          getCategoryIcon(category.name)
+          <span className="text-3xl">{getCategoryIcon(category.name)}</span>
         )}
       </div>
       <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 text-center leading-tight max-w-[72px]">{category.name}</span>
@@ -1974,7 +1979,8 @@ export default function Home() {
               data-testid="section-top-categories-grid"
             >
               {topCategories.map((cat, i) => {
-                const colors = CATEGORY_COLORS[i % CATEGORY_COLORS.length];
+                const IconComp = getCategoryIconComponent(cat.name);
+                const bgCls = getCategoryBg(cat.name);
                 return (
                   <button
                     key={cat.id}
@@ -1982,9 +1988,11 @@ export default function Home() {
                     className="flex flex-col items-center gap-1.5 group"
                     data-testid={`card-top-category-${cat.id}`}
                   >
-                    <div className={`w-[72px] h-[72px] rounded-[20px] bg-gradient-to-br ${colors} flex items-center justify-center shadow-md transition-transform active:scale-95 group-hover:scale-105 overflow-hidden relative`}>
-                      {cat.image ? (
-                        <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" onError={e => { (e.target as any).style.display = "none"; }} />
+                    <div className={`w-[72px] h-[72px] rounded-[20px] border ${bgCls} flex items-center justify-center shadow-sm transition-all active:scale-95 group-hover:scale-105 group-hover:shadow-md overflow-hidden relative p-2`}>
+                      {cat.image && cat.image.startsWith("http") ? (
+                        <img src={cat.image} alt={cat.name} className="w-full h-full object-cover rounded-[12px]" onError={e => { (e.target as any).style.display = "none"; }} />
+                      ) : IconComp ? (
+                        <IconComp />
                       ) : (
                         <span className="text-3xl">{getCategoryIcon(cat.name)}</span>
                       )}
