@@ -243,6 +243,11 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
         const comboItems = offerItems.filter(i => i.isComboItem);
         const freeItems = offerItems.filter(i => i.isFreeItem);
         const paidOfferItems = offerItems.filter(i => !i.isFreeItem && !i.isComboItem);
+        
+        // For BOGO, if we have exactly 1 paid and 1 free item of the same name, we can group them better or just show them.
+        // The user wants "buy iteam and get iteam" as 2 items in bogo box.
+        const isBogo = c.type === "bogo";
+        
         const comboMRP = comboItems.reduce((s, i) => s + i.price * i.quantity, 0);
         const comboPrice = c.type === "combo" ? parseFloat(c.value) : 0;
         const comboSaved = Math.max(0, comboMRP - comboPrice);
@@ -283,52 +288,21 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
             {paidOfferItems.length > 0 && (
               <div className="flex flex-col gap-2 p-3">
                 <p className="text-[10px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wider flex items-center gap-1">
-                  <Package className="w-3 h-3" /> {c.type === "bogo" ? "Buy Items" : "Included Items"}
+                  <Package className="w-3.5 h-3.5" /> BUY ITEMS
                 </p>
                 {paidOfferItems.map((item, idx) => (
                   <div key={`${item.id}-paid-${idx}`} className="flex items-center gap-3 px-1">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-violet-100 dark:bg-violet-900/30">
-                      <span className="text-sm">{item.name[0]}</span>
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-violet-50 dark:bg-violet-900/20 text-violet-400 font-light text-2xl">
+                      <span className="mb-1 leading-none select-none">|</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-gray-800 dark:text-white truncate">{item.name}</p>
+                      <p className="text-xs font-semibold text-gray-800 dark:text-white truncate uppercase tracking-tight leading-tight">{item.name}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-xs font-bold text-primary">₹{item.price.toLocaleString()} × {item.quantity}</p>
+                      <p className="text-xs font-black text-blue-600 dark:text-blue-400">₹{item.price.toLocaleString()} × {item.quantity}</p>
                     </div>
                   </div>
                 ))}
-              </div>
-            )}
-
-            {/* Combo items */}
-            {comboItems.length > 0 && (
-              <div className="flex flex-col gap-2 p-3">
-                <p className="text-[10px] font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider flex items-center gap-1">
-                  <Sparkles className="w-3 h-3" /> Combo Items (MRP ₹{comboMRP.toLocaleString()} → ₹{comboPrice.toLocaleString()})
-                </p>
-                {comboItems.map((item, idx) => (
-                  <div key={`${item.id}-${idx}`} className="flex items-center gap-3 px-1" data-testid={`card-combo-item-${item.id}`}>
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-orange-100 dark:bg-orange-900/30">
-                      <span className="text-sm">{item.name[0]}</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-gray-800 dark:text-white truncate">{item.name}</p>
-                      {item.sub_category && <p className="text-[10px] text-muted-foreground">{item.sub_category}</p>}
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-[10px] line-through text-muted-foreground">₹{item.price.toLocaleString()}</p>
-                      <p className="text-xs font-bold text-orange-600">×{item.quantity}</p>
-                    </div>
-                  </div>
-                ))}
-                <div className="flex items-center justify-between pt-1 border-t border-orange-200 dark:border-orange-800/30 mt-1">
-                  <span className="text-xs font-bold text-orange-700 dark:text-orange-400">Combo Price</span>
-                  <div className="text-right">
-                    <span className="text-sm font-black text-orange-600">₹{comboPrice.toLocaleString()}</span>
-                    {comboSaved > 0 && <span className="ml-2 text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded-full">You save ₹{comboSaved.toLocaleString()}</span>}
-                  </div>
-                </div>
               </div>
             )}
 
@@ -336,19 +310,19 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
             {freeItems.length > 0 && (
               <div className="flex flex-col gap-2 p-3">
                 <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1">
-                  <Gift className="w-3 h-3" /> Free Items with Offer
+                  <Gift className="w-3.5 h-3.5" /> FREE ITEMS WITH OFFER
                 </p>
                 {freeItems.map((item, idx) => (
                   <div key={`${item.id}-free-${idx}`} className="flex items-center gap-3 px-1">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-emerald-100 dark:bg-emerald-900/30">
-                      <Gift className="w-4 h-4 text-emerald-600" />
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-emerald-50 dark:bg-emerald-900/20">
+                      <Gift className="w-4 h-4 text-emerald-500" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-gray-800 dark:text-white truncate">{item.name}</p>
+                      <p className="text-xs font-semibold text-gray-800 dark:text-white truncate uppercase tracking-tight leading-tight">{item.name}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      {item.originalPrice ? <p className="text-[10px] line-through text-muted-foreground">₹{item.originalPrice.toLocaleString()}</p> : null}
-                      <Badge className="bg-emerald-500 text-white border-0 text-[10px]">FREE</Badge>
+                      <p className="text-xs font-black text-emerald-600 mb-0.5">₹0</p>
+                      <Badge className="bg-emerald-500 text-white border-0 text-[10px] font-black px-2 py-0.5 h-auto rounded-md uppercase">FREE</Badge>
                     </div>
                   </div>
                 ))}
