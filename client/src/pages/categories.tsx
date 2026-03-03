@@ -6,21 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Search, X } from "lucide-react";
 import type { Category } from "@shared/schema";
-
-const CATEGORY_GRADIENTS = [
-  "from-orange-400 to-red-500",
-  "from-pink-400 to-rose-500",
-  "from-blue-400 to-cyan-500",
-  "from-violet-400 to-purple-500",
-  "from-emerald-400 to-teal-500",
-  "from-yellow-400 to-orange-500",
-  "from-indigo-400 to-blue-600",
-  "from-red-400 to-pink-500",
-  "from-teal-400 to-emerald-500",
-  "from-amber-400 to-yellow-500",
-];
-
-const CATEGORY_ICONS = ["🍔", "👗", "📱", "💄", "✈️", "🥦", "🏋️", "🎬", "🛋️", "📚", "🎂", "🍛", "🎓", "⚽"];
+import { getCategoryIconComponent, getCategoryBg } from "@/components/CategoryIcons";
 
 export default function CategoriesPage() {
   const [, navigate] = useLocation();
@@ -84,7 +70,6 @@ export default function CategoriesPage() {
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16">
-            <div className="text-5xl mb-3">🔍</div>
             <p className="text-gray-600 dark:text-gray-400 font-medium">
               No categories match &ldquo;<span className="text-blue-500">{search}</span>&rdquo;
             </p>
@@ -92,8 +77,9 @@ export default function CategoriesPage() {
         ) : (
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-x-4 gap-y-8" data-testid="grid-categories">
             {filtered.map(cat => {
-              const origIdx = categories.findIndex(c => c.id === cat.id);
-              const gi = origIdx >= 0 ? origIdx : 0;
+              const hasRealImage = cat.image && (cat.image.startsWith("http") || cat.image.startsWith("data:"));
+              const IconComponent = getCategoryIconComponent(cat.name);
+              const bgClass = getCategoryBg(cat.name);
               return (
                 <button
                   key={cat.id}
@@ -101,16 +87,28 @@ export default function CategoriesPage() {
                   className="flex flex-col items-center gap-2.5 group focus:outline-none"
                   data-testid={`button-category-${cat.id}`}
                 >
-                  <div className={`w-20 h-20 rounded-full bg-gradient-to-br ${CATEGORY_GRADIENTS[gi % CATEGORY_GRADIENTS.length]} flex items-center justify-center shadow-lg transition-transform group-hover:scale-105 group-active:scale-95 overflow-hidden`}>
-                    {cat.image && (cat.image.startsWith("http") || cat.image.startsWith("/")) ? (
+                  <div className={`w-20 h-20 rounded-full border-2 flex items-center justify-center shadow-md transition-all group-hover:scale-105 group-active:scale-95 overflow-hidden
+                    ${hasRealImage
+                      ? "bg-white dark:bg-gray-950 border-gray-200 dark:border-gray-700 p-1"
+                      : `${bgClass} border-opacity-60 p-2`
+                    }`}
+                  >
+                    {hasRealImage ? (
                       <img
-                        src={cat.image}
+                        src={cat.image!}
                         alt={cat.name}
-                        className="w-full h-full object-cover"
-                        onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        className="w-full h-full object-contain"
+                        onError={e => {
+                          const el = e.target as HTMLImageElement;
+                          el.style.display = "none";
+                        }}
                       />
+                    ) : IconComponent ? (
+                      <div className="w-12 h-12">
+                        <IconComponent />
+                      </div>
                     ) : (
-                      <span className="text-3xl">{CATEGORY_ICONS[gi % CATEGORY_ICONS.length]}</span>
+                      <span className="text-3xl">🏪</span>
                     )}
                   </div>
                   <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 text-center leading-tight max-w-[80px]">

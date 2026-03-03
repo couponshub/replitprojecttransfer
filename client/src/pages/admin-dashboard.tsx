@@ -953,8 +953,12 @@ export default function AdminDashboard() {
                     {applySortAZ(categories.filter(c => !catSearch || c.name.toLowerCase().includes(catSearch.toLowerCase())), catSort).map(cat => (
                       <div key={cat.id} className="flex items-center justify-between px-5 py-4 gap-4 hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors" data-testid={`row-category-${cat.id}`}>
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-md">
-                            <Tag className="w-5 h-5 text-white" />
+                          <div className="w-10 h-10 rounded-full border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex items-center justify-center shadow-sm overflow-hidden shrink-0">
+                            {(cat as any).image && ((cat as any).image.startsWith("http") || (cat as any).image.startsWith("data:")) ? (
+                              <img src={(cat as any).image} alt={cat.name} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                            ) : (
+                              <Tag className="w-4 h-4 text-violet-500" />
+                            )}
                           </div>
                           <span className="font-medium text-gray-900 dark:text-white">{cat.name}</span>
                         </div>
@@ -986,11 +990,19 @@ export default function AdminDashboard() {
                     <div><Label>Name</Label><Input value={formData.name || ""} onChange={e => setForm("name", e.target.value)} className="mt-1.5 rounded-xl" data-testid="input-category-name" /></div>
                     <div>
                       <Label>Icon Image</Label>
-                      <div className="flex gap-2 mt-1.5">
-                        <Input value={formData.image || ""} onChange={e => setForm("image", e.target.value)} className="rounded-xl flex-1" placeholder="https://... or upload ↑" />
+                      <p className="text-[11px] text-muted-foreground mb-1.5">PNG/GIF with transparent background recommended (shows circular on site)</p>
+                      <div className="flex gap-2">
+                        <Input value={formData.image || ""} onChange={e => setForm("image", e.target.value)} className="rounded-xl flex-1" placeholder="https://... or upload below" data-testid="input-category-icon" />
                         <UploadBtn fieldKey="cat-icon" onUrl={url => setForm("image", url)} />
                       </div>
-                      {formData.image && <img src={formData.image} alt="Icon preview" className="mt-2 w-12 h-12 object-cover rounded-xl border" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />}
+                      {formData.image && (
+                        <div className="flex items-center gap-3 mt-2">
+                          <div className="w-16 h-16 rounded-full border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden flex items-center justify-center shadow-md">
+                            <img src={formData.image} alt="Icon preview" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          </div>
+                          <p className="text-xs text-muted-foreground">Site lo circle lo ila kanipisthundi</p>
+                        </div>
+                      )}
                     </div>
                     <div>
                       <Label>Banner Image</Label>
