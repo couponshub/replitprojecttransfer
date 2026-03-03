@@ -1689,6 +1689,18 @@ export default function VendorDashboard() {
                         <p className="text-xs text-muted-foreground mt-1">Winner will be auto-drawn at this time</p>
                       </div>
                       <div>
+                        <Label className="text-xs font-semibold">Total Slots (1-100)</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={editContestForm.total_slots}
+                          onChange={e => setEditContestForm(f => ({ ...f, total_slots: parseInt(e.target.value) || 20 }))}
+                          className="mt-1 rounded-xl"
+                          data-testid="input-edit-contest-slots"
+                        />
+                      </div>
+                      <div>
                         <Label className="text-xs font-semibold">Banner Image URL (optional)</Label>
                         <Input value={editContestForm.banner_image} onChange={e => setEditContestForm(f => ({ ...f, banner_image: e.target.value }))}
                           placeholder="https://..." className="mt-1 rounded-xl" />
@@ -1761,16 +1773,16 @@ export default function VendorDashboard() {
                           placeholder="https://..." className="mt-1 rounded-xl" data-testid="input-contest-banner" />
                       </div>
                       <div>
-                        <Label className="text-xs font-semibold">Total Slots</Label>
-                        <Select value={String(contestForm.total_slots)} onValueChange={v => setContestForm(f => ({ ...f, total_slots: Number(v) }))}>
-                          <SelectTrigger className="mt-1 rounded-xl" data-testid="select-contest-slots">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="20">20 Slots</SelectItem>
-                            <SelectItem value="30">30 Slots</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <Label className="text-xs font-semibold">Total Slots (1-100)</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="100"
+                          value={contestForm.total_slots}
+                          onChange={e => setContestForm(f => ({ ...f, total_slots: parseInt(e.target.value) || 20 }))}
+                          className="mt-1 rounded-xl"
+                          data-testid="input-contest-slots-manual"
+                        />
                       </div>
                     </div>
                     <div className="flex gap-2 justify-end">

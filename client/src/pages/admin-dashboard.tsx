@@ -3593,6 +3593,17 @@ function AdminContestsTab({ toast }: { toast: any }) {
                 <p className="text-xs text-muted-foreground mt-1">Winner auto-drawn at this time</p>
               </div>
               <div>
+                <Label className="text-xs font-semibold">Total Slots (1-100)</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={editForm.total_slots}
+                  onChange={e => setEditForm(f => ({ ...f, total_slots: parseInt(e.target.value) || 20 }))}
+                  className="mt-1 rounded-xl"
+                />
+              </div>
+              <div>
                 <Label className="text-xs font-semibold">Banner Image URL (optional)</Label>
                 <Input value={editForm.banner_image} onChange={e => setEditForm(f => ({ ...f, banner_image: e.target.value }))}
                   placeholder="https://..." className="mt-1 rounded-xl" />
