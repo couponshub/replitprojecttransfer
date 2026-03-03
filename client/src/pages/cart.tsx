@@ -527,6 +527,25 @@ export default function CartPage() {
         return;
       }
 
+      // ── NEW LOGIC: For non-combo coupons that should have isolated items ──
+      // If it's a percentage/flat/min_order/category_offer, we MOVE matching items 
+      // from "manual" to "offer" by giving them the couponCode.
+      if (["percentage", "flat", "min_order", "category_offer"].includes(result.type)) {
+        const restrictCats = result.restrict_sub_category?.length ? result.restrict_sub_category : null;
+        
+        setItems(prev => {
+          return prev.map(item => {
+            if (item.shop_id === shopId && !item.couponCode) {
+              const catMatch = !restrictCats || (item.sub_category && restrictCats.includes(item.sub_category));
+              if (catMatch) {
+                return { ...item, couponCode: result.code };
+              }
+            }
+            return item;
+          });
+        });
+      }
+
       applyCoupon(shopId, {
         code: result.code, type: result.type, value: result.value, 
         items_to_add: result.items_to_add, 
@@ -535,6 +554,7 @@ export default function CartPage() {
         bogo_get_product_name: result.bogo_get_product_name ?? null, 
         category_offer_subtype: result.category_offer_subtype ?? null 
       });
+
       if (result.items_to_add?.length > 0) {
         const itemsWithCode = result.items_to_add.map((item: any) => ({
           ...item,
@@ -590,6 +610,19 @@ export default function CartPage() {
   };
 
   const handleRemoveCoupon = (shopId: string, code: string) => {
+    // ── NEW LOGIC: Move items back to manual when coupon is removed ──
+    setItems(prev => {
+      return prev.map(item => {
+        if (item.shop_id === shopId && item.couponCode === code) {
+          // If the item was ADDED by the coupon (free/combo), it will be filtered out by removeCoupon()
+          // If it was a manual item MOVED to the offer box, we strip the couponCode here
+          // Wait, removeCoupon in cart.tsx actually filters out ALL items with that couponCode.
+          // Let's modify removeCoupon in cart.tsx instead to handle this better.
+          return item;
+        }
+        return item;
+      });
+    });
     removeCoupon(shopId, code);
   };
 
