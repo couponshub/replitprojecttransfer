@@ -1019,15 +1019,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/auth/register", async (req, res) => {
     try {
-      const { name, email, phone, password, otp } = req.body;
+      const { name, email, phone, password } = req.body;
       if (!name || !phone || !password) return res.status(400).json({ error: "Name, mobile number, and password are required" });
       if (password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters" });
       const digits = String(phone).replace(/\D/g, "").slice(-10);
       const normalized = `+91${digits}`;
-      const stored = otpStore.get(normalized);
-      if (!stored) return res.status(400).json({ error: "Phone not verified. Please send OTP first." });
-      if (Date.now() > stored.expiresAt) { otpStore.delete(normalized); return res.status(400).json({ error: "OTP expired. Please request a new one." }); }
-      if (stored.otp !== String(otp)) return res.status(400).json({ error: "Invalid OTP. Please try again." });
       const existingPhone = await storage.getUserByPhone(normalized);
       if (existingPhone) return res.status(400).json({ error: "Mobile number already registered. Please login." });
       if (email) {
@@ -1036,7 +1032,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
       const hashed = await bcrypt.hash(password, 10);
       const user = await storage.createUser({ name, email: email || null, phone: normalized, password: hashed, role: "user" });
-      otpStore.delete(normalized);
       const token = generateToken({ id: user.id, email: user.email || normalized, role: user.role });
       res.cookie("token", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
       res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone } });

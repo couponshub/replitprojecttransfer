@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Zap, Eye, EyeOff, ArrowRight, Sparkles, Phone, Shield, Store, RefreshCw, CheckCircle } from "lucide-react";
+import { Zap, Eye, EyeOff, ArrowRight, Sparkles, Shield, Store } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
@@ -28,51 +28,20 @@ export default function Login() {
     if (error) window.history.replaceState({}, "", window.location.pathname);
   }, []);
 
-  const [loginPhone, setLoginPhone] = useState("");
-  const [loginOtp, setLoginOtp] = useState("");
-  const [loginOtpSent, setLoginOtpSent] = useState(false);
-  const [loginOtpValue, setLoginOtpValue] = useState("");
-  const [loginOtpLoading, setLoginOtpLoading] = useState(false);
-  const [loginOtpCountdown, setLoginOtpCountdown] = useState(0);
-
-  const [regForm, setRegForm] = useState({ name: "", phone: "", email: "", password: "", otp: "" });
-  const [regOtpSent, setRegOtpSent] = useState(false);
-  const [regOtpValue, setRegOtpValue] = useState("");
-  const [regOtpLoading, setRegOtpLoading] = useState(false);
-  const [regOtpCountdown, setRegOtpCountdown] = useState(0);
-
+  const [loginForm, setLoginForm] = useState({ phone: "", password: "" });
+  const [regForm, setRegForm] = useState({ name: "", phone: "", email: "", password: "" });
   const [adminForm, setAdminForm] = useState({ email: "", password: "" });
   const [vendorForm, setVendorForm] = useState({ email: "", password: "" });
 
-  const startCountdown = (setter: (n: number) => void) => {
-    setter(30);
-    const t = setInterval(() => setter(prev => { if (prev <= 1) { clearInterval(t); return 0; } return prev - 1; }), 1000);
-  };
-
-  const sendLoginOtp = async () => {
-    if (loginPhone.length !== 10) { toast({ title: "Enter a valid 10-digit mobile number", variant: "destructive" }); return; }
-    setLoginOtpLoading(true);
-    try {
-      const res = await fetch("/api/auth/send-otp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: loginPhone }) });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to send OTP");
-      setLoginOtpSent(true);
-      setLoginOtpValue(data.otp);
-      startCountdown(setLoginOtpCountdown);
-      toast({ title: "OTP sent successfully!" });
-    } catch (err: any) {
-      toast({ title: err.message, variant: "destructive" });
-    } finally {
-      setLoginOtpLoading(false);
-    }
-  };
-
-  const handleLoginOtp = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!loginOtp || loginOtp.length !== 6) { toast({ title: "Enter the 6-digit OTP", variant: "destructive" }); return; }
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/login-otp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: loginPhone, otp: loginOtp }) });
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: loginForm.phone, password: loginForm.password }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Login failed");
       localStorage.setItem("coupons_hub_token", data.token);
@@ -86,32 +55,16 @@ export default function Login() {
     }
   };
 
-  const sendRegOtp = async () => {
-    if (regForm.phone.length !== 10) { toast({ title: "Enter a valid 10-digit mobile number", variant: "destructive" }); return; }
-    setRegOtpLoading(true);
-    try {
-      const res = await fetch("/api/auth/send-otp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: regForm.phone }) });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to send OTP");
-      setRegOtpSent(true);
-      setRegOtpValue(data.otp);
-      startCountdown(setRegOtpCountdown);
-      toast({ title: "OTP sent!" });
-    } catch (err: any) {
-      toast({ title: err.message, variant: "destructive" });
-    } finally {
-      setRegOtpLoading(false);
-    }
-  };
-
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!regForm.name || !regForm.phone || !regForm.password) { toast({ title: "Name, mobile number and password are required", variant: "destructive" }); return; }
     if (regForm.password.length < 6) { toast({ title: "Password must be at least 6 characters", variant: "destructive" }); return; }
-    if (!regForm.otp || regForm.otp.length !== 6) { toast({ title: "Enter the 6-digit OTP", variant: "destructive" }); return; }
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: regForm.name, phone: regForm.phone, email: regForm.email || undefined, password: regForm.password, otp: regForm.otp }) });
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: regForm.name, phone: regForm.phone, email: regForm.email || undefined, password: regForm.password }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Registration failed");
       localStorage.setItem("coupons_hub_token", data.token);
@@ -163,16 +116,6 @@ export default function Login() {
     <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
     </button>
-  );
-
-  const OtpInfoBox = ({ otp }: { otp: string }) => (
-    <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-      <CheckCircle className="w-4 h-4 text-amber-600 shrink-0" />
-      <div>
-        <p className="text-xs text-amber-700 dark:text-amber-400 font-medium">Test Mode — Your OTP</p>
-        <p className="text-lg font-bold tracking-widest text-amber-800 dark:text-amber-300 font-mono">{otp}</p>
-      </div>
-    </div>
   );
 
   return (
@@ -238,74 +181,49 @@ export default function Login() {
                 <CardContent className="p-8">
                   <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Welcome back</h2>
                   <p className="text-muted-foreground mb-6 text-sm">Sign in with your mobile number</p>
-
-                  <form onSubmit={handleLoginOtp} className="flex flex-col gap-5">
+                  <form onSubmit={handleLogin} className="flex flex-col gap-5">
                     <div className="flex flex-col gap-2">
                       <Label htmlFor="login-phone">Mobile Number</Label>
-                      <div className="flex gap-2">
-                        <div className="relative flex-1">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">+91</span>
-                          <Input
-                            id="login-phone"
-                            type="tel"
-                            placeholder="9876543210"
-                            value={loginPhone}
-                            onChange={e => { setLoginPhone(e.target.value.replace(/\D/g, "").slice(0, 10)); setLoginOtpSent(false); setLoginOtp(""); setLoginOtpValue(""); }}
-                            className="h-12 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 pl-12"
-                            data-testid="input-login-phone"
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={sendLoginOtp}
-                          disabled={loginOtpLoading || loginOtpCountdown > 0 || loginPhone.length !== 10}
-                          className="h-12 rounded-xl px-4 border-2 shrink-0 font-semibold text-sm"
-                          data-testid="button-send-login-otp"
-                        >
-                          {loginOtpLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : loginOtpCountdown > 0 ? `${loginOtpCountdown}s` : loginOtpSent ? "Resend" : "Send OTP"}
-                        </Button>
-                      </div>
-                    </div>
-
-                    {loginOtpSent && loginOtpValue && <OtpInfoBox otp={loginOtpValue} />}
-
-                    {loginOtpSent && (
-                      <div className="flex flex-col gap-2">
-                        <Label htmlFor="login-otp">Enter OTP</Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">+91</span>
                         <Input
-                          id="login-otp"
+                          id="login-phone"
                           type="tel"
-                          placeholder="6-digit OTP"
-                          value={loginOtp}
-                          onChange={e => setLoginOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                          className="h-12 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-center tracking-widest text-lg font-bold font-mono"
-                          maxLength={6}
-                          data-testid="input-login-otp"
-                          autoFocus
+                          placeholder="9876543210"
+                          value={loginForm.phone}
+                          onChange={e => setLoginForm(f => ({ ...f, phone: e.target.value.replace(/\D/g, "").slice(0, 10) }))}
+                          className="h-12 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 pl-12"
+                          required
+                          data-testid="input-login-phone"
                         />
                       </div>
-                    )}
-
-                    {loginOtpSent && (
-                      <Button type="submit" disabled={loading || loginOtp.length !== 6} className="h-12 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-violet-600 border-0 mt-2" data-testid="button-submit-login">
-                        {loading ? "Verifying..." : <><span>Verify & Sign In</span><ArrowRight className="w-4 h-4 ml-2" /></>}
-                      </Button>
-                    )}
-
-                    {!loginOtpSent && (
-                      <Button type="button" onClick={sendLoginOtp} disabled={loginOtpLoading || loginPhone.length !== 10} className="h-12 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-violet-600 border-0 mt-2" data-testid="button-get-otp-login">
-                        {loginOtpLoading ? "Sending..." : <><Phone className="w-4 h-4 mr-2" /><span>Get OTP</span></>}
-                      </Button>
-                    )}
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="login-password">Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="login-password"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Enter your password"
+                          value={loginForm.password}
+                          onChange={e => setLoginForm(f => ({ ...f, password: e.target.value }))}
+                          className="h-12 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 pr-12"
+                          required
+                          data-testid="input-login-password"
+                        />
+                        <PasswordToggle />
+                      </div>
+                    </div>
+                    <Button type="submit" disabled={loading} className="h-12 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-violet-600 border-0 mt-2" data-testid="button-submit-login">
+                      {loading ? "Signing in..." : <><span>Sign In</span><ArrowRight className="w-4 h-4 ml-2" /></>}
+                    </Button>
                   </form>
-
                   <div className="flex items-center gap-3 my-5">
                     <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
                     <span className="text-xs text-muted-foreground">or continue with</span>
                     <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
                   </div>
-                  <a href="/api/auth/google" className="flex items-center justify-center gap-3 w-full h-12 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-medium text-sm hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors" data-testid="button-google-login">
+                  <a href="/api/auth/google" className="flex items-center justify-center gap-3 w-full h-12 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-medium text-sm hover:bg-gray-50 transition-colors" data-testid="button-google-login">
                     <SiGoogle className="w-4 h-4 text-[#4285F4]" />
                     Sign in with Google
                   </a>
@@ -320,60 +238,17 @@ export default function Login() {
                   <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Create account</h2>
                   <p className="text-muted-foreground mb-6 text-sm">Start saving with CouponsHub X</p>
                   <form onSubmit={handleRegister} className="flex flex-col gap-5">
-
                     <div className="flex flex-col gap-2">
                       <Label htmlFor="reg-name">Full Name *</Label>
                       <Input id="reg-name" placeholder="Your name" value={regForm.name} onChange={e => setRegForm(f => ({ ...f, name: e.target.value }))} className="h-12 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700" required data-testid="input-register-name" />
                     </div>
-
                     <div className="flex flex-col gap-2">
                       <Label htmlFor="reg-phone">Mobile Number *</Label>
-                      <div className="flex gap-2">
-                        <div className="relative flex-1">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">+91</span>
-                          <Input
-                            id="reg-phone"
-                            type="tel"
-                            placeholder="9876543210"
-                            value={regForm.phone}
-                            onChange={e => { setRegForm(f => ({ ...f, phone: e.target.value.replace(/\D/g, "").slice(0, 10), otp: "" })); setRegOtpSent(false); setRegOtpValue(""); }}
-                            className="h-12 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 pl-12"
-                            required
-                            data-testid="input-register-phone"
-                          />
-                        </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={sendRegOtp}
-                          disabled={regOtpLoading || regOtpCountdown > 0 || regForm.phone.length !== 10}
-                          className="h-12 rounded-xl px-4 border-2 shrink-0 font-semibold text-sm"
-                          data-testid="button-send-reg-otp"
-                        >
-                          {regOtpLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : regOtpCountdown > 0 ? `${regOtpCountdown}s` : regOtpSent ? "Resend" : "Send OTP"}
-                        </Button>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">+91</span>
+                        <Input id="reg-phone" type="tel" placeholder="9876543210" value={regForm.phone} onChange={e => setRegForm(f => ({ ...f, phone: e.target.value.replace(/\D/g, "").slice(0, 10) }))} className="h-12 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 pl-12" required data-testid="input-register-phone" />
                       </div>
                     </div>
-
-                    {regOtpSent && regOtpValue && <OtpInfoBox otp={regOtpValue} />}
-
-                    {regOtpSent && (
-                      <div className="flex flex-col gap-2">
-                        <Label htmlFor="reg-otp">Enter OTP *</Label>
-                        <Input
-                          id="reg-otp"
-                          type="tel"
-                          placeholder="6-digit OTP"
-                          value={regForm.otp}
-                          onChange={e => setRegForm(f => ({ ...f, otp: e.target.value.replace(/\D/g, "").slice(0, 6) }))}
-                          className="h-12 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-center tracking-widest text-lg font-bold font-mono"
-                          maxLength={6}
-                          data-testid="input-register-otp"
-                          autoFocus
-                        />
-                      </div>
-                    )}
-
                     <div className="flex flex-col gap-2">
                       <Label htmlFor="reg-password">Password *</Label>
                       <div className="relative">
@@ -381,28 +256,22 @@ export default function Login() {
                         <PasswordToggle />
                       </div>
                     </div>
-
                     <div className="flex flex-col gap-2">
                       <Label htmlFor="reg-email" className="flex items-center gap-2">
                         Email <span className="text-xs text-muted-foreground font-normal">(optional)</span>
                       </Label>
                       <Input id="reg-email" type="email" placeholder="you@example.com" value={regForm.email} onChange={e => setRegForm(f => ({ ...f, email: e.target.value }))} className="h-12 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700" data-testid="input-register-email" />
                     </div>
-
-                    <Button type="submit" disabled={loading || !regOtpSent || regForm.otp.length !== 6} className="h-12 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-violet-600 border-0 mt-2" data-testid="button-submit-register">
+                    <Button type="submit" disabled={loading} className="h-12 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-violet-600 border-0 mt-2" data-testid="button-submit-register">
                       {loading ? "Creating account..." : <><span>Create Account</span><ArrowRight className="w-4 h-4 ml-2" /></>}
                     </Button>
-
-                    {!regOtpSent && (
-                      <p className="text-center text-xs text-muted-foreground">Enter your mobile number and send OTP to verify before creating account</p>
-                    )}
                   </form>
                   <div className="flex items-center gap-3 my-5">
                     <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
                     <span className="text-xs text-muted-foreground">or sign up with</span>
                     <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
                   </div>
-                  <a href="/api/auth/google" className="flex items-center justify-center gap-3 w-full h-12 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-medium text-sm hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors" data-testid="button-google-register">
+                  <a href="/api/auth/google" className="flex items-center justify-center gap-3 w-full h-12 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-medium text-sm hover:bg-gray-50 transition-colors" data-testid="button-google-register">
                     <SiGoogle className="w-4 h-4 text-[#4285F4]" />
                     Continue with Google
                   </a>
