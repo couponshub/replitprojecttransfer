@@ -585,7 +585,7 @@ export default function CartPage() {
     const freeCartItem = { 
       id: chosenItem.id, 
       name: chosenItem.name, 
-      price: 0, 
+      price: chosenItem.price, 
       originalPrice: chosenItem.price, 
       shop_id: chosenItem.shop_id, 
       shopName: couponData.shopName || items.find(i => i.shop_id === shopId)?.shopName || "", 

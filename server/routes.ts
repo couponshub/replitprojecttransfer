@@ -1338,7 +1338,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           for (let i = 0; i < qty; i++) {
             items_to_add = [
               ...items_to_add,
-              { id: product.id, name: product.name, price: 0, originalPrice: parseFloat(String(product.price || "0")), shop_id: product.shop_id || "", shopName, isFreeItem: true },
+              { id: product.id, name: product.name, price: parseFloat(String(product.price || "0")), originalPrice: parseFloat(String(product.price || "0")), shop_id: product.shop_id || "", shopName, isFreeItem: true },
             ];
           }
         }
@@ -1387,7 +1387,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             for (let i = 0; i < qty; i++) {
               items_to_add = [
                 ...items_to_add,
-                { id: getProduct.id, name: getProduct.name, price: 0, originalPrice: parseFloat(String(getProduct.price || "0")), shop_id: getProduct.shop_id || "", shopName, isFreeItem: true },
+                { id: getProduct.id, name: getProduct.name, price: parseFloat(String(getProduct.price || "0")), originalPrice: parseFloat(String(getProduct.price || "0")), shop_id: getProduct.shop_id || "", shopName, isFreeItem: true },
               ];
             }
           }
