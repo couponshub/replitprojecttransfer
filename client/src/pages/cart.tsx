@@ -615,19 +615,6 @@ export default function CartPage() {
   };
 
   const handleRemoveCoupon = (shopId: string, code: string) => {
-    // ── NEW LOGIC: Move items back to manual when coupon is removed ──
-    setItems(prev => {
-      return prev.map(item => {
-        if (item.shop_id === shopId && item.couponCode === code) {
-          // If the item was ADDED by the coupon (free/combo), it will be filtered out by removeCoupon()
-          // If it was a manual item MOVED to the offer box, we strip the couponCode here
-          // Wait, removeCoupon in cart.tsx actually filters out ALL items with that couponCode.
-          // Let's modify removeCoupon in cart.tsx instead to handle this better.
-          return item;
-        }
-        return item;
-      });
-    });
     removeCoupon(shopId, code);
   };
 
@@ -723,11 +710,21 @@ export default function CartPage() {
           <Button variant="ghost" size="sm" onClick={() => lastShopId ? navigate(`/shop/${lastShopId}`) : navigate("/home")} className="mb-4 -ml-2" data-testid="button-back">
             <ArrowLeft className="w-4 h-4 mr-1" /> Continue Shopping
           </Button>
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Shopping Cart <span className="text-muted-foreground text-lg font-normal">({items.reduce((s, i) => s + i.quantity, 0)} items)</span>
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">{uniqueShopIds.length} store{uniqueShopIds.length > 1 ? "s" : ""}</p>
+          <div className="mb-6 flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Shopping Cart <span className="text-muted-foreground text-lg font-normal">({items.reduce((s, i) => s + i.quantity, 0)} items)</span>
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1">{uniqueShopIds.length} store{uniqueShopIds.length > 1 ? "s" : ""}</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { clearCart(); }}
+              className="shrink-0 rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30 gap-1.5"
+              data-testid="button-clear-cart">
+              <Trash2 className="w-3.5 h-3.5" /> Clear Cart
+            </Button>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
