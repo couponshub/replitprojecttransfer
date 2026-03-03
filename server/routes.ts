@@ -1952,14 +1952,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/contests/:id/join", authMiddleware, async (req, res) => {
     try {
-      const user = (req as any).user;
+      const jwtUser = (req as any).user;
+      const fullUser = await storage.getUser(jwtUser.id);
+      if (!fullUser) return res.status(401).json({ error: "User not found" });
       const { slot_number } = req.body;
       if (!slot_number) return res.status(400).json({ error: "slot_number required" });
       const contest = await storage.getContest(req.params.id);
       if (!contest) return res.status(404).json({ error: "Contest not found" });
       if (contest.status !== "open") return res.status(400).json({ error: "Contest is not open" });
       if (slot_number < 1 || slot_number > contest.total_slots) return res.status(400).json({ error: "Invalid slot" });
-      const slot = await storage.joinContest(req.params.id, slot_number, user.id, user.name, user.email);
+      const userName = fullUser.name || fullUser.email?.split("@")[0] || "User";
+      const slot = await storage.joinContest(req.params.id, slot_number, fullUser.id, userName, fullUser.email || "");
       res.json(slot);
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
@@ -2005,7 +2008,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const vendor = (req as any).vendor;
       const c = await storage.getContest(req.params.id);
       if (!c || c.shop_id !== vendor.shop_id) return res.status(403).json({ error: "Forbidden" });
-      const updated = await storage.updateContest(req.params.id, req.body);
+      const body = { ...req.body };
+      if (body.end_time) body.end_time = new Date(body.end_time);
+      else if (body.end_time === "" || body.end_time === null) body.end_time = null;
+      if (body.attached_coupon_id === "") body.attached_coupon_id = null;
+      const updated = await storage.updateContest(req.params.id, body);
       res.json(updated);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
@@ -2028,7 +2035,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.patch("/api/admin/contests/:id", adminMiddleware, async (req, res) => {
     try {
-      const updated = await storage.updateContest(req.params.id, req.body);
+      const body = { ...req.body };
+      if (body.end_time) body.end_time = new Date(body.end_time);
+      else if (body.end_time === "" || body.end_time === null) body.end_time = null;
+      if (body.attached_coupon_id === "") body.attached_coupon_id = null;
+      const updated = await storage.updateContest(req.params.id, body);
       if (!updated) return res.status(404).json({ error: "Not found" });
       res.json(updated);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
