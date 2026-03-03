@@ -1919,6 +1919,9 @@ export default function AdminDashboard() {
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
                               <code className="font-bold text-sm bg-gray-100 dark:bg-gray-800 px-2.5 py-1 rounded-lg">{coupon.code}</code>
+                              <Badge variant="outline" className="text-[10px] h-5 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 font-medium">
+                                {coupon.shop?.name || "Global"}
+                              </Badge>
                               <Badge className={`border-0 text-[11px] ${coupon.is_active ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" : "bg-gray-100 text-gray-600"}`}>
                                 {coupon.is_active ? "Live" : "Inactive"}
                               </Badge>

@@ -821,7 +821,7 @@ export default function VendorDashboard() {
                 <Input
                   value={couponSearch}
                   onChange={e => setCouponSearch(e.target.value)}
-                  placeholder="Search by coupon code..."
+                  placeholder="Search by coupon code or details..."
                   className="pl-8 rounded-xl h-9 text-sm"
                   data-testid="input-vendor-coupon-search"
                 />
@@ -834,14 +834,26 @@ export default function VendorDashboard() {
                   <Ticket className="w-10 h-10 mx-auto mb-3 opacity-20" />
                   <p>No coupons yet. Add your first one!</p>
                 </div>
-              ) : coupons.filter((c: any) => !couponSearch || c.code.toLowerCase().includes(couponSearch.toLowerCase())).length === 0 ? (
+              ) : coupons.filter((c: any) => 
+                  !couponSearch || 
+                  c.code.toLowerCase().includes(couponSearch.toLowerCase()) ||
+                  (c.type === "percentage" && `${c.value}%`.includes(couponSearch)) ||
+                  (c.type === "flat" && `₹${c.value}`.includes(couponSearch)) ||
+                  (c.description && c.description.toLowerCase().includes(couponSearch.toLowerCase()))
+                ).length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <Search className="w-8 h-8 mx-auto mb-2 opacity-20" />
                   <p className="text-sm">No coupons match "{couponSearch}"</p>
                 </div>
               ) : (
                 <div className="flex flex-col gap-3">
-                  {coupons.filter((c: any) => !couponSearch || c.code.toLowerCase().includes(couponSearch.toLowerCase())).map((coupon: any) => (
+                  {coupons.filter((c: any) => 
+                    !couponSearch || 
+                    c.code.toLowerCase().includes(couponSearch.toLowerCase()) ||
+                    (c.type === "percentage" && `${c.value}%`.includes(couponSearch)) ||
+                    (c.type === "flat" && `₹${c.value}`.includes(couponSearch)) ||
+                    (c.description && c.description.toLowerCase().includes(couponSearch.toLowerCase()))
+                  ).map((coupon: any) => (
                     <Card key={coupon.id} className="border-0 shadow-md rounded-2xl" data-testid={`card-coupon-${coupon.id}`}>
                       <CardContent className="p-4 flex items-center gap-4">
                         <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-sm shrink-0 ${coupon.type === "free_item" ? "bg-gradient-to-br from-violet-500 to-purple-600" : "bg-gradient-to-br from-pink-500 to-rose-600"}`}>
