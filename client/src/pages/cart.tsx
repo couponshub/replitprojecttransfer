@@ -540,6 +540,8 @@ export default function CartPage() {
         category_offer_subtype: result.category_offer_subtype ?? null 
       });
 
+      // Percentage/Flat coupons now also add their "attached items" to the cart
+      // if they are provided in result.items_to_add.
       if (result.items_to_add?.length > 0) {
         const itemsWithCode = result.items_to_add.map((item: any) => ({
           ...item,
