@@ -239,6 +239,8 @@ export class PgStorage implements IStorage {
   }
 
   async updateShop(id: string, shop: Partial<InsertShop>): Promise<Shop | undefined> {
+    const updateData = { ...shop };
+    if (updateData.delivery_fee_amount !== undefined) updateData.delivery_fee_amount = updateData.delivery_fee_amount?.toString();
     const result = await db.update(shops).set(shop).where(eq(shops.id, id)).returning();
     return result[0];
   }

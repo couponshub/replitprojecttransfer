@@ -52,6 +52,8 @@ export const shops = pgTable("shops", {
   listing_type: text("listing_type").notNull().default("both"),
   business_hours: text("business_hours"),
   show_on_radar: boolean("show_on_radar").notNull().default(true),
+  delivery_fee_enabled: boolean("delivery_fee_enabled").notNull().default(false),
+  delivery_fee_amount: numeric("delivery_fee_amount", { precision: 10, scale: 2 }).default("0"),
   marker_color: text("marker_color"),
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });

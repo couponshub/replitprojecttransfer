@@ -173,7 +173,10 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
   const dist = (userGPS && shopData?.latitude && shopData?.longitude)
     ? haversineKm(userGPS.lat, userGPS.lon, parseFloat(shopData.latitude), parseFloat(shopData.longitude))
     : null;
-  const deliveryFee = dist !== null ? Math.round(dist * 15) : null;
+  
+  const deliveryFee = shopData?.delivery_fee_enabled 
+    ? parseFloat(shopData.delivery_fee_amount || "0") 
+    : 0;
 
   return (
     <div className="flex flex-col gap-3">
@@ -187,13 +190,23 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
         )}
         <div className="flex-1 min-w-0">
           <p className="font-bold text-gray-900 dark:text-white text-sm truncate">{shopName}</p>
-          {dist !== null && (
-            <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-              <MapPin className="w-3 h-3" />
-              {dist < 1 ? `${Math.round(dist * 1000)}m` : `${dist.toFixed(1)}km`} away
-              {deliveryFee !== null && (deliveryFee === 0 ? " · Free delivery" : ` · ₹${deliveryFee} delivery`)}
-            </p>
-          )}
+          <div className="flex items-center gap-2 flex-wrap">
+            {dist !== null && (
+              <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                <MapPin className="w-3 h-3" />
+                {dist < 1 ? `${Math.round(dist * 1000)}m` : `${dist.toFixed(1)}km`} away
+              </p>
+            )}
+            {shopData?.delivery_fee_enabled ? (
+              <Badge variant="outline" className="text-[10px] py-0 h-4 bg-orange-50 text-orange-600 border-orange-200">
+                + ₹{deliveryFee} Delivery
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-[10px] py-0 h-4 bg-emerald-50 text-emerald-600 border-emerald-200">
+                Free Delivery
+              </Badge>
+            )}
+          </div>
         </div>
         <span className="text-xs text-muted-foreground shrink-0">{shopItems.reduce((s, i) => s + i.quantity, 0)} items</span>
       </div>
