@@ -90,17 +90,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const applyCoupon = (shopId: string, coupon: any) => {
     setAppliedCoupons(prev => {
-      const existing = prev[shopId] || [];
-      if (existing.find(c => c.code === coupon.code)) return prev;
-      return { ...prev, [shopId]: [...existing, coupon] };
+      // Replace existing coupon for this shop - only one allowed
+      return { ...prev, [shopId]: [coupon] };
     });
+    // If there was an old coupon, we should technically remove its items, 
+    // but the handleRemoveCoupon in cart.tsx or a separate cleanup might be better.
+    // For simplicity, we'll let the UI handle the replacement logic or add cleanup here.
   };
 
   const removeCoupon = (shopId: string, code: string) => {
-    setAppliedCoupons(prev => ({
-      ...prev,
-      [shopId]: (prev[shopId] || []).filter(c => c.code !== code)
-    }));
+    setAppliedCoupons(prev => {
+      const newCoupons = { ...prev };
+      delete newCoupons[shopId];
+      return newCoupons;
+    });
     setItems(prev => prev.filter(i => !(i.shop_id === shopId && i.couponCode === code)));
   };
 

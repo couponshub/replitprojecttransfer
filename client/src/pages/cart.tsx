@@ -482,30 +482,39 @@ export default function CartPage() {
       if (coupon.type === "combo") continue;
       
       const restrictCats = coupon.restrict_sub_category && coupon.restrict_sub_category.length > 0 ? coupon.restrict_sub_category : null;
-      const base = restrictCats
-        ? shopItems.filter(i => i.sub_category && restrictCats.includes(i.sub_category)).reduce((s, i) => s + i.price * i.quantity, 0)
-        : runningSubtotal;
+      
+      // Filter items that should be discounted. 
+      // If coupon has a couponCode (it added its own items), only discount those.
+      // If not, it applies to regular items (no couponCode).
+      const targetItems = shopItems.filter(i => {
+        const catMatch = !restrictCats || (i.sub_category && restrictCats.includes(i.sub_category));
+        // If the coupon added items, only discount those items.
+        // If it's a general percentage/flat coupon, it applies to items NOT added by other coupons.
+        const codeMatch = !i.couponCode || i.couponCode === coupon.code;
+        return catMatch && codeMatch;
+      });
+
+      const base = targetItems.reduce((s, i) => s + i.price * i.quantity, 0);
       
       let disc = 0;
       if (coupon.type === "percentage") disc = base * parseFloat(coupon.value) / 100;
       else if (coupon.type === "flat") disc = Math.min(parseFloat(coupon.value), base);
       else if (coupon.type === "bogo" || coupon.type === "free_item") {
-        const freeItems = (coupon.items_to_add || []).filter((i: any) => i.isFreeItem);
-        disc = freeItems.reduce((s: number, i: any) => s + (parseFloat(i.originalPrice || i.price || "0")), 0);
+        const freeItems = targetItems.filter(i => i.isFreeItem && i.couponCode === coupon.code);
+        disc = freeItems.reduce((s, i) => s + (i.originalPrice || i.price || 0) * i.quantity, 0);
       } else if (coupon.type === "min_order") {
         if (coupon.category_offer_subtype === "flat") disc = Math.min(parseFloat(coupon.value), base);
         else disc = base * parseFloat(coupon.value) / 100;
       } else if (coupon.type === "category_offer") {
-        const catBase = restrictCats ? base : 0;
-        if (coupon.category_offer_subtype === "percentage") disc = catBase * parseFloat(coupon.value) / 100;
-        else if (coupon.category_offer_subtype === "flat") disc = Math.min(parseFloat(coupon.value), catBase);
+        if (coupon.category_offer_subtype === "percentage") disc = base * parseFloat(coupon.value) / 100;
+        else if (coupon.category_offer_subtype === "flat") disc = Math.min(parseFloat(coupon.value), base);
         else if (coupon.category_offer_subtype === "free_item") {
-          const freeItems = (coupon.items_to_add || []).filter((i: any) => i.isFreeItem);
-          disc = freeItems.reduce((s: number, i: any) => s + (parseFloat(i.originalPrice || i.price || "0")), 0);
+          const freeItems = targetItems.filter(i => i.isFreeItem && i.couponCode === coupon.code);
+          disc = freeItems.reduce((s, i) => s + (i.originalPrice || i.price || 0) * i.quantity, 0);
         }
       }
       totalDisc += disc;
-      runningSubtotal = Math.max(0, runningSubtotal - disc);
+      // We don't subtract from runningSubtotal here because each coupon now targets its own subset
     }
     return totalDisc;
   };
@@ -529,13 +538,13 @@ export default function CartPage() {
   const validateCoupon = async (shopId: string, codeOverride?: string) => {
     const code = (codeOverride || couponCodes[shopId] || "").trim().toUpperCase();
     if (!code) return;
+    
+    // Auto-remove existing coupon if any
     const existing = cartCoupons[shopId] || [];
-    if (existing.find(c => c.code === code)) {
-      toast({ title: "Coupon already applied", variant: "destructive" }); return;
+    if (existing.length > 0) {
+      handleRemoveCoupon(shopId, existing[0].code);
     }
-    if (existing.length >= 1) {
-      toast({ title: "Only 1 coupon allowed per store", variant: "destructive" }); return;
-    }
+
     setCouponLoadingMap(prev => ({ ...prev, [shopId]: true }));
     try {
       const result = await apiRequest("POST", "/api/coupons/validate", {
