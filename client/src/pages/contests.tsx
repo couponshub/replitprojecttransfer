@@ -340,6 +340,18 @@ Show this at the shop to redeem.
               <p className="text-xl font-black text-amber-900 leading-tight truncate" data-testid="text-winner-name">{c.winner_user_name}</p>
               <p className="text-xs text-amber-900/70 font-semibold">Slot #{c.winner_slot_number}</p>
             </div>
+            {isWinner && c.attached_coupon && myContestCoupon && !myContestCoupon.claimed_at && (
+              <Button
+                size="sm"
+                onClick={() => claimMutation.mutate(myContestCoupon.id)}
+                disabled={claimMutation.isPending}
+                className="rounded-xl bg-amber-900 text-amber-100 hover:bg-amber-950 border-0 font-bold h-9 px-4 shrink-0 shadow-lg"
+                data-testid="button-winner-claim-quick"
+              >
+                {claimMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Gift className="w-3.5 h-3.5 mr-1" />}
+                Claim
+              </Button>
+            )}
             <div className="w-10 h-10 rounded-xl bg-amber-900/20 flex items-center justify-center shrink-0">
               <Trophy className="w-5 h-5 text-amber-900" />
             </div>
