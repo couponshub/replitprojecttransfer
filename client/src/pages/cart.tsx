@@ -485,9 +485,9 @@ export default function CartPage() {
         // No additional deduction from grand total — the savings is shown informational in the offer box.
 
       } else {
-        // percentage, flat, min_order, category_offer — only apply to items that have this couponCode
-        // We do NOT apply to manual items anymore.
-        const targetItems = offerItems;
+        // percentage, flat, min_order, category_offer — apply to offerItems if any,
+        // otherwise apply to all manual items in that store
+        const targetItems = offerItems.length > 0 ? offerItems : getManualItems(sid);
         const base = targetItems.reduce((s, i) => s + i.price * i.quantity, 0);
 
         if (coupon.type === "percentage") totalDisc += base * parseFloat(coupon.value) / 100;
