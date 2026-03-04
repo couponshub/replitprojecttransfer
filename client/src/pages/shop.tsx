@@ -76,7 +76,7 @@ export default function ShopPage() {
   const [, navigate] = useLocation();
   const { 
     addItem, items, updateQuantity, itemCount, addItems, 
-    removeFreeItemsForShop, applyCoupon, appliedCoupons 
+    removeFreeItemsForShop, applyCoupon, removeCoupon, appliedCoupons 
   } = useCart();
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
@@ -168,26 +168,45 @@ export default function ShopPage() {
       return;
     }
 
-    // Check if any coupon is already applied for this shop
-    const existingCoupons = appliedCoupons[id || ""] || [];
-    if (existingCoupons.length > 0) {
+    const shopId = id || "";
+    const existingForThisShop = appliedCoupons[shopId] || [];
+    const storesWithCoupons = Object.keys(appliedCoupons).filter(sid => (appliedCoupons[sid] || []).length > 0);
+    const isNewStore = !storesWithCoupons.includes(shopId);
+
+    // Max 5 different stores rule
+    if (isNewStore && storesWithCoupons.length >= 5) {
       toast({ 
-        title: "Coupon already active", 
-        description: "Please remove the current coupon from your cart before claiming a new one from this store.",
+        title: "Cart limit reached", 
+        description: "You can only apply coupons from up to 5 different stores. Remove one first.",
         variant: "destructive" 
       });
       return;
     }
 
+    // For percentage/flat coupons — need items from this store in cart
+    const storeItems = items.filter(i => i.shop_id === shopId && !i.couponCode);
+    const isDiscountOnly = coupon.type === "percentage" || coupon.type === "flat" || coupon.type === "min_order" || coupon.type === "category_offer";
+    if (isDiscountOnly && storeItems.length === 0) {
+      toast({ title: "Add items from this store to cart first, then claim the coupon!", variant: "destructive" });
+      return;
+    }
+
     setClaimingCoupon(coupon.id);
     try {
-      const result = await apiRequest("POST", "/api/coupons/validate", { code: coupon.code, shopId: id });
+      const cartTotal = storeItems.reduce((s, i) => s + i.price * i.quantity, 0);
+      const result = await apiRequest("POST", "/api/coupons/validate", { code: coupon.code, shopId, cartTotal: cartTotal.toString() });
 
       const hasItemsToAdd = result.items_to_add && result.items_to_add.length > 0;
       const hasPickOne = result.pick_one_items && result.pick_one_items.length > 0;
 
-      if (!hasItemsToAdd && !hasPickOne && itemCount === 0) {
-        toast({ title: "Add items to cart first, then claim the coupon!", variant: "destructive" });
+      // If same store already has a coupon, auto-remove it first
+      if (existingForThisShop.length > 0) {
+        const oldCode = existingForThisShop[0].code;
+        removeCoupon(shopId, oldCode);
+      }
+
+      if (!hasItemsToAdd && !hasPickOne && storeItems.length === 0) {
+        toast({ title: "Add items from this store to cart first!", variant: "destructive" });
         setClaimingCoupon(null);
         return;
       }
