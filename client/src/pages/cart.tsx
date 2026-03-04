@@ -200,7 +200,15 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
       {/* ── Section 1: Your Items (manually added, no coupon) ── */}
       {manualItems.length > 0 && (
         <div className="flex flex-col gap-2">
-          <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-1">Your Items</p>
+          <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-1">
+            {(() => {
+              const hasProducts = manualItems.some(i => !i.sub_category || i.sub_category.toLowerCase() !== "service");
+              const hasServices = manualItems.some(i => i.sub_category?.toLowerCase() === "service");
+              if (hasProducts && hasServices) return "Your Products & Services";
+              if (hasServices) return "Your Services";
+              return "Your Items";
+            })()}
+          </p>
           {manualItems.map(item => (
             <Card key={item.id} className="rounded-2xl border-0 shadow-md" data-testid={`card-cart-item-${item.id}`}>
               <CardContent className="p-4">

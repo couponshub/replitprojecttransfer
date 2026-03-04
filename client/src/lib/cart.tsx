@@ -196,6 +196,32 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   }, [items]);
 
+  // Effect to load cart from localStorage on mount
+  useEffect(() => {
+    const savedItems = localStorage.getItem("cart_items");
+    const savedCoupons = localStorage.getItem("cart_coupons");
+    if (savedItems) {
+      try {
+        setItems(JSON.parse(savedItems));
+      } catch (e) {
+        console.error("Failed to parse saved cart items", e);
+      }
+    }
+    if (savedCoupons) {
+      try {
+        setAppliedCoupons(JSON.parse(savedCoupons));
+      } catch (e) {
+        console.error("Failed to parse saved cart coupons", e);
+      }
+    }
+  }, []);
+
+  // Effect to sync cart to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem("cart_items", JSON.stringify(items));
+    localStorage.setItem("cart_coupons", JSON.stringify(appliedCoupons));
+  }, [items, appliedCoupons]);
+
   const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
 
