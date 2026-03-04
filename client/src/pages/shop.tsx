@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
   ArrowLeft, Crown, MapPin, Phone, ShoppingCart, Tag, Copy, Check,
-  Plus, Minus, Globe, ChevronLeft, ChevronRight, Zap, Package, Clock, Gift
+  Plus, Minus, Globe, ChevronLeft, ChevronRight, Zap, Package, Clock, Gift, Bookmark, BookmarkCheck
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { Category, Shop, Product, Coupon } from "@shared/schema";
@@ -83,6 +83,8 @@ export default function ShopPage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [bannerIdx, setBannerIdx] = useState(0);
   const [claimingCoupon, setClaimingCoupon] = useState<string | null>(null);
+  const [savedCoupons, setSavedCoupons] = useState<Set<string>>(new Set());
+  const [savingCoupon, setSavingCoupon] = useState<string | null>(null);
   const [activeSubCat, setActiveSubCat] = useState<string>("All");
   const [pickOneModal, setPickOneModal] = useState(false);
   const [pickOneItems, setPickOneItems] = useState<any[]>([]);
@@ -159,6 +161,32 @@ export default function ShopPage() {
     if (id) { applyCoupon(id, { code: result.code, type: result.type, value: result.value, items_to_add: result.items_to_add, restrict_sub_category: result.restrict_sub_category, category_offer_subtype: result.category_offer_subtype, bogo_buy_product_name: result.bogo_buy_product_name, bogo_get_product_name: result.bogo_get_product_name }); }
     toast({ title: `✓ Coupon "${result.code}" applied!`, description: parts.join(" • ") || "Coupon applied to cart" });
     setTimeout(() => navigate("/cart"), 600);
+  };
+
+  const handleSaveCoupon = async (coupon: Coupon) => {
+    if (!isAuthenticated) {
+      toast({ title: "Please sign in to save coupons", variant: "destructive" });
+      navigate("/login");
+      return;
+    }
+    if (savedCoupons.has(coupon.id)) {
+      navigate("/my-coupons");
+      return;
+    }
+    setSavingCoupon(coupon.id);
+    try {
+      const result = await apiRequest("POST", "/api/user/save-coupon", { coupon_id: coupon.id });
+      setSavedCoupons(prev => new Set([...prev, coupon.id]));
+      if (result?.alreadySaved) {
+        toast({ title: "Already saved!", description: "This coupon is already in My Coupons" });
+      } else {
+        toast({ title: "Coupon saved!", description: "Check My Coupons to use it" });
+      }
+    } catch (err: any) {
+      toast({ title: err.message || "Could not save coupon", variant: "destructive" });
+    } finally {
+      setSavingCoupon(null);
+    }
   };
 
   const handleClaimCoupon = async (coupon: Coupon) => {
@@ -448,16 +476,29 @@ export default function ShopPage() {
                           {Math.max(0, (coupon as any).usage_limit - ((coupon as any).usage_count ?? 0))} of {(coupon as any).usage_limit} uses remaining
                         </p>
                       )}
-                      <Button
-                        size="sm"
-                        onClick={() => handleClaimCoupon(coupon)}
-                        disabled={claimingCoupon === coupon.id || ((coupon as any).usage_limit && ((coupon as any).usage_count ?? 0) >= (coupon as any).usage_limit)}
-                        className="w-full rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 border-0 gap-2 text-white h-8 text-xs mt-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                        data-testid={`button-claim-coupon-${coupon.id}`}
-                      >
-                        <Zap className="w-3 h-3" />
-                        {claimingCoupon === coupon.id ? "Claiming..." : "Claim Offer"}
-                      </Button>
+                      <div className="flex gap-1.5 mt-0.5">
+                        <Button
+                          size="sm"
+                          onClick={() => handleClaimCoupon(coupon)}
+                          disabled={claimingCoupon === coupon.id || ((coupon as any).usage_limit && ((coupon as any).usage_count ?? 0) >= (coupon as any).usage_limit)}
+                          className="flex-1 rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 border-0 gap-1.5 text-white h-8 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                          data-testid={`button-claim-coupon-${coupon.id}`}
+                        >
+                          <Zap className="w-3 h-3" />
+                          {claimingCoupon === coupon.id ? "Claiming..." : "Claim Offer"}
+                        </Button>
+                        <button
+                          onClick={() => handleSaveCoupon(coupon)}
+                          disabled={savingCoupon === coupon.id}
+                          className={`shrink-0 w-8 h-8 flex items-center justify-center rounded-xl border transition-colors ${savedCoupons.has(coupon.id) ? "bg-violet-100 dark:bg-violet-900 border-violet-300 dark:border-violet-700" : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-violet-50 dark:hover:bg-violet-950"}`}
+                          data-testid={`button-save-coupon-${coupon.id}`}
+                          title={savedCoupons.has(coupon.id) ? "Go to My Coupons" : "Save to My Coupons"}
+                        >
+                          {savedCoupons.has(coupon.id)
+                            ? <BookmarkCheck className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
+                            : <Bookmark className="w-3.5 h-3.5 text-gray-500" />}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );

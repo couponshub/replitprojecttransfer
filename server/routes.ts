@@ -2203,6 +2203,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  app.post("/api/user/save-coupon", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const { coupon_id } = req.body;
+      if (!coupon_id) return res.status(400).json({ error: "coupon_id is required" });
+      const coupon = await storage.getCoupon(coupon_id);
+      if (!coupon) return res.status(404).json({ error: "Coupon not found" });
+      const result = await storage.saveUserCoupon(userId, coupon_id);
+      res.json(result);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   app.post("/api/user/coupons/:id/claim", authMiddleware, async (req, res) => {
     try {
       const userId = (req as any).user.id;

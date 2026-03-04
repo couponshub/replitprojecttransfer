@@ -147,6 +147,7 @@ export interface IStorage {
   getCoupon(id: string): Promise<Coupon | undefined>;
   createUserCoupon(data: { user_id: string; coupon_id: string; contest_id: string }): Promise<UserCoupon>;
   claimUserCoupon(id: string, userId: string): Promise<UserCoupon | undefined>;
+  saveUserCoupon(userId: string, couponId: string): Promise<{ userCoupon: UserCoupon; alreadySaved: boolean }>;
 
   // Auto contest check
   getExpiredOpenContests(): Promise<Contest[]>;
@@ -835,6 +836,17 @@ export class PgStorage implements IStorage {
   async getUserCoupon(id: string): Promise<UserCoupon | undefined> {
     const rows = await db.select().from(userCoupons).where(eq(userCoupons.id, id)).limit(1);
     return rows[0];
+  }
+
+  async saveUserCoupon(userId: string, couponId: string): Promise<{ userCoupon: UserCoupon; alreadySaved: boolean }> {
+    const existing = await db.select().from(userCoupons)
+      .where(sql`${userCoupons.user_id} = ${userId} AND ${userCoupons.coupon_id} = ${couponId}`)
+      .limit(1);
+    if (existing[0]) return { userCoupon: existing[0], alreadySaved: true };
+    const inserted = await db.insert(userCoupons)
+      .values({ user_id: userId, coupon_id: couponId, contest_id: null } as any)
+      .returning();
+    return { userCoupon: inserted[0], alreadySaved: false };
   }
 
   async getCoupon(id: string): Promise<Coupon | undefined> {

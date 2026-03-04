@@ -2,81 +2,57 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
-import { Gift, ArrowLeft, Check, Clock, Tag } from "lucide-react";
+import { Gift, ArrowLeft, Check, Clock, Tag, Copy, Store, Bookmark, CheckCircle2, Ticket, ChevronRight, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
-type UserCoupon = {
-  id: string;
-  user_id: string;
-  coupon_id: string;
-  contest_id: string | null;
-  is_claimed: boolean;
-  claimed_at: string | null;
-  created_at: string;
-  coupon?: any;
-  contest?: any;
-};
+function getCouponLabel(coupon: any) {
+  if (!coupon) return "Coupon";
+  if (coupon.type === "percentage") return `${coupon.value}% OFF`;
+  if (coupon.type === "flat") return `₹${Number(coupon.value).toLocaleString()} OFF`;
+  if (coupon.type === "bogo") return "BUY 1 GET 1";
+  if (coupon.type === "free_item") return "FREE ITEM";
+  if (coupon.type === "combo") return `Combo ₹${Number(coupon.value).toLocaleString()}`;
+  if (coupon.type === "min_order") return `${coupon.value}% on Min Order`;
+  if (coupon.type === "category_offer") return "Category Offer";
+  return coupon.type;
+}
 
 export default function MyCouponsPage() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState<"saved" | "offline">("saved");
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
-  const { data: userCoupons, isLoading } = useQuery<UserCoupon[]>({
+  const { data: userCoupons = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/user/coupons"],
     enabled: !!user,
   });
 
-  const claimMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("POST", `/api/user/coupons/${id}/claim`),
-    onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/user/coupons"] });
-      toast({ title: "Coupon claimed!", description: "You can now use this coupon on your next order." });
-      
-      // Auto-download logic
-      if (data.coupon) {
-        const coupon = data.coupon;
-        const text = `
---------------------------
-      COUPONS HUB X
---------------------------
-PRIZE COUPON
---------------------------
-Shop: ${ucIdShopMap[id] || "Local Shop"}
-Code: ${coupon.code}
-Value: ${coupon.type === "percentage" ? coupon.value + "% off" : "₹" + coupon.value + " off"}
-Expiry: ${coupon.expiry_date ? new Date(coupon.expiry_date).toLocaleDateString() : "No expiry"}
---------------------------
-Show this at the shop to redeem.
---------------------------
-`;
-        const blob = new Blob([text], { type: "text/plain" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `Prize_Coupon_${coupon.code}.txt`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }
-    },
-    onError: (err: any) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    },
+  const { data: offlineDownloads = [], isLoading: offlineLoading } = useQuery<any[]>({
+    queryKey: ["/api/user/my-downloads"],
+    enabled: !!user,
   });
 
-  const ucIdShopMap: Record<string, string> = {};
-  if (userCoupons) {
-    userCoupons.forEach(uc => {
-      if (uc.contest?.shop?.name) ucIdShopMap[uc.id] = uc.contest.shop.name;
-      else if (uc.coupon?.shop?.name) ucIdShopMap[uc.id] = uc.coupon.shop.name;
-    });
-  }
+  const markUsedMutation = useMutation({
+    mutationFn: (codeId: string) => apiRequest("POST", `/api/offline-coupon-codes/${codeId}/use`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/user/my-downloads"] });
+      toast({ title: "Marked as used!" });
+    },
+    onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const copyCode = (code: string) => {
+    navigator.clipboard.writeText(code).catch(() => {});
+    setCopiedCode(code);
+    toast({ title: "Code copied!", description: code });
+    setTimeout(() => setCopiedCode(null), 2000);
+  };
 
   if (!user) {
     return (
@@ -93,87 +69,244 @@ Show this at the shop to redeem.
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-2xl mx-auto px-4 py-6">
-        <div className="flex items-center gap-3 mb-6">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-5">
           <Button variant="ghost" size="icon" onClick={() => navigate("/")} data-testid="button-back-coupons">
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <h1 className="text-2xl font-bold" data-testid="text-my-coupons-title">My Coupons</h1>
         </div>
 
-        {isLoading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => <Skeleton key={i} className="h-28 w-full rounded-xl" />)}
-          </div>
-        ) : !userCoupons?.length ? (
-          <div className="text-center py-16" data-testid="text-no-coupons">
-            <Gift className="w-16 h-16 mx-auto text-muted-foreground/30 mb-4" />
-            <p className="text-muted-foreground text-lg">No coupons yet</p>
-            <p className="text-sm text-muted-foreground mt-1">Win contests to earn prize coupons!</p>
-            <Button variant="outline" className="mt-4" onClick={() => navigate("/contests")} data-testid="button-browse-contests">
-              Browse Contests
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {userCoupons.map((uc) => (
-              <Card key={uc.id} className="overflow-hidden" data-testid={`card-user-coupon-${uc.id}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Tag className="w-4 h-4 text-primary" />
-                        <h3 className="font-semibold" data-testid={`text-coupon-title-${uc.id}`}>
-                          {uc.coupon?.title || "Prize Coupon"}
-                        </h3>
+        {/* Tabs */}
+        <div className="flex gap-2 mb-5 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+          <button
+            onClick={() => setActiveTab("saved")}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold transition-all ${activeTab === "saved" ? "bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm" : "text-muted-foreground"}`}
+            data-testid="tab-my-coupons"
+          >
+            <Bookmark className="w-4 h-4" />
+            My Coupons
+            {userCoupons.length > 0 && (
+              <span className="bg-violet-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{userCoupons.length}</span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab("offline")}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold transition-all ${activeTab === "offline" ? "bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm" : "text-muted-foreground"}`}
+            data-testid="tab-offline-coupons"
+          >
+            <Ticket className="w-4 h-4" />
+            Offline Coupons
+            {offlineDownloads.length > 0 && (
+              <span className="bg-emerald-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{offlineDownloads.length}</span>
+            )}
+          </button>
+        </div>
+
+        {/* Tab: My Coupons */}
+        {activeTab === "saved" && (
+          <>
+            {isLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map(i => <Skeleton key={i} className="h-28 w-full rounded-xl" />)}
+              </div>
+            ) : userCoupons.length === 0 ? (
+              <div className="text-center py-16" data-testid="text-no-coupons">
+                <Bookmark className="w-14 h-14 mx-auto text-muted-foreground/30 mb-4" />
+                <p className="text-muted-foreground text-lg font-semibold">No saved coupons</p>
+                <p className="text-sm text-muted-foreground mt-1">Save coupons from shops or win contests to see them here</p>
+                <Button variant="outline" className="mt-4 rounded-xl" onClick={() => navigate("/")} data-testid="button-browse-shops">
+                  Browse Shops
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {userCoupons.map((uc: any) => {
+                  const coupon = uc.coupon;
+                  const shop = coupon?.shop;
+                  const isContest = !!uc.contest_id;
+                  const label = getCouponLabel(coupon);
+                  return (
+                    <div key={uc.id} className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden shadow-sm" data-testid={`card-user-coupon-${uc.id}`}>
+                      {coupon?.banner_image && (
+                        <img src={coupon.banner_image} alt="Banner" className="w-full h-24 object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                      )}
+                      <div className="p-4">
+                        <div className="flex items-start gap-3">
+                          {shop?.logo && (
+                            <img src={shop.logo} alt={shop.name} className="w-10 h-10 rounded-xl object-cover shrink-0 border border-gray-100 dark:border-gray-700" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <Badge className="bg-violet-100 text-violet-700 dark:bg-violet-900 dark:text-violet-300 text-xs font-bold border-0" data-testid={`badge-coupon-label-${uc.id}`}>
+                                {label}
+                              </Badge>
+                              {isContest && (
+                                <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300 text-xs border-0">
+                                  Contest Prize
+                                </Badge>
+                              )}
+                            </div>
+                            {shop && (
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate flex items-center gap-1" data-testid={`text-shop-name-${uc.id}`}>
+                                <Store className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                                {shop.name}
+                              </p>
+                            )}
+                            {coupon?.description && (
+                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{coupon.description}</p>
+                            )}
+                            {coupon?.expiry_date && (
+                              <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                Valid till {new Date(coupon.expiry_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Coupon Code */}
+                        {coupon?.code && (
+                          <div className="mt-3 flex items-center gap-2">
+                            <div className="flex-1 flex items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-xl px-3 py-2 border border-dashed border-gray-300 dark:border-gray-600">
+                              <Tag className="w-3.5 h-3.5 text-violet-500 shrink-0" />
+                              <span className="font-mono text-sm font-bold tracking-widest text-gray-900 dark:text-white" data-testid={`text-coupon-code-${uc.id}`}>{coupon.code}</span>
+                            </div>
+                            <button
+                              onClick={() => copyCode(coupon.code)}
+                              className="shrink-0 p-2 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-violet-100 dark:hover:bg-violet-900 transition-colors"
+                              data-testid={`button-copy-code-${uc.id}`}
+                            >
+                              {copiedCode === coupon.code ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-gray-500" />}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Use button */}
+                        {shop?.id && (
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              if (coupon?.code) copyCode(coupon.code);
+                              navigate(`/shop/${shop.id}`);
+                            }}
+                            className="w-full mt-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 border-0 text-white gap-2 h-9"
+                            data-testid={`button-use-coupon-${uc.id}`}
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            Use at {shop.name}
+                          </Button>
+                        )}
                       </div>
-                      {uc.coupon?.description && (
-                        <p className="text-sm text-muted-foreground mb-2">{uc.coupon.description}</p>
-                      )}
-                      {uc.coupon?.code && (
-                        <p className="text-xs font-mono bg-muted px-2 py-1 rounded inline-block mb-2" data-testid={`text-coupon-code-${uc.id}`}>
-                          Code: {uc.coupon.code}
-                        </p>
-                      )}
-                      {uc.coupon?.discount_type && (
-                        <Badge variant="outline" className="text-xs mr-2">
-                          {uc.coupon.discount_type === "percentage"
-                            ? `${uc.coupon.discount_value}% off`
-                            : uc.coupon.discount_type === "flat"
-                            ? `₹${uc.coupon.discount_value} off`
-                            : uc.coupon.discount_type}
-                        </Badge>
-                      )}
-                      {uc.contest && (
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Won from: {uc.contest.title}
-                        </p>
-                      )}
                     </div>
-                    <div className="shrink-0 text-right">
-                      {uc.is_claimed ? (
-                        <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" data-testid={`badge-claimed-${uc.id}`}>
-                          <Check className="w-3 h-3 mr-1" /> Claimed
-                        </Badge>
-                      ) : (
-                        <Button
-                          size="sm"
-                          onClick={() => claimMutation.mutate(uc.id)}
-                          disabled={claimMutation.isPending}
-                          data-testid={`button-claim-${uc.id}`}
-                        >
-                          <Gift className="w-4 h-4 mr-1" /> Claim
-                        </Button>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Tab: Offline Coupons */}
+        {activeTab === "offline" && (
+          <>
+            {offlineLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map(i => <Skeleton key={i} className="h-28 w-full rounded-xl" />)}
+              </div>
+            ) : offlineDownloads.length === 0 ? (
+              <div className="text-center py-16" data-testid="text-no-offline-coupons">
+                <Ticket className="w-14 h-14 mx-auto text-muted-foreground/30 mb-4" />
+                <p className="text-muted-foreground text-lg font-semibold">No offline coupons</p>
+                <p className="text-sm text-muted-foreground mt-1">Download store coupons to show at shops and get discounts</p>
+                <Button variant="outline" className="mt-4 rounded-xl" onClick={() => navigate("/")} data-testid="button-browse-offline">
+                  Browse Shops
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {offlineDownloads.map((item: any) => {
+                  const campaign = item.campaign;
+                  const shop = campaign?.shop;
+                  const isUsed = !!item.used_at;
+                  return (
+                    <div key={item.id} className={`rounded-2xl border overflow-hidden shadow-sm ${isUsed ? "border-gray-200 dark:border-gray-700 opacity-60" : "border-emerald-200 dark:border-emerald-800"} bg-white dark:bg-gray-900`} data-testid={`card-offline-coupon-${item.id}`}>
+                      {campaign?.banner_image && (
+                        <div className="relative">
+                          <img src={campaign.banner_image} alt="Banner" className="w-full h-24 object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          {isUsed && (
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                              <Badge className="bg-gray-700 text-white text-xs">Used</Badge>
+                            </div>
+                          )}
+                        </div>
                       )}
-                      <p className="text-xs text-muted-foreground mt-2">
-                        <Clock className="w-3 h-3 inline mr-1" />
-                        {new Date(uc.created_at).toLocaleDateString()}
-                      </p>
+                      <div className="p-4">
+                        <div className="flex items-start gap-3 mb-3">
+                          {shop?.logo && (
+                            <img src={shop.logo} alt={shop.name} className="w-10 h-10 rounded-xl object-cover shrink-0 border border-gray-100 dark:border-gray-700" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-gray-900 dark:text-white line-clamp-1" data-testid={`text-offline-title-${item.id}`}>{campaign?.title || "Offline Coupon"}</p>
+                            {shop && (
+                              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                                <Store className="w-3 h-3" />{shop.name}
+                              </p>
+                            )}
+                            {campaign?.description && (
+                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{campaign.description}</p>
+                            )}
+                          </div>
+                          {isUsed ? (
+                            <Badge className="shrink-0 bg-gray-100 text-gray-500 dark:bg-gray-800 border-0 gap-1">
+                              <CheckCircle2 className="w-3 h-3" /> Used
+                            </Badge>
+                          ) : (
+                            <Badge className="shrink-0 bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 border-0">Active</Badge>
+                          )}
+                        </div>
+
+                        {/* Unique code */}
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 flex items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-xl px-3 py-2 border border-dashed border-gray-300 dark:border-gray-600">
+                            <Ticket className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                            <span className="font-mono text-sm font-bold tracking-widest text-gray-900 dark:text-white" data-testid={`text-offline-code-${item.id}`}>{item.code}</span>
+                          </div>
+                          <button
+                            onClick={() => copyCode(item.code)}
+                            className="shrink-0 p-2 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-emerald-100 dark:hover:bg-emerald-900 transition-colors"
+                            data-testid={`button-copy-offline-code-${item.id}`}
+                          >
+                            {copiedCode === item.code ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-gray-500" />}
+                          </button>
+                        </div>
+
+                        {!isUsed && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => markUsedMutation.mutate(item.id)}
+                            disabled={markUsedMutation.isPending}
+                            className="w-full mt-3 rounded-xl border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 gap-2 h-9"
+                            data-testid={`button-mark-used-${item.id}`}
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Mark as Used at Shop
+                          </Button>
+                        )}
+
+                        {item.claimed_at && (
+                          <p className="text-[10px] text-muted-foreground mt-2 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            Downloaded {new Date(item.claimed_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
