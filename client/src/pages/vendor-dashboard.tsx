@@ -16,8 +16,9 @@ import {
   Store, Package, Ticket, LogOut, Plus, Edit, Trash2, Save,
   Zap, Tag, Phone, MapPin, Globe, Check, ChevronRight,
   WifiOff, Download, Eye, EyeOff, Upload, Loader2, Image, Link,
-  ShoppingBag, User, IndianRupee, Clock, CheckCircle, X, Trophy, Gift, Users, KeyRound, Search
+  ShoppingBag, User, IndianRupee, Clock, CheckCircle, X, Trophy, Gift, Users, KeyRound, Search, Sparkles, RefreshCw
 } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 
 type VTab = "shop" | "products" | "coupons" | "offline-coupons" | "orders" | "contests";
 
@@ -257,6 +258,10 @@ export default function VendorDashboard() {
   const [logoUploading, setLogoUploading] = useState(false);
   const [bannerUploading, setBannerUploading] = useState(false);
   const [prodImgUploading, setProdImgUploading] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiRefImageUrl, setAiRefImageUrl] = useState<string>("");
+  const [aiRefUploading, setAiRefUploading] = useState(false);
+  const [showAiPanel, setShowAiPanel] = useState(false);
 
   const vendorUploadImage = async (file: File, setter: (url: string) => void, setUploading: (v: boolean) => void) => {
     setUploading(true);
@@ -272,6 +277,34 @@ export default function VendorDashboard() {
       toast({ title: e.message || "Upload failed", variant: "destructive" });
     } finally {
       setUploading(false);
+    }
+  };
+
+  const generateAiBanner = async () => {
+    const shopInfo = shop as any;
+    setAiGenerating(true);
+    try {
+      const payload = {
+        couponType: couponForm.type,
+        couponValue: couponForm.value,
+        couponCode: couponForm.code,
+        couponDescription: couponForm.description,
+        shopName: shopInfo?.name || "",
+        shopDescription: shopInfo?.description || "",
+        shopCategory: shopInfo?.category?.name || "",
+        referenceImageUrl: aiRefImageUrl || undefined,
+      };
+      const result = await apiRequest("POST", "/api/ai/generate-banner", payload);
+      if (result?.url) {
+        setCouponForm((f: any) => ({ ...f, banner_image: result.url }));
+        setShowAiPanel(false);
+        setAiRefImageUrl("");
+        toast({ title: "Banner generated!", description: "AI banner has been set for this coupon." });
+      }
+    } catch (err: any) {
+      toast({ title: err.message || "Failed to generate banner", variant: "destructive" });
+    } finally {
+      setAiGenerating(false);
     }
   };
 
@@ -1268,13 +1301,73 @@ export default function VendorDashboard() {
                     <div>
                       <Label className="text-xs font-semibold">Banner Image <span className="font-normal text-muted-foreground">(optional)</span></Label>
                       <p className="text-[11px] text-muted-foreground mb-1.5">Wide image shown at top of the coupon card (e.g. 800×320px).</p>
-                      <div className="flex gap-2 items-center">
-                        <Input value={couponForm.banner_image || ""} onChange={e => setCouponForm((f: any) => ({ ...f, banner_image: e.target.value }))} className="rounded-xl flex-1 text-xs" placeholder="https://..." data-testid="input-vendor-coupon-banner" />
-                        <label className="shrink-0 cursor-pointer px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-xs font-semibold hover:bg-gray-50 dark:hover:bg-gray-800">
-                          Upload
-                          <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { const r = new FileReader(); r.onload = ev => setCouponForm((frm: any) => ({ ...frm, banner_image: ev.target?.result as string })); r.readAsDataURL(f); } }} data-testid="input-vendor-coupon-banner-file" />
+                      <div className="flex gap-2 items-center flex-wrap">
+                        <Input value={couponForm.banner_image || ""} onChange={e => setCouponForm((f: any) => ({ ...f, banner_image: e.target.value }))} className="rounded-xl flex-1 min-w-0 text-xs" placeholder="https://..." data-testid="input-vendor-coupon-banner" />
+                        <label className="shrink-0 cursor-pointer px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-xs font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-1.5">
+                          <Upload className="w-3.5 h-3.5" />Upload
+                          <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { vendorUploadImage(f, (url) => setCouponForm((frm: any) => ({ ...frm, banner_image: url })), setBannerUploading); } }} data-testid="input-vendor-coupon-banner-file" />
                         </label>
+                        <button
+                          type="button"
+                          onClick={() => setShowAiPanel(p => !p)}
+                          className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-semibold hover:opacity-90 transition-opacity"
+                          data-testid="button-ai-generate-banner"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          Generate with AI
+                        </button>
                       </div>
+
+                      {/* AI Generation Panel */}
+                      {showAiPanel && (
+                        <div className="mt-2 rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950/30 p-3 flex flex-col gap-2">
+                          <p className="text-[11px] font-semibold text-violet-700 dark:text-violet-300 flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5" /> AI Banner Generator
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            AI will read your coupon details and shop info to generate a banner. Optionally upload a reference image to match its style.
+                          </p>
+                          {/* Reference image (optional) */}
+                          <div>
+                            <p className="text-[10px] font-semibold text-muted-foreground mb-1">Reference Style Image <span className="font-normal">(optional)</span></p>
+                            <div className="flex gap-2 items-center">
+                              <Input
+                                value={aiRefImageUrl}
+                                onChange={e => setAiRefImageUrl(e.target.value)}
+                                className="rounded-xl flex-1 text-xs h-8"
+                                placeholder="Paste image URL for style reference..."
+                                data-testid="input-ai-ref-image-url"
+                              />
+                              <label className="shrink-0 cursor-pointer px-2 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-1">
+                                {aiRefUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                                <input type="file" accept="image/*" className="hidden" onChange={e => {
+                                  const f = e.target.files?.[0];
+                                  if (f) vendorUploadImage(f, (url) => setAiRefImageUrl(url), setAiRefUploading);
+                                }} data-testid="input-ai-ref-image-file" />
+                              </label>
+                            </div>
+                            {aiRefImageUrl && (
+                              <img src={aiRefImageUrl} alt="Reference" className="mt-1 w-full h-12 object-cover rounded-lg opacity-80" />
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs rounded-xl h-8 gap-1.5"
+                              onClick={generateAiBanner}
+                              disabled={aiGenerating}
+                              data-testid="button-ai-generate-confirm"
+                            >
+                              {aiGenerating ? <><Loader2 className="w-3 h-3 animate-spin" />Generating...</> : <><Sparkles className="w-3 h-3" />Generate Banner</>}
+                            </Button>
+                            <Button type="button" size="sm" variant="ghost" className="text-xs rounded-xl h-8" onClick={() => { setShowAiPanel(false); setAiRefImageUrl(""); }}>
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
                       {couponForm.banner_image && (
                         <div className="relative mt-2">
                           <img src={couponForm.banner_image} alt="Banner preview" className="w-full h-20 object-cover rounded-xl" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />

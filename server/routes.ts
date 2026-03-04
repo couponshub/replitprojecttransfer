@@ -7,6 +7,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { createClient } from "@supabase/supabase-js";
+import OpenAI from "openai";
 
 async function drawAndNotify(contestId: string) {
   const pre = await storage.getContest(contestId);
@@ -1153,6 +1154,94 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
     } catch (err: any) {
       return res.status(500).json({ error: err.message || "Upload failed" });
+    }
+  });
+
+  // ─── AI Banner Generation ─────────────────────────────────────────────────
+  app.post("/api/ai/generate-banner", authMiddleware, async (req, res) => {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return res.status(503).json({ error: "OpenAI API key not configured. Please add OPENAI_API_KEY to your secrets." });
+    }
+
+    const { couponType, couponValue, couponCode, couponDescription, shopName, shopCategory, shopDescription, referenceImageUrl } = req.body;
+
+    try {
+      const openai = new OpenAI({ apiKey });
+
+      // Build the coupon benefit text
+      let benefitText = "";
+      if (couponType === "percentage") benefitText = `${couponValue}% OFF`;
+      else if (couponType === "flat") benefitText = `₹${couponValue} OFF`;
+      else if (couponType === "combo") benefitText = "COMBO DEAL";
+      else if (couponType === "free_item") benefitText = "FREE ITEM";
+      else if (couponType === "bogo") benefitText = "BUY 1 GET 1 FREE";
+      else if (couponType === "min_order") benefitText = `SAVE ${couponValue}% ON MIN ORDER`;
+      else if (couponType === "category_offer") benefitText = `CATEGORY OFFER`;
+
+      // Extract reference style description using Vision API if reference image provided
+      let styleContext = "";
+      if (referenceImageUrl) {
+        try {
+          const visionRes = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [{
+              role: "user",
+              content: [
+                { type: "text", text: "Describe this image's visual style in 2-3 sentences: color palette, design style (modern/vintage/etc), composition, typography style, mood. Be concise." },
+                { type: "image_url", image_url: { url: referenceImageUrl } }
+              ]
+            }],
+            max_tokens: 100,
+          });
+          styleContext = visionRes.choices[0]?.message?.content || "";
+        } catch (e) {
+          // fallback: ignore reference image
+        }
+      }
+
+      const prompt = [
+        `Professional promotional banner advertisement for ${shopName || "a local shop"} in Eluru, Andhra Pradesh, India.`,
+        `Offer: ${benefitText}${couponCode ? ` — Code: ${couponCode}` : ""}.`,
+        shopDescription ? `Shop: ${shopDescription.slice(0, 80)}.` : "",
+        couponDescription ? `Details: ${couponDescription.slice(0, 60)}.` : "",
+        shopCategory ? `Category: ${shopCategory}.` : "",
+        styleContext ? `Design style reference: ${styleContext}` : "Modern, vibrant, professional marketing design.",
+        "Bold promotional text layout, eye-catching colors, clean composition. Suitable for mobile app coupon card. Wide 16:9 banner format.",
+        "No watermark, no logo placeholder, high quality commercial advertisement style.",
+      ].filter(Boolean).join(" ");
+
+      const imageResponse = await openai.images.generate({
+        model: "dall-e-3",
+        prompt,
+        n: 1,
+        size: "1792x1024",
+        quality: "standard",
+        response_format: "b64_json",
+      });
+
+      const b64 = imageResponse.data[0]?.b64_json;
+      if (!b64) throw new Error("No image data returned from AI");
+
+      const imageBuffer = Buffer.from(b64, "base64");
+      const fileName = `ai-banner-${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
+
+      // Upload to Supabase or local
+      if (supabase) {
+        const { error } = await supabase.storage
+          .from(SUPABASE_BUCKET)
+          .upload(fileName, imageBuffer, { contentType: "image/png", upsert: false });
+        if (error) throw new Error(error.message);
+        const { data: urlData } = supabase.storage.from(SUPABASE_BUCKET).getPublicUrl(fileName);
+        return res.json({ url: urlData.publicUrl });
+      } else {
+        fs.writeFileSync(path.join(uploadsDir, fileName), imageBuffer);
+        return res.json({ url: `/uploads/${fileName}` });
+      }
+    } catch (err: any) {
+      console.error("[AI Banner Generation]", err.message);
+      const msg = err.message || "Failed to generate banner";
+      return res.status(500).json({ error: msg });
     }
   });
 
