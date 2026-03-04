@@ -1159,27 +1159,39 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // ─── AI Banner Generation (Pollinations.ai — free, no API key) ───────────
   app.post("/api/ai/generate-banner", authMiddleware, async (req, res) => {
-    const { couponType, couponValue, couponCode, couponDescription, shopName, shopCategory, shopDescription } = req.body;
+    const { userPrompt, couponType, couponValue, couponCode, couponDescription, shopName, shopCategory, shopDescription } = req.body;
 
     try {
-      let benefitText = "";
-      if (couponType === "percentage") benefitText = `${couponValue}% OFF`;
-      else if (couponType === "flat") benefitText = `Rs.${couponValue} OFF`;
-      else if (couponType === "combo") benefitText = "COMBO DEAL";
-      else if (couponType === "free_item") benefitText = "FREE ITEM";
-      else if (couponType === "bogo") benefitText = "BUY 1 GET 1 FREE";
-      else if (couponType === "min_order") benefitText = `SAVE ${couponValue}% ON MIN ORDER`;
-      else if (couponType === "category_offer") benefitText = "CATEGORY OFFER";
+      let prompt: string;
 
-      const prompt = [
-        `Professional promotional coupon banner for ${shopName || "a local shop"}`,
-        shopCategory ? `in the ${shopCategory} category` : "",
-        `in Eluru Andhra Pradesh India.`,
-        `Big bold text showing ${benefitText}${couponCode ? ` code ${couponCode}` : ""}.`,
-        shopDescription ? shopDescription.slice(0, 60) : "",
-        couponDescription ? couponDescription.slice(0, 60) : "",
-        "Modern vibrant marketing design, eye-catching colors, clean wide banner layout, high quality commercial advertisement, no watermark.",
-      ].filter(Boolean).join(" ");
+      if (userPrompt && userPrompt.trim()) {
+        // User wrote a custom prompt — enhance it with shop context
+        prompt = [
+          userPrompt.trim(),
+          shopName ? `for ${shopName}` : "",
+          "Professional wide banner format, high quality commercial advertisement, vibrant colors, no watermark.",
+        ].filter(Boolean).join(". ");
+      } else {
+        // Auto-build prompt from coupon fields
+        let benefitText = "";
+        if (couponType === "percentage") benefitText = `${couponValue}% OFF`;
+        else if (couponType === "flat") benefitText = `Rs.${couponValue} OFF`;
+        else if (couponType === "combo") benefitText = "COMBO DEAL";
+        else if (couponType === "free_item") benefitText = "FREE ITEM";
+        else if (couponType === "bogo") benefitText = "BUY 1 GET 1 FREE";
+        else if (couponType === "min_order") benefitText = `SAVE ${couponValue}% ON MIN ORDER`;
+        else if (couponType === "category_offer") benefitText = "CATEGORY OFFER";
+
+        prompt = [
+          `Professional promotional coupon banner for ${shopName || "a local shop"}`,
+          shopCategory ? `in the ${shopCategory} category` : "",
+          `in Eluru Andhra Pradesh India.`,
+          `Big bold text showing ${benefitText}${couponCode ? ` code ${couponCode}` : ""}.`,
+          shopDescription ? shopDescription.slice(0, 60) : "",
+          couponDescription ? couponDescription.slice(0, 60) : "",
+          "Modern vibrant marketing design, eye-catching colors, clean wide banner layout, high quality commercial advertisement, no watermark.",
+        ].filter(Boolean).join(" ");
+      }
 
       const encodedPrompt = encodeURIComponent(prompt);
       const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1344&height=768&nologo=true&model=flux&seed=${Date.now()}`;

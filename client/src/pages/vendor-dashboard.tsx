@@ -215,7 +215,7 @@ export default function VendorDashboard() {
   const [freeItemCatFilter, setFreeItemCatFilter] = useState<string[]>([]);
   const [bundleItems, setBundleItems] = useState<{ product_id: string; name: string; custom_price: string; quantity: number }[]>([]);
 
-  const resetCouponDialog = () => { setCouponDialog(false); setEditCoupon(null); setCouponForm(EMPTY_COUPON_FORM); setCouponProdSearch(""); setFreeItemCatFilter([]); setBundleItems([]); };
+  const resetCouponDialog = () => { setCouponDialog(false); setEditCoupon(null); setCouponForm(EMPTY_COUPON_FORM); setCouponProdSearch(""); setFreeItemCatFilter([]); setBundleItems([]); setAiPrompt(""); };
 
   const saveCouponMutation = useMutation({
     mutationFn: (data: any) => {
@@ -259,7 +259,7 @@ export default function VendorDashboard() {
   const [bannerUploading, setBannerUploading] = useState(false);
   const [prodImgUploading, setProdImgUploading] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
-  const [showAiPanel, setShowAiPanel] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
 
   const vendorUploadImage = async (file: File, setter: (url: string) => void, setUploading: (v: boolean) => void) => {
     setUploading(true);
@@ -278,30 +278,38 @@ export default function VendorDashboard() {
     }
   };
 
-  const generateAiBanner = async () => {
+  const handleSaveCoupon = async () => {
     const shopInfo = shop as any;
-    setAiGenerating(true);
-    try {
-      const payload = {
-        couponType: couponForm.type,
-        couponValue: couponForm.value,
-        couponCode: couponForm.code,
-        couponDescription: couponForm.description,
-        shopName: shopInfo?.name || "",
-        shopDescription: shopInfo?.description || "",
-        shopCategory: shopInfo?.category?.name || "",
-      };
-      const result = await apiRequest("POST", "/api/ai/generate-banner", payload);
-      if (result?.url) {
-        setCouponForm((f: any) => ({ ...f, banner_image: result.url }));
-        setShowAiPanel(false);
-        toast({ title: "Banner generated!", description: "AI banner has been set for this coupon." });
+    let formToSave = { ...couponForm };
+
+    if (aiPrompt.trim() && !formToSave.banner_image) {
+      setAiGenerating(true);
+      try {
+        const payload = {
+          userPrompt: aiPrompt.trim(),
+          couponType: formToSave.type,
+          couponValue: formToSave.value,
+          couponCode: formToSave.code,
+          couponDescription: formToSave.description,
+          shopName: shopInfo?.name || "",
+          shopDescription: shopInfo?.description || "",
+          shopCategory: shopInfo?.category?.name || "",
+        };
+        const result = await apiRequest("POST", "/api/ai/generate-banner", payload);
+        if (result?.url) {
+          formToSave = { ...formToSave, banner_image: result.url };
+          setCouponForm((f: any) => ({ ...f, banner_image: result.url }));
+        }
+      } catch (err: any) {
+        toast({ title: "Banner generation failed: " + (err.message || "Unknown error"), variant: "destructive" });
+        setAiGenerating(false);
+        return;
       }
-    } catch (err: any) {
-      toast({ title: err.message || "Failed to generate banner", variant: "destructive" });
-    } finally {
       setAiGenerating(false);
     }
+
+    saveCouponMutation.mutate(formToSave);
+    setAiPrompt("");
   };
 
   const { data: selectedCodes = [], isLoading: codesLoading } = useQuery<any[]>({
@@ -1300,46 +1308,25 @@ export default function VendorDashboard() {
                       <div className="flex gap-2 items-center flex-wrap">
                         <Input value={couponForm.banner_image || ""} onChange={e => setCouponForm((f: any) => ({ ...f, banner_image: e.target.value }))} className="rounded-xl flex-1 min-w-0 text-xs" placeholder="https://..." data-testid="input-vendor-coupon-banner" />
                         <label className="shrink-0 cursor-pointer px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-xs font-semibold hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-1.5">
-                          <Upload className="w-3.5 h-3.5" />Upload
+                          {bannerUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}Upload
                           <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { vendorUploadImage(f, (url) => setCouponForm((frm: any) => ({ ...frm, banner_image: url })), setBannerUploading); } }} data-testid="input-vendor-coupon-banner-file" />
                         </label>
-                        <button
-                          type="button"
-                          onClick={() => setShowAiPanel(p => !p)}
-                          className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-semibold hover:opacity-90 transition-opacity"
-                          data-testid="button-ai-generate-banner"
-                        >
-                          <Sparkles className="w-3.5 h-3.5" />
-                          Generate with AI
-                        </button>
                       </div>
 
-                      {/* AI Generation Panel */}
-                      {showAiPanel && (
-                        <div className="mt-2 rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950/30 p-3 flex flex-col gap-2">
-                          <p className="text-[11px] font-semibold text-violet-700 dark:text-violet-300 flex items-center gap-1.5">
-                            <Sparkles className="w-3.5 h-3.5" /> AI Banner Generator
-                          </p>
-                          <p className="text-[10px] text-muted-foreground">
-                            AI reads your coupon details and shop info to generate a professional banner. Free — no credits needed.
-                          </p>
-                          <div className="flex gap-2">
-                            <Button
-                              type="button"
-                              size="sm"
-                              className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs rounded-xl h-8 gap-1.5"
-                              onClick={generateAiBanner}
-                              disabled={aiGenerating}
-                              data-testid="button-ai-generate-confirm"
-                            >
-                              {aiGenerating ? <><Loader2 className="w-3 h-3 animate-spin" />Generating...</> : <><Sparkles className="w-3 h-3" />Generate Banner</>}
-                            </Button>
-                            <Button type="button" size="sm" variant="ghost" className="text-xs rounded-xl h-8" onClick={() => setShowAiPanel(false)}>
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      )}
+                      {/* AI Prompt — optional, auto-generates banner on Save */}
+                      <div className="mt-2 rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50/60 dark:bg-violet-950/20 p-3">
+                        <p className="text-[11px] font-semibold text-violet-700 dark:text-violet-300 flex items-center gap-1.5 mb-1.5">
+                          <Sparkles className="w-3.5 h-3.5" /> AI Banner <span className="font-normal text-violet-500">(optional — free)</span>
+                        </p>
+                        <Input
+                          value={aiPrompt}
+                          onChange={e => setAiPrompt(e.target.value)}
+                          className="rounded-xl text-xs h-8 bg-white dark:bg-gray-900"
+                          placeholder="Describe your banner... e.g. Red banner with gold text, festive style"
+                          data-testid="input-ai-prompt"
+                        />
+                        <p className="text-[10px] text-muted-foreground mt-1">Type a prompt and click Save — banner auto-generates and attaches to the coupon.</p>
+                      </div>
 
                       {couponForm.banner_image && (
                         <div className="relative mt-2">
@@ -1444,8 +1431,8 @@ export default function VendorDashboard() {
                     </div>
                     )}
 
-                    <Button onClick={() => saveCouponMutation.mutate(couponForm)} disabled={saveCouponMutation.isPending || !couponForm.code} className="rounded-xl bg-gradient-to-r from-pink-500 to-rose-600 border-0" data-testid="button-save-coupon">
-                      {saveCouponMutation.isPending ? "Saving..." : editCoupon ? "Update Coupon" : "Add Coupon"}
+                    <Button onClick={handleSaveCoupon} disabled={saveCouponMutation.isPending || aiGenerating || !couponForm.code} className="rounded-xl bg-gradient-to-r from-pink-500 to-rose-600 border-0 gap-2" data-testid="button-save-coupon">
+                      {aiGenerating ? <><Loader2 className="w-4 h-4 animate-spin" />Generating Banner...</> : saveCouponMutation.isPending ? "Saving..." : editCoupon ? "Update Coupon" : "Add Coupon"}
                     </Button>
                   </div>
                 </DialogContent>
