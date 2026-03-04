@@ -259,8 +259,6 @@ export default function VendorDashboard() {
   const [bannerUploading, setBannerUploading] = useState(false);
   const [prodImgUploading, setProdImgUploading] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
-  const [aiRefImageUrl, setAiRefImageUrl] = useState<string>("");
-  const [aiRefUploading, setAiRefUploading] = useState(false);
   const [showAiPanel, setShowAiPanel] = useState(false);
 
   const vendorUploadImage = async (file: File, setter: (url: string) => void, setUploading: (v: boolean) => void) => {
@@ -292,13 +290,11 @@ export default function VendorDashboard() {
         shopName: shopInfo?.name || "",
         shopDescription: shopInfo?.description || "",
         shopCategory: shopInfo?.category?.name || "",
-        referenceImageUrl: aiRefImageUrl || undefined,
       };
       const result = await apiRequest("POST", "/api/ai/generate-banner", payload);
       if (result?.url) {
         setCouponForm((f: any) => ({ ...f, banner_image: result.url }));
         setShowAiPanel(false);
-        setAiRefImageUrl("");
         toast({ title: "Banner generated!", description: "AI banner has been set for this coupon." });
       }
     } catch (err: any) {
@@ -1325,31 +1321,8 @@ export default function VendorDashboard() {
                             <Sparkles className="w-3.5 h-3.5" /> AI Banner Generator
                           </p>
                           <p className="text-[10px] text-muted-foreground">
-                            AI will read your coupon details and shop info to generate a banner. Optionally upload a reference image to match its style.
+                            AI reads your coupon details and shop info to generate a professional banner. Free — no credits needed.
                           </p>
-                          {/* Reference image (optional) */}
-                          <div>
-                            <p className="text-[10px] font-semibold text-muted-foreground mb-1">Reference Style Image <span className="font-normal">(optional)</span></p>
-                            <div className="flex gap-2 items-center">
-                              <Input
-                                value={aiRefImageUrl}
-                                onChange={e => setAiRefImageUrl(e.target.value)}
-                                className="rounded-xl flex-1 text-xs h-8"
-                                placeholder="Paste image URL for style reference..."
-                                data-testid="input-ai-ref-image-url"
-                              />
-                              <label className="shrink-0 cursor-pointer px-2 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-1">
-                                {aiRefUploading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
-                                <input type="file" accept="image/*" className="hidden" onChange={e => {
-                                  const f = e.target.files?.[0];
-                                  if (f) vendorUploadImage(f, (url) => setAiRefImageUrl(url), setAiRefUploading);
-                                }} data-testid="input-ai-ref-image-file" />
-                              </label>
-                            </div>
-                            {aiRefImageUrl && (
-                              <img src={aiRefImageUrl} alt="Reference" className="mt-1 w-full h-12 object-cover rounded-lg opacity-80" />
-                            )}
-                          </div>
                           <div className="flex gap-2">
                             <Button
                               type="button"
@@ -1361,7 +1334,7 @@ export default function VendorDashboard() {
                             >
                               {aiGenerating ? <><Loader2 className="w-3 h-3 animate-spin" />Generating...</> : <><Sparkles className="w-3 h-3" />Generate Banner</>}
                             </Button>
-                            <Button type="button" size="sm" variant="ghost" className="text-xs rounded-xl h-8" onClick={() => { setShowAiPanel(false); setAiRefImageUrl(""); }}>
+                            <Button type="button" size="sm" variant="ghost" className="text-xs rounded-xl h-8" onClick={() => setShowAiPanel(false)}>
                               Cancel
                             </Button>
                           </div>
