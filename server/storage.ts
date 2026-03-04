@@ -546,14 +546,31 @@ export class PgStorage implements IStorage {
   }
 
   async search(query: string): Promise<{ shops: (Shop & { category?: Category })[]; products: (Product & { shop?: Shop })[]; coupons: (Coupon & { shop?: Shop })[] }> {
+    const cleanQuery = query.replace(/\s+/g, "").toLowerCase();
     const q = `%${query}%`;
+    const cq = `%${cleanQuery}%`;
+
     const [shopRows, productRows, couponRows] = await Promise.all([
       db.select().from(shops).leftJoin(categories, eq(shops.category_id, categories.id))
-        .where(or(ilike(shops.name, q), ilike(shops.description, q))).limit(8),
+        .where(or(
+          ilike(shops.name, q),
+          ilike(shops.description, q),
+          sql`replace(${shops.name}, ' ', '') ilike ${cq}`
+        )).limit(8),
       db.select().from(products).leftJoin(shops, eq(products.shop_id, shops.id))
-        .where(or(ilike(products.name, q), ilike(products.description, q))).limit(8),
+        .where(or(
+          ilike(products.name, q),
+          ilike(products.description, q),
+          sql`replace(${products.name}, ' ', '') ilike ${cq}`
+        )).limit(8),
       db.select().from(coupons).leftJoin(shops, eq(coupons.shop_id, shops.id))
-        .where(and(eq(coupons.is_active, true), ilike(coupons.code, q))).limit(8),
+        .where(and(
+          eq(coupons.is_active, true),
+          or(
+            ilike(coupons.code, q),
+            sql`replace(${coupons.code}, ' ', '') ilike ${cq}`
+          )
+        )).limit(8),
     ]);
     return {
       shops: shopRows.map(r => ({ ...r.shops, category: r.categories || undefined })),
