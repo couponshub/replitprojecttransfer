@@ -246,9 +246,6 @@ function ShopListCard({ shop }: { shop: Shop & { category?: Category } }) {
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-violet-600 opacity-50" />
         )}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-5xl font-bold text-white drop-shadow-md">{shop.name[0]}</span>
-        </div>
         {shop.is_premium && (
           <div className="absolute top-2 right-2">
             <Badge className="bg-amber-400 text-amber-900 text-xs gap-1 border-0">
@@ -258,12 +255,22 @@ function ShopListCard({ shop }: { shop: Shop & { category?: Category } }) {
         )}
       </div>
       <CardContent className="p-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <h3 className="font-semibold text-gray-900 dark:text-white">{shop.name}</h3>
-            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{shop.description}</p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {shop.logo && (
+              <img 
+                src={shop.logo} 
+                alt={`${shop.name} logo`} 
+                className="w-10 h-10 rounded-lg object-cover border border-gray-100 dark:border-gray-800 shrink-0"
+                onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+              />
+            )}
+            <div className="min-w-0">
+              <h3 className="font-semibold text-gray-900 dark:text-white truncate">{shop.name}</h3>
+              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{shop.description}</p>
+            </div>
           </div>
-          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 mt-1" />
         </div>
         {shop.address && (
           <div className="flex items-center gap-1 mt-3">
