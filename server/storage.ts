@@ -148,6 +148,7 @@ export interface IStorage {
   createUserCoupon(data: { user_id: string; coupon_id: string; contest_id: string }): Promise<UserCoupon>;
   claimUserCoupon(id: string, userId: string): Promise<UserCoupon | undefined>;
   saveUserCoupon(userId: string, couponId: string): Promise<{ userCoupon: UserCoupon; alreadySaved: boolean }>;
+  unsaveAllUsersForCoupon(couponId: string): Promise<void>;
 
   // Auto contest check
   getExpiredOpenContests(): Promise<Contest[]>;
@@ -320,9 +321,19 @@ export class PgStorage implements IStorage {
   }
 
   async incrementCouponUsage(code: string, shopId: string): Promise<void> {
-    await db.update(coupons)
+    const result = await db.update(coupons)
       .set({ usage_count: sql`${coupons.usage_count} + 1` })
-      .where(and(eq(coupons.code, code), eq(coupons.shop_id, shopId)));
+      .where(and(eq(coupons.code, code), eq(coupons.shop_id, shopId)))
+      .returning();
+    
+    const coupon = result[0];
+    if (coupon && coupon.usage_limit && coupon.usage_count >= coupon.usage_limit) {
+      await this.unsaveAllUsersForCoupon(coupon.id);
+    }
+  }
+
+  async unsaveAllUsersForCoupon(couponId: string): Promise<void> {
+    await db.delete(userCoupons).where(eq(userCoupons.coupon_id, couponId));
   }
 
   async deleteCoupon(id: string): Promise<void> {
