@@ -2,10 +2,11 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
-import { Gift, ArrowLeft, Check, Clock, Tag, Copy, Store, Bookmark, CheckCircle2, Ticket, ChevronRight, ExternalLink } from "lucide-react";
+import { Gift, ArrowLeft, Check, Clock, Tag, Copy, Store, Bookmark, CheckCircle2, Ticket, ChevronRight, ExternalLink, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 
@@ -27,6 +28,8 @@ export default function MyCouponsPage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"saved" | "offline">("saved");
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [savedSearch, setSavedSearch] = useState("");
+  const [offlineSearch, setOfflineSearch] = useState("");
 
   const { data: userCoupons = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/user/coupons"],
@@ -53,6 +56,31 @@ export default function MyCouponsPage() {
     toast({ title: "Code copied!", description: code });
     setTimeout(() => setCopiedCode(null), 2000);
   };
+
+  const filteredUserCoupons = userCoupons.filter((uc: any) => {
+    if (!savedSearch.trim()) return true;
+    const q = savedSearch.trim().toLowerCase();
+    const coupon = uc.coupon;
+    const shop = coupon?.shop;
+    return (
+      (coupon?.description || "").toLowerCase().includes(q) ||
+      (coupon?.code || "").toLowerCase().includes(q) ||
+      (shop?.name || "").toLowerCase().includes(q)
+    );
+  });
+
+  const filteredOfflineDownloads = offlineDownloads.filter((item: any) => {
+    if (!offlineSearch.trim()) return true;
+    const q = offlineSearch.trim().toLowerCase();
+    const campaign = item.campaign;
+    const shop = campaign?.shop;
+    return (
+      (campaign?.title || "").toLowerCase().includes(q) ||
+      (campaign?.description || "").toLowerCase().includes(q) ||
+      (item.code || "").toLowerCase().includes(q) ||
+      (shop?.name || "").toLowerCase().includes(q)
+    );
+  });
 
   if (!user) {
     return (
@@ -106,6 +134,23 @@ export default function MyCouponsPage() {
         {/* Tab: My Coupons */}
         {activeTab === "saved" && (
           <>
+            {/* Search Box */}
+            <div className="relative mb-5">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={savedSearch}
+                onChange={e => setSavedSearch(e.target.value)}
+                placeholder="Search coupons, shops..."
+                className="pl-9 pr-9 rounded-xl h-11 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700"
+                data-testid="input-saved-coupons-search"
+              />
+              {savedSearch && (
+                <button onClick={() => setSavedSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" data-testid="button-clear-saved-search">
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
             {isLoading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map(i => <Skeleton key={i} className="h-28 w-full rounded-xl" />)}
@@ -119,9 +164,14 @@ export default function MyCouponsPage() {
                   Browse Shops
                 </Button>
               </div>
+            ) : filteredUserCoupons.length === 0 ? (
+              <div className="text-center py-8" data-testid="text-no-filtered-coupons">
+                <Search className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
+                <p className="text-muted-foreground text-sm">No coupons match your search</p>
+              </div>
             ) : (
               <div className="space-y-3">
-                {userCoupons.map((uc: any) => {
+                {filteredUserCoupons.map((uc: any) => {
                   const coupon = uc.coupon;
                   const shop = coupon?.shop;
                   const isContest = !!uc.contest_id;
@@ -209,6 +259,23 @@ export default function MyCouponsPage() {
         {/* Tab: Offline Coupons */}
         {activeTab === "offline" && (
           <>
+            {/* Search Box */}
+            <div className="relative mb-5">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={offlineSearch}
+                onChange={e => setOfflineSearch(e.target.value)}
+                placeholder="Search coupons, shops..."
+                className="pl-9 pr-9 rounded-xl h-11 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700"
+                data-testid="input-offline-coupons-search"
+              />
+              {offlineSearch && (
+                <button onClick={() => setOfflineSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" data-testid="button-clear-offline-search">
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
             {offlineLoading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map(i => <Skeleton key={i} className="h-28 w-full rounded-xl" />)}
@@ -222,9 +289,14 @@ export default function MyCouponsPage() {
                   Browse Shops
                 </Button>
               </div>
+            ) : filteredOfflineDownloads.length === 0 ? (
+              <div className="text-center py-8" data-testid="text-no-filtered-offline">
+                <Search className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
+                <p className="text-muted-foreground text-sm">No coupons match your search</p>
+              </div>
             ) : (
               <div className="space-y-3">
-                {offlineDownloads.map((item: any) => {
+                {filteredOfflineDownloads.map((item: any) => {
                   const campaign = item.campaign;
                   const shop = campaign?.shop;
                   const isUsed = !!item.used_at;
