@@ -63,8 +63,8 @@ export default function CategoryPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        <Button variant="ghost" size="sm" onClick={() => navigate("/home")} className="mb-4 -ml-2" data-testid="button-back">
-          <ArrowLeft className="w-4 h-4 mr-1" /> Back to Home
+        <Button variant="ghost" size="sm" onClick={() => window.history.back()} className="mb-4 -ml-2" data-testid="button-back">
+          <ArrowLeft className="w-4 h-4 mr-1" /> Back to Categories
         </Button>
 
         {hasBanner ? (
