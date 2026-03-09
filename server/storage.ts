@@ -20,10 +20,25 @@ import {
   offlineCoupons, offlineCouponCodes, contests, contestSlots, notifications, userCoupons
 } from "@shared/schema";
 
-const connectionString = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL;
+const rawSupabaseUrl = process.env.SUPABASE_DATABASE_URL;
+// Convert direct URL (db.xxx.supabase.co:5432) to pooler URL (aws-1-ap-northeast-1.pooler.supabase.com:6543)
+function resolveConnectionString(): string {
+  if (!rawSupabaseUrl) return process.env.DATABASE_URL!;
+  // If already a pooler URL, use as-is
+  if (rawSupabaseUrl.includes("pooler.supabase.com")) return rawSupabaseUrl;
+  // Extract project ref and password from direct URL, build pooler URL
+  const match = rawSupabaseUrl.match(/postgresql:\/\/postgres:([^@]+)@db\.([a-z0-9]+)\.supabase\.co/);
+  if (match) {
+    const password = match[1];
+    const projectRef = match[2];
+    return `postgresql://postgres.${projectRef}:${password}@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres`;
+  }
+  return rawSupabaseUrl;
+}
+const connectionString = resolveConnectionString();
 const pool = new Pool({ 
   connectionString,
-  ssl: process.env.SUPABASE_DATABASE_URL ? { rejectUnauthorized: false } : false,
+  ssl: rawSupabaseUrl ? { rejectUnauthorized: false } : false,
 });
 export const db = drizzle(pool, { schema });
 
