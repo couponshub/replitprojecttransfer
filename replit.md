@@ -105,6 +105,9 @@ A full-stack marketplace for Eluru, AP — discover coupons, offline deals, and 
 - Backdrop blur effects on sidebar and header
 - Premium shop badges with amber/gold accents
 
-## Seed Data
-- 10 categories, 10 shops (mix premium/regular), 30 products, 10 coupons, 5 users (with phone numbers), 5 orders
-- Seeded automatically on first startup
+## Database
+- **Primary database**: Supabase PostgreSQL via `SUPABASE_DATABASE_URL` (pooler URL: aws-1-ap-northeast-1.pooler.supabase.com:6543)
+- **Images**: Supabase Storage bucket `images`
+- **Migration status**: COMPLETE — Production data migrated (41 shops, 15 categories, 55 coupons, 126 products, 14 users, 37 orders, 92 order_items, 29 vendors, 200 offline_coupon_codes)
+- **Connection**: `server/storage.ts` auto-converts SUPABASE_DATABASE_URL to pooler URL (IPv4 compatible)
+- Seeding disabled — live production data in Supabase
