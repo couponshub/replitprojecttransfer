@@ -303,7 +303,7 @@ export default function ShopPage() {
         </Button>
 
         {/* Banner Slideshow */}
-        <div className="relative h-56 sm:h-72 rounded-3xl overflow-hidden mb-6 bg-gradient-to-br from-blue-600 to-violet-700 group">
+        <div className="relative h-56 sm:h-72 rounded-3xl overflow-hidden mb-8 bg-gradient-to-br from-blue-600 to-violet-700 group">
           {allBanners.length > 0 ? (
             <>
               {allBanners.map((src, idx) => (
@@ -314,7 +314,7 @@ export default function ShopPage() {
                   className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${idx === bannerIdx ? "opacity-100" : "opacity-0"}`}
                 />
               ))}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-black/40" />
               {allBanners.length > 1 && (
                 <>
                   <button onClick={prevBanner} className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/40 backdrop-blur text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" data-testid="button-prev-banner"><ChevronLeft className="w-4 h-4" /></button>
@@ -329,23 +329,35 @@ export default function ShopPage() {
             </>
           ) : (
             <>
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-8xl opacity-60">{shop.name[0]}</span>
-              </div>
+              <div className="absolute inset-0 bg-gradient-to-b from-blue-600 to-violet-700" />
             </>
           )}
-          <div className="absolute bottom-6 left-6 right-6 text-white">
-            <div className="flex items-center gap-3 flex-wrap">
-              {shop.logo && <img src={shop.logo} alt="logo" className="w-12 h-12 rounded-2xl object-cover border-2 border-white/30 shadow-lg" />}
-              <h1 className="text-2xl sm:text-3xl font-bold">{shop.name}</h1>
-              {shop.is_premium && (
-                <Badge className="bg-amber-400 text-amber-900 gap-1 border-0"><Crown className="w-3.5 h-3.5" /> Premium</Badge>
-              )}
-              {shop.featured && <Badge className="bg-blue-500 text-white border-0">Featured</Badge>}
-            </div>
-            {shop.category && <Badge className="mt-2 bg-white/20 text-white border-0 backdrop-blur">{shop.category.name}</Badge>}
+        </div>
+
+        {/* Logo + Title Section */}
+        <div className="flex flex-col items-center text-center mb-8">
+          {shop.logo && (
+            <img 
+              src={shop.logo} 
+              alt={shop.name} 
+              className="w-20 h-20 rounded-2xl object-cover border-4 border-gray-200 dark:border-gray-700 shadow-lg mb-4" 
+              onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+            />
+          )}
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-3">{shop.name}</h1>
+          <div className="flex items-center gap-2 flex-wrap justify-center mb-3">
+            {shop.is_premium && (
+              <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 gap-1 border-0">
+                <Crown className="w-3.5 h-3.5" /> Premium
+              </Badge>
+            )}
+            {shop.featured && <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-0">Featured</Badge>}
           </div>
+          {shop.category && (
+            <Badge className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-0">
+              {shop.category.name}
+            </Badge>
+          )}
         </div>
 
         {/* Info + Contact */}
