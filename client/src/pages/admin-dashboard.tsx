@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { DragDropImageUpload } from "@/components/drag-drop-image-upload";
 import {
   LayoutDashboard, Tag, Store, Package, Ticket, ShoppingBag,
   Plus, Edit, Trash2, Crown, LogOut, ChevronRight, Users, TrendingUp,
@@ -991,9 +992,8 @@ export default function AdminDashboard() {
                     <div>
                       <Label>Icon Image</Label>
                       <p className="text-[11px] text-muted-foreground mb-1.5">PNG/GIF with transparent background recommended (shows circular on site)</p>
-                      <div className="flex gap-2">
-                        <Input value={formData.image || ""} onChange={e => setForm("image", e.target.value)} className="rounded-xl flex-1" placeholder="https://... or upload below" data-testid="input-category-icon" />
-                        <UploadBtn fieldKey="cat-icon" onUrl={url => setForm("image", url)} />
+                      <div className="mt-1.5">
+                        <DragDropImageUpload fieldKey="cat-icon" onUrl={url => setForm("image", url)} label="Drag & drop icon or click to upload" preview={formData.image} />
                       </div>
                       {formData.image && (
                         <div className="flex items-center gap-3 mt-2">
@@ -1006,14 +1006,11 @@ export default function AdminDashboard() {
                     </div>
                     <div>
                       <Label>Banner Image</Label>
-                      <div className="flex gap-2 mt-1.5">
-                        <Input value={(formData as any).banner || ""} onChange={e => setForm("banner", e.target.value)} className="rounded-xl flex-1" placeholder="https://... (wide 1200×400px) or upload ↑" data-testid="input-category-banner" />
-                        <UploadBtn fieldKey="cat-banner" onUrl={url => setForm("banner", url)} />
+                      <p className="text-[11px] text-muted-foreground mb-1.5">(wide 1200×400px)</p>
+                      <div className="mt-1.5">
+                        <DragDropImageUpload fieldKey="cat-banner" onUrl={url => setForm("banner", url)} label="Drag & drop banner or click to upload" preview={(formData as any).banner} />
                       </div>
                       <p className="text-[11px] text-muted-foreground mt-1">Category page header lo show avutuundi</p>
-                      {(formData as any).banner && (
-                        <img src={(formData as any).banner} alt="Banner preview" className="mt-2 w-full h-20 object-cover rounded-xl border" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                      )}
                     </div>
                     <Button onClick={() => handleSave("categories")} disabled={saveMutation.isPending} className="rounded-xl bg-gradient-to-r from-blue-500 to-violet-600" data-testid="button-save-category">
                       {saveMutation.isPending ? "Saving..." : "Save"}
@@ -1360,19 +1357,15 @@ export default function AdminDashboard() {
                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Media</p>
                       <div>
                         <Label className="text-sm flex items-center gap-1.5"><Image className="w-3.5 h-3.5" /> Logo</Label>
-                        <div className="flex gap-2 mt-1.5">
-                          <Input value={formData.logo || ""} onChange={e => setForm("logo", e.target.value)} className="rounded-xl flex-1" placeholder="https://..." data-testid="input-shop-logo" />
-                          <UploadBtn fieldKey="shop-logo" onUrl={url => setForm("logo", url)} />
+                        <div className="mt-1.5">
+                          <DragDropImageUpload fieldKey="shop-logo" onUrl={url => setForm("logo", url)} label="Drag & drop logo or click to upload" preview={formData.logo} />
                         </div>
-                        {formData.logo && <img src={formData.logo} alt="Logo preview" className="mt-2 w-12 h-12 object-cover rounded-xl border" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />}
                       </div>
                       <div>
                         <Label className="text-sm flex items-center gap-1.5"><Image className="w-3.5 h-3.5" /> Main Banner</Label>
-                        <div className="flex gap-2 mt-1.5">
-                          <Input value={formData.banner_image || ""} onChange={e => setForm("banner_image", e.target.value)} className="rounded-xl flex-1" placeholder="https://..." data-testid="input-shop-banner" />
-                          <UploadBtn fieldKey="shop-banner" onUrl={url => setForm("banner_image", url)} />
+                        <div className="mt-1.5">
+                          <DragDropImageUpload fieldKey="shop-banner" onUrl={url => setForm("banner_image", url)} label="Drag & drop banner or click to upload" preview={formData.banner_image} />
                         </div>
-                        {formData.banner_image && <img src={formData.banner_image} alt="Banner preview" className="mt-2 w-full h-16 object-cover rounded-xl border" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />}
                       </div>
                       <div>
                         <div className="flex items-center justify-between mb-1.5">
@@ -1382,11 +1375,9 @@ export default function AdminDashboard() {
                         <div className="flex flex-col gap-2">
                           {shopBanners.map((url, idx) => (
                             <div key={idx} className="flex gap-2 items-center">
-                              <div className="relative flex-1">
-                                <Image className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                                <Input value={url} onChange={e => setShopBanners(b => b.map((v, i) => i === idx ? e.target.value : v))} className="rounded-xl pl-8 text-sm" placeholder="https://banner-url.jpg" data-testid={`input-banner-url-${idx}`} />
+                              <div className="flex-1 min-w-0">
+                                <button type="button" onClick={() => { const f = document.createElement('input'); f.type = 'file'; f.accept = 'image/*'; f.onchange = (e: any) => { const file = e.target.files?.[0]; if (!file) return; const fd = new FormData(); fd.append('file', file); const token = localStorage.getItem('coupons_hub_token'); fetch('/api/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd }).then(r => r.json()).then(d => { if (d.url) setShopBanners(b => b.map((v, i) => i === idx ? d.url : v)); }); }; f.click(); }} className="px-3 py-1.5 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-all">Upload</button>
                               </div>
-                              <UploadBtn fieldKey={`shop-xbanner-${idx}`} onUrl={url2 => setShopBanners(b => b.map((v, i) => i === idx ? url2 : v))} label="" />
                               {shopBanners.length > 1 && (
                                 <button type="button" onClick={() => setShopBanners(b => b.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600 p-1 rounded-lg" data-testid={`button-remove-banner-${idx}`}>
                                   <X className="w-4 h-4" />
@@ -2614,14 +2605,9 @@ export default function AdminDashboard() {
                       <Label className="text-xs font-semibold">Banner Image (optional)</Label>
                       <p className="text-[11px] text-muted-foreground mb-1.5">Shown at top of coupon card. Use a wide image (e.g. 800×320px).</p>
                       <div className="flex gap-2 items-center mt-1.5">
-                        <Input
-                          value={formData.banner_image || ""}
-                          onChange={e => setForm("banner_image", e.target.value)}
-                          className="rounded-xl flex-1 text-sm"
-                          placeholder="https://... or upload a file →"
-                          data-testid="input-coupon-banner"
-                        />
-                        <UploadBtn fieldKey="coupon-banner" onUrl={url => setForm("banner_image", url)} />
+                        <div className="mt-1.5">
+                          <DragDropImageUpload fieldKey="coupon-banner" onUrl={url => setForm("banner_image", url)} label="Drag & drop banner or click to upload" preview={formData.banner_image} />
+                        </div>
                       </div>
                       {formData.banner_image && (
                         <div className="mt-2 relative">
