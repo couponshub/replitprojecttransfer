@@ -249,6 +249,21 @@ export const siteSettings = pgTable("site_settings", {
   value: text("value").notNull(),
 });
 
+export const homePageBanner = pgTable("home_page_banner", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title"),
+  subtitle: text("subtitle"),
+  image: text("image"),
+  search_placeholder: text("search_placeholder").default("Search shops, products, coupons..."),
+  background_color: text("background_color").default("from-blue-600 via-violet-600 to-purple-700"),
+  created_at: timestamp("created_at").notNull().default(sql`now()`),
+  updated_at: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertHomePageBannerSchema = createInsertSchema(homePageBanner).omit({ id: true, created_at: true, updated_at: true });
+export type HomePageBanner = typeof homePageBanner.$inferSelect;
+export type InsertHomePageBanner = z.infer<typeof insertHomePageBannerSchema>;
+
 export const insertCategorySchema = createInsertSchema(categories).omit({ id: true, created_at: true });
 export const insertShopSchema = createInsertSchema(shops).omit({ id: true, created_at: true });
 export const insertProductSchema = createInsertSchema(products).omit({ id: true, created_at: true });

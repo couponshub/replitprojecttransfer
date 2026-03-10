@@ -123,6 +123,8 @@ export interface IStorage {
   getRecentOrders(): Promise<(Order & { user?: User })[]>;
   getTopShops(): Promise<Shop[]>;
   getTopCoupons(): Promise<(Coupon & { shop?: Shop })[]>;
+  getHomePageBanner(): Promise<any>;
+  updateHomePageBanner(data: any): Promise<any>;
 
   // Offline Coupons
   getOfflineCoupons(): Promise<(OfflineCoupon & { shop?: Shop; claimed_count: number; remaining: number })[]>;
