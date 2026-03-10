@@ -217,7 +217,7 @@ function SearchBar({ placeholder }: { placeholder?: string }) {
             onChange={e => { setQuery(e.target.value); if (e.target.value.length >= 2) setOpen(true); else setOpen(false); }}
             onFocus={() => { if (query.length >= 2) setOpen(true); }}
             placeholder={placeholder || "Search shops, products, coupons..."}
-            className="w-full pl-12 pr-[4.5rem] py-4 bg-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 rounded-2xl focus:outline-none text-base font-medium"
+            className="w-full pl-12 pr-[4.5rem] py-4 bg-white text-gray-900 placeholder-gray-400 rounded-2xl focus:outline-none text-base font-medium shadow-lg"
             data-testid="input-search-bar"
           />
           {query && (
@@ -1886,15 +1886,14 @@ export default function Home() {
       />
       <Navbar />
 
-      {/* Search bar hero — compact gradient with floating coupons */}
-      <div className="relative bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 overflow-hidden">
-        {heroBanner?.image && (
-          <img
-            src={heroBanner.image}
-            alt="Hero banner"
-            className="absolute inset-0 w-full h-full object-cover opacity-40"
-          />
-        )}
+      {/* Search bar hero — transparent glossy effect with banner image */}
+      <div className="relative overflow-hidden" style={{
+        backgroundImage: heroBanner?.image ? `url(${heroBanner.image})` : undefined,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}>
+        {/* Semi-transparent dark overlay for contrast */}
+        <div className="absolute inset-0 bg-black/20" />
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute top-0 right-0 w-72 h-72 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3" />
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/3 -translate-x-1/4" />

@@ -2990,10 +2990,14 @@ function HomePageEditorTab({ toast }: { toast: any }) {
             <CardTitle className="text-sm font-semibold">Live Preview</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="relative rounded-2xl overflow-hidden h-40" style={{ background: "linear-gradient(135deg, #2563eb, #7c3aed)" }}>
-              <img src={image} alt="Banner preview" className="absolute inset-0 w-full h-full object-cover opacity-40" />
+            <div className="relative rounded-2xl overflow-hidden h-40" style={{
+              backgroundImage: image ? `url(${image})` : undefined,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}>
+              <div className="absolute inset-0 bg-black/20" />
               <div className="absolute inset-0 flex items-center justify-center px-6">
-                <div className="w-full max-w-sm bg-white/90 rounded-xl px-4 py-2.5 flex items-center gap-2">
+                <div className="w-full max-w-sm bg-white rounded-xl px-4 py-2.5 flex items-center gap-2 shadow-lg">
                   <Search className="w-4 h-4 text-gray-400" />
                   <span className="text-gray-400 text-sm">Search shops, products, coupons...</span>
                 </div>
