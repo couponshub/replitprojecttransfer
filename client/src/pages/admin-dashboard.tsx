@@ -2904,17 +2904,22 @@ export default function AdminDashboard() {
 function HomePageEditorTab({ toast }: { toast: any }) {
   const { data: banner = {} as any } = useQuery<any>({ queryKey: ["/api/home-banner"] });
   const [image, setImage] = useState("");
+  const [urlInput, setUrlInput] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (banner?.image) setImage(banner.image);
+    if (banner?.image) {
+      setImage(banner.image);
+      setUrlInput(banner.image);
+    }
   }, [banner]);
 
-  const handleImageChange = async (url: string) => {
-    setImage(url);
+  const saveBanner = async (url: string) => {
+    if (!url.trim()) return;
+    setImage(url.trim());
     setSaving(true);
     try {
-      await apiRequest("PUT", "/api/admin/home-banner", { image: url });
+      await apiRequest("PUT", "/api/admin/home-banner", { image: url.trim() });
       await queryClient.invalidateQueries({ queryKey: ["/api/home-banner"] });
       toast({ title: "Banner saved!", description: "Home page background updated." });
     } catch (e: any) {
@@ -2932,32 +2937,57 @@ function HomePageEditorTab({ toast }: { toast: any }) {
         </div>
         <div>
           <h2 className="text-lg font-bold text-gray-900 dark:text-white">Home Page Editor</h2>
-          <p className="text-sm text-muted-foreground">Upload a background image for the home page hero section</p>
+          <p className="text-sm text-muted-foreground">Set a background image for the home page hero section</p>
         </div>
       </div>
 
       <Card className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900">
-        <CardContent className="p-6 space-y-4">
-          <DragDropImageUpload
-            label="Hero Background Image"
-            value={image}
-            onChange={handleImageChange}
-            folder="home-banners"
-            data-testid="upload-banner-image"
-          />
-          <p className="text-xs text-muted-foreground">Recommended: 1200×400px. Image appears behind the search bar and radars on the home page.</p>
-          {saving && (
-            <div className="flex items-center gap-2 text-sm text-blue-600">
-              <Loader2 className="w-4 h-4 animate-spin" /> Saving...
+        <CardContent className="p-6 space-y-5">
+          <div>
+            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Option 1 — Upload from device</p>
+            <DragDropImageUpload
+              label="Click or drag to upload banner image"
+              fieldKey="home-banner-upload"
+              preview={image}
+              onUrl={url => saveBanner(url)}
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+            <span className="text-xs text-muted-foreground font-medium">OR</span>
+            <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Option 2 — Paste image URL</p>
+            <div className="flex gap-2">
+              <Input
+                value={urlInput}
+                onChange={e => setUrlInput(e.target.value)}
+                placeholder="https://example.com/banner.jpg"
+                className="rounded-xl flex-1"
+                data-testid="input-banner-url"
+              />
+              <Button
+                onClick={() => saveBanner(urlInput)}
+                disabled={saving || !urlInput.trim()}
+                className="rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white border-0 shrink-0"
+                data-testid="button-save-url-banner"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              </Button>
             </div>
-          )}
+          </div>
+
+          <p className="text-xs text-muted-foreground">Recommended: 1200×400px wide banner. Shows behind the search bar and radars on home page.</p>
         </CardContent>
       </Card>
 
       {image && (
         <Card className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900">
           <CardHeader>
-            <CardTitle className="text-sm font-semibold">Preview</CardTitle>
+            <CardTitle className="text-sm font-semibold">Live Preview</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="relative rounded-2xl overflow-hidden h-40" style={{ background: "linear-gradient(135deg, #2563eb, #7c3aed)" }}>
