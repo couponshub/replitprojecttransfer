@@ -2903,26 +2903,20 @@ export default function AdminDashboard() {
 
 function HomePageEditorTab({ toast }: { toast: any }) {
   const { data: banner = {} as any } = useQuery<any>({ queryKey: ["/api/home-banner"] });
-  const [form, setForm] = useState({ title: "", subtitle: "", search_placeholder: "", image: "" });
+  const [image, setImage] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (banner && banner.id) {
-      setForm({
-        title: banner.title || "",
-        subtitle: banner.subtitle || "",
-        search_placeholder: banner.search_placeholder || "Search shops, products, coupons...",
-        image: banner.image || "",
-      });
-    }
+    if (banner?.image) setImage(banner.image);
   }, [banner]);
 
-  const handleSave = async () => {
+  const handleImageChange = async (url: string) => {
+    setImage(url);
     setSaving(true);
     try {
-      await apiRequest("PUT", "/api/admin/home-banner", form);
+      await apiRequest("PUT", "/api/admin/home-banner", { image: url });
       await queryClient.invalidateQueries({ queryKey: ["/api/home-banner"] });
-      toast({ title: "Saved!", description: "Home page banner updated." });
+      toast({ title: "Banner saved!", description: "Home page background updated." });
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally {
@@ -2931,100 +2925,53 @@ function HomePageEditorTab({ toast }: { toast: any }) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-xl">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center">
           <Layout className="w-5 h-5 text-white" />
         </div>
         <div>
           <h2 className="text-lg font-bold text-gray-900 dark:text-white">Home Page Editor</h2>
-          <p className="text-sm text-muted-foreground">Customize the hero banner shown on the home page</p>
+          <p className="text-sm text-muted-foreground">Upload a background image for the home page hero section</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900">
-          <CardHeader>
-            <CardTitle className="text-sm font-semibold">Banner Content</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label className="text-xs font-semibold mb-1.5 block">Title (optional)</Label>
-              <Input
-                value={form.title}
-                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                placeholder="e.g. Discover Deals in Eluru"
-                className="rounded-xl"
-                data-testid="input-banner-title"
-              />
+      <Card className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900">
+        <CardContent className="p-6 space-y-4">
+          <DragDropImageUpload
+            label="Hero Background Image"
+            value={image}
+            onChange={handleImageChange}
+            folder="home-banners"
+            data-testid="upload-banner-image"
+          />
+          <p className="text-xs text-muted-foreground">Recommended: 1200×400px. Image appears behind the search bar and radars on the home page.</p>
+          {saving && (
+            <div className="flex items-center gap-2 text-sm text-blue-600">
+              <Loader2 className="w-4 h-4 animate-spin" /> Saving...
             </div>
-            <div>
-              <Label className="text-xs font-semibold mb-1.5 block">Subtitle (optional)</Label>
-              <Input
-                value={form.subtitle}
-                onChange={e => setForm(f => ({ ...f, subtitle: e.target.value }))}
-                placeholder="e.g. Find coupons from local shops near you"
-                className="rounded-xl"
-                data-testid="input-banner-subtitle"
-              />
-            </div>
-            <div>
-              <Label className="text-xs font-semibold mb-1.5 block">Search Placeholder Text</Label>
-              <Input
-                value={form.search_placeholder}
-                onChange={e => setForm(f => ({ ...f, search_placeholder: e.target.value }))}
-                placeholder="Search shops, products, coupons..."
-                className="rounded-xl"
-                data-testid="input-banner-search-placeholder"
-              />
-            </div>
-          </CardContent>
-        </Card>
+          )}
+        </CardContent>
+      </Card>
 
+      {image && (
         <Card className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900">
           <CardHeader>
-            <CardTitle className="text-sm font-semibold">Banner Background Image</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <DragDropImageUpload
-              label="Banner Image"
-              value={form.image}
-              onChange={url => setForm(f => ({ ...f, image: url }))}
-              folder="home-banners"
-              data-testid="upload-banner-image"
-            />
-            <p className="text-xs text-muted-foreground">Recommended size: 1200×400px. The image will appear behind the search bar and radars.</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {form.image && (
-        <Card className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900">
-          <CardHeader>
-            <CardTitle className="text-sm font-semibold">Live Preview</CardTitle>
+            <CardTitle className="text-sm font-semibold">Preview</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="relative rounded-2xl overflow-hidden h-48" style={{ background: "linear-gradient(135deg, #2563eb, #7c3aed)" }}>
-              <img src={form.image} alt="Banner preview" className="absolute inset-0 w-full h-full object-cover opacity-60" />
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6">
-                {form.title && <p className="text-white font-bold text-xl text-center drop-shadow">{form.title}</p>}
-                {form.subtitle && <p className="text-white/80 text-sm text-center drop-shadow">{form.subtitle}</p>}
+            <div className="relative rounded-2xl overflow-hidden h-40" style={{ background: "linear-gradient(135deg, #2563eb, #7c3aed)" }}>
+              <img src={image} alt="Banner preview" className="absolute inset-0 w-full h-full object-cover opacity-40" />
+              <div className="absolute inset-0 flex items-center justify-center px-6">
                 <div className="w-full max-w-sm bg-white/90 rounded-xl px-4 py-2.5 flex items-center gap-2">
                   <Search className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-400 text-sm">{form.search_placeholder || "Search..."}</span>
+                  <span className="text-gray-400 text-sm">Search shops, products, coupons...</span>
                 </div>
               </div>
             </div>
           </CardContent>
         </Card>
       )}
-
-      <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={saving} className="rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white border-0 px-8" data-testid="button-save-home-banner">
-          {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-          Save Banner
-        </Button>
-      </div>
     </div>
   );
 }
