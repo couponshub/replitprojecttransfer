@@ -1,5 +1,6 @@
 import { Link, useLocation } from "wouter";
-import { ShoppingCart, User, Search, Menu, X, Tag, Zap, Package, ChevronRight, Bell, Gift } from "lucide-react";
+import { ShoppingCart, User, Search, Menu, X, Tag, Package, ChevronRight, Bell, Gift } from "lucide-react";
+import CouponsHubLogo from "@assets/Screenshot_2026-03-10_232807_1773165638436.png";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth";
@@ -181,14 +182,7 @@ export function Navbar({ onSearch }: { onSearch?: (q: string) => void }) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-16 gap-4">
           <Link href="/home">
-            <div className="flex items-center gap-2.5 shrink-0 cursor-pointer" data-testid="link-home-logo">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center shadow-md">
-                <Zap className="w-4 h-4 text-white fill-white" />
-              </div>
-              <span className="font-bold text-lg text-gray-900 dark:text-white tracking-tight">
-                Coupons<span className="text-blue-500">Hub X</span>
-              </span>
-            </div>
+            <img src={CouponsHubLogo} alt="CouponsHub X" className="h-8 rounded-lg object-contain cursor-pointer hover:scale-105 transition-transform" data-testid="link-home-logo" />
           </Link>
 
           {onSearch ? (
