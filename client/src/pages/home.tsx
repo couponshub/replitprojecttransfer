@@ -2101,41 +2101,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* For You — Personalized Recommendations */}
-      {!nearbyMode && hasHistory && topCategoryIds.length > 0 && (() => {
-        const shownTopIds = new Set((topShopsData.length > 0 ? topShopsData : featuredShops).map(s => s.id));
-        const allPool = [...featuredShops, ...topShopsData];
-        const forYouShops = allPool
-          .filter(s => topCategoryIds.includes(s.category_id || "") && !shownTopIds.has(s.id))
-          .filter((s, idx, arr) => arr.findIndex(x => x.id === s.id) === idx)
-          .slice(0, 8);
-        const forYouCoupons = displayActiveCoupons
-          .filter(c => topCategoryIds.includes((c as any).shop?.category_id || ""))
-          .slice(0, 4);
-        if (forYouShops.length === 0 && forYouCoupons.length === 0) return null;
-        return (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5" data-testid="section-for-you">
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="w-5 h-5 text-violet-500" />
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">For You</h2>
-              <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">— based on your browsing</span>
-            </div>
-            {forYouShops.length > 0 && (
-              <div className="flex gap-4 overflow-x-auto pb-3 scrollbar-hide">
-                {forYouShops.map(shop => (
-                  <ShopLogoCircle key={shop.id} shop={shop} onView={() => recordShop(shop.id, shop.category_id || undefined)} />
-                ))}
-              </div>
-            )}
-            {forYouCoupons.length > 0 && (
-              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {forYouCoupons.map(c => <CouponCard key={c.id} coupon={c} />)}
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
       {/* Top Coupons / Offline Coupons Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 pb-16">
         {(() => {
