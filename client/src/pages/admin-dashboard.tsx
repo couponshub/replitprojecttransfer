@@ -18,15 +18,16 @@ import {
   Plus, Edit, Trash2, Crown, LogOut, ChevronRight, Users, TrendingUp,
   Zap, Star, Check, X, Menu, Award, Flame, UserCheck, Phone, Mail,
   Globe, MapPin, Wifi, WifiOff, Search, Image, Link, ExternalLink, Upload, Loader2, Eye, EyeOff,
-  Download, RefreshCw, ArrowUpAZ, ArrowDownAZ, Settings, MessageCircle, Save, Trophy, Gift
+  Download, RefreshCw, ArrowUpAZ, ArrowDownAZ, Settings, MessageCircle, Save, Trophy, Gift, Layout
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import type { Category, Shop, Product, Coupon, Order, User, OrderItem } from "@shared/schema";
 
-type Tab = "overview" | "categories" | "shops" | "products" | "coupons" | "orders" | "users" | "vendors" | "top-shops" | "top-coupons" | "banners" | "offline-coupons" | "contests" | "settings";
+type Tab = "overview" | "categories" | "shops" | "products" | "coupons" | "orders" | "users" | "vendors" | "top-shops" | "top-coupons" | "banners" | "offline-coupons" | "contests" | "settings" | "home-editor";
 
 const NAV_ITEMS: { id: Tab; label: string; icon: any; section?: string }[] = [
   { id: "overview", label: "Dashboard", icon: LayoutDashboard, section: "Main" },
+  { id: "home-editor", label: "Home Page Editor", icon: Layout, section: "Main" },
   { id: "categories", label: "Categories", icon: Tag, section: "Manage" },
   { id: "shops", label: "Shops", icon: Store, section: "Manage" },
   { id: "products", label: "Products", icon: Package, section: "Manage" },
@@ -2892,7 +2893,137 @@ export default function AdminDashboard() {
 
           {activeTab === "settings" && <SiteSettingsTab toast={toast} />}
 
+          {activeTab === "home-editor" && <HomePageEditorTab toast={toast} />}
+
         </main>
+      </div>
+    </div>
+  );
+}
+
+function HomePageEditorTab({ toast }: { toast: any }) {
+  const { data: banner = {} as any } = useQuery<any>({ queryKey: ["/api/home-banner"] });
+  const [form, setForm] = useState({ title: "", subtitle: "", search_placeholder: "", image: "" });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (banner && banner.id) {
+      setForm({
+        title: banner.title || "",
+        subtitle: banner.subtitle || "",
+        search_placeholder: banner.search_placeholder || "Search shops, products, coupons...",
+        image: banner.image || "",
+      });
+    }
+  }, [banner]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await apiRequest("PUT", "/api/admin/home-banner", form);
+      await queryClient.invalidateQueries({ queryKey: ["/api/home-banner"] });
+      toast({ title: "Saved!", description: "Home page banner updated." });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-violet-500 flex items-center justify-center">
+          <Layout className="w-5 h-5 text-white" />
+        </div>
+        <div>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Home Page Editor</h2>
+          <p className="text-sm text-muted-foreground">Customize the hero banner shown on the home page</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900">
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold">Banner Content</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <Label className="text-xs font-semibold mb-1.5 block">Title (optional)</Label>
+              <Input
+                value={form.title}
+                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                placeholder="e.g. Discover Deals in Eluru"
+                className="rounded-xl"
+                data-testid="input-banner-title"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold mb-1.5 block">Subtitle (optional)</Label>
+              <Input
+                value={form.subtitle}
+                onChange={e => setForm(f => ({ ...f, subtitle: e.target.value }))}
+                placeholder="e.g. Find coupons from local shops near you"
+                className="rounded-xl"
+                data-testid="input-banner-subtitle"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold mb-1.5 block">Search Placeholder Text</Label>
+              <Input
+                value={form.search_placeholder}
+                onChange={e => setForm(f => ({ ...f, search_placeholder: e.target.value }))}
+                placeholder="Search shops, products, coupons..."
+                className="rounded-xl"
+                data-testid="input-banner-search-placeholder"
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900">
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold">Banner Background Image</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <DragDropImageUpload
+              label="Banner Image"
+              value={form.image}
+              onChange={url => setForm(f => ({ ...f, image: url }))}
+              folder="home-banners"
+              data-testid="upload-banner-image"
+            />
+            <p className="text-xs text-muted-foreground">Recommended size: 1200×400px. The image will appear behind the search bar and radars.</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {form.image && (
+        <Card className="rounded-2xl border-0 shadow-lg bg-white dark:bg-gray-900">
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold">Live Preview</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="relative rounded-2xl overflow-hidden h-48" style={{ background: "linear-gradient(135deg, #2563eb, #7c3aed)" }}>
+              <img src={form.image} alt="Banner preview" className="absolute inset-0 w-full h-full object-cover opacity-60" />
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6">
+                {form.title && <p className="text-white font-bold text-xl text-center drop-shadow">{form.title}</p>}
+                {form.subtitle && <p className="text-white/80 text-sm text-center drop-shadow">{form.subtitle}</p>}
+                <div className="w-full max-w-sm bg-white/90 rounded-xl px-4 py-2.5 flex items-center gap-2">
+                  <Search className="w-4 h-4 text-gray-400" />
+                  <span className="text-gray-400 text-sm">{form.search_placeholder || "Search..."}</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="flex justify-end">
+        <Button onClick={handleSave} disabled={saving} className="rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 text-white border-0 px-8" data-testid="button-save-home-banner">
+          {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+          Save Banner
+        </Button>
       </div>
     </div>
   );

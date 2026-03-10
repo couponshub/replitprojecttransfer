@@ -17,7 +17,8 @@ import {
   type Contest, type InsertContest, type ContestSlot,
   type Notification, type UserCoupon,
   users, categories, shops, products, coupons, couponProducts, orders, orderItems, vendors, banners,
-  offlineCoupons, offlineCouponCodes, contests, contestSlots, notifications, userCoupons
+  offlineCoupons, offlineCouponCodes, contests, contestSlots, notifications, userCoupons,
+  homePageBanner
 } from "@shared/schema";
 
 const rawSupabaseUrl = process.env.SUPABASE_DATABASE_URL;
@@ -576,6 +577,23 @@ export class PgStorage implements IStorage {
       .orderBy(desc(coupons.created_at))
       .limit(6);
     return result.map(r => ({ ...r.coupons, shop: r.shops || undefined }));
+  }
+
+  async getHomePageBanner(): Promise<any> {
+    const result = await db.select().from(homePageBanner).limit(1);
+    return result[0] || null;
+  }
+
+  async updateHomePageBanner(data: any): Promise<any> {
+    const existing = await db.select().from(homePageBanner).limit(1);
+    if (existing.length === 0) {
+      const inserted = await db.insert(homePageBanner).values(data).returning();
+      return inserted[0];
+    }
+    const updated = await db.update(homePageBanner)
+      .set({ ...data, updated_at: new Date() })
+      .returning();
+    return updated[0];
   }
 
   async search(query: string): Promise<{ shops: (Shop & { category?: Category })[]; products: (Product & { shop?: Shop })[]; coupons: (Coupon & { shop?: Shop })[] }> {

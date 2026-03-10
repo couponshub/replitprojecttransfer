@@ -2267,5 +2267,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
+  // ── Home Page Banner ──────────────────────────────────────────────────────
+  app.get("/api/home-banner", async (_req, res) => {
+    try {
+      const banner = await storage.getHomePageBanner();
+      res.json(banner || {});
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  app.put("/api/admin/home-banner", adminMiddleware, async (req, res) => {
+    try {
+      const data = req.body;
+      const result = await storage.updateHomePageBanner(data);
+      res.json(result);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
   return httpServer;
 }
