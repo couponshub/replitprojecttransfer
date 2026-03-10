@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Zap, Eye, EyeOff, ArrowRight, Sparkles, Phone, Mail, Shield, Store } from "lucide-react";
+import { Zap, Eye, EyeOff, ArrowRight, Sparkles, Phone, Mail, Shield, Store, ChevronDown } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import CouponsHubLogo from "@assets/Screenshot_2026-03-10_232807_1773165569077.png";
 
 export default function Login() {
@@ -178,16 +179,31 @@ export default function Login() {
           </div>
 
           <Tabs value={tab} onValueChange={v => setTab(v as any)}>
-            <TabsList className="w-full mb-8 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-1 grid grid-cols-4">
-              <TabsTrigger value="login" className="rounded-xl text-xs sm:text-sm" data-testid="tab-login">Sign In</TabsTrigger>
-              <TabsTrigger value="register" className="rounded-xl text-xs sm:text-sm" data-testid="tab-register">Register</TabsTrigger>
-              <TabsTrigger value="vendor" className="rounded-xl text-xs sm:text-sm" data-testid="tab-vendor">
-                <Store className="w-3 h-3 mr-1" /> Vendor
-              </TabsTrigger>
-              <TabsTrigger value="admin" className="rounded-xl text-xs sm:text-sm" data-testid="tab-admin">
-                <Shield className="w-3 h-3 mr-1" /> Admin
-              </TabsTrigger>
-            </TabsList>
+            <div className="flex items-center gap-2 mb-8">
+              <TabsList className="flex-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-1 grid grid-cols-2">
+                <TabsTrigger value="register" className="rounded-xl text-xs sm:text-sm" data-testid="tab-register">Register</TabsTrigger>
+                <TabsTrigger value="login" className="rounded-xl text-xs sm:text-sm" data-testid="tab-login">Sign In</TabsTrigger>
+              </TabsList>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300" data-testid="button-vendor-admin-menu">
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  <DropdownMenuItem onClick={() => setTab("vendor")} data-testid="menu-vendor">
+                    <Store className="w-4 h-4 mr-2" />
+                    <span>Vendor Login</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setTab("admin")} data-testid="menu-admin">
+                    <Shield className="w-4 h-4 mr-2" />
+                    <span>Admin Login</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
 
             <TabsContent value="login">
               <Card className="border-0 shadow-xl rounded-3xl bg-white dark:bg-gray-900">
