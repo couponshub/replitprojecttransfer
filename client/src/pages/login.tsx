@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Zap, Eye, EyeOff, ArrowRight, Sparkles, Phone, Mail, Shield, Store } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import CouponsHubLogo from "@assets/Screenshot_2026-03-10_232807_1773165569077.png";
 
 export default function Login() {
   const [location, navigate] = useLocation();
@@ -139,9 +140,7 @@ export default function Login() {
         </div>
         <div className="relative z-10 flex flex-col justify-center px-16 text-white">
           <div className="flex items-center gap-3 mb-12">
-            <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center">
-              <Zap className="w-6 h-6 text-white fill-white" />
-            </div>
+            <img src={CouponsHubLogo} alt="CouponsHub X" className="w-12 h-12 rounded-2xl object-contain" />
             <span className="text-2xl font-bold tracking-tight">CouponsHub X</span>
           </div>
           <h1 className="text-5xl font-bold leading-tight mb-6">
@@ -174,9 +173,7 @@ export default function Login() {
       <div className="flex-1 flex items-center justify-center p-8 bg-gray-50 dark:bg-gray-950">
         <div className="w-full max-w-md">
           <div className="flex items-center gap-2.5 mb-8 lg:hidden">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center">
-              <Zap className="w-5 h-5 text-white fill-white" />
-            </div>
+            <img src={CouponsHubLogo} alt="CouponsHub X" className="w-10 h-10 rounded-xl object-contain" />
             <span className="font-bold text-xl text-gray-900 dark:text-white">CouponsHub X</span>
           </div>
 
