@@ -44,6 +44,7 @@ export const shops = pgTable("shops", {
   payment_id: text("payment_id"),
   payment_qr: text("payment_qr"),
   category_id: varchar("category_id").references(() => categories.id),
+  category_ids: varchar("category_ids").array(),
   is_premium: boolean("is_premium").notNull().default(false),
   commission_percentage: numeric("commission_percentage", { precision: 5, scale: 2 }).default("0"),
   subscription_active: boolean("subscription_active").notNull().default(true),
