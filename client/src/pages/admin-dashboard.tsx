@@ -92,6 +92,7 @@ export default function AdminDashboard() {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [productImageUrls, setProductImageUrls] = useState<string[]>([""]);
   const [shopBanners, setShopBanners] = useState<string[]>([""]);
+  const [shopBannerModes, setShopBannerModes] = useState<("url" | "file")[]>(["url"]);
   const [qrUploading, setQrUploading] = useState(false);
   const [imgUploading, setImgUploading] = useState<Record<string, boolean>>({});
   const [userDialogOpen, setUserDialogOpen] = useState(false);
@@ -1371,16 +1372,22 @@ export default function AdminDashboard() {
                       <div>
                         <div className="flex items-center justify-between mb-1.5">
                           <Label className="text-sm flex items-center gap-1.5"><Image className="w-3.5 h-3.5" /> Extra Banners (Slideshow)</Label>
-                          <button type="button" onClick={() => setShopBanners(b => [...b, ""])} className="text-[11px] text-blue-600 font-semibold px-2 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/20" data-testid="button-add-banner">+ Add Banner</button>
+                          <button type="button" onClick={() => { setShopBanners(b => [...b, ""]); setShopBannerModes(m => [...m, "url"]); }} className="text-[11px] text-blue-600 font-semibold px-2 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/20" data-testid="button-add-banner">+ Add Banner</button>
                         </div>
                         <div className="flex flex-col gap-2">
                           {shopBanners.map((url, idx) => (
-                            <div key={idx} className="flex gap-2 items-center">
-                              <div className="flex-1 min-w-0">
-                                <button type="button" onClick={() => { const f = document.createElement('input'); f.type = 'file'; f.accept = 'image/*'; f.onchange = (e: any) => { const file = e.target.files?.[0]; if (!file) return; const fd = new FormData(); fd.append('file', file); const token = localStorage.getItem('coupons_hub_token'); fetch('/api/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd }).then(r => r.json()).then(d => { if (d.url) setShopBanners(b => b.map((v, i) => i === idx ? d.url : v)); }); }; f.click(); }} className="px-3 py-1.5 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-all">Upload</button>
+                            <div key={idx} className="flex flex-col gap-1.5">
+                              <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                                <button type="button" onClick={() => setShopBannerModes(m => m.map((mode, i) => i === idx ? "url" : mode))} className={`flex-1 py-1.5 text-xs font-medium transition-colors ${shopBannerModes[idx] === "url" ? "bg-blue-500 text-white" : "text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-800"}`} data-testid={`button-banner-mode-url-${idx}`}>URL</button>
+                                <button type="button" onClick={() => setShopBannerModes(m => m.map((mode, i) => i === idx ? "file" : mode))} className={`flex-1 py-1.5 text-xs font-medium transition-colors ${shopBannerModes[idx] === "file" ? "bg-blue-500 text-white" : "text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-800"}`} data-testid={`button-banner-mode-file-${idx}`}>Upload</button>
                               </div>
+                              {shopBannerModes[idx] === "url" ? (
+                                <Input value={url} onChange={e => setShopBanners(b => b.map((v, i) => i === idx ? e.target.value : v))} placeholder="https://..." className="text-xs rounded-lg h-8" data-testid={`input-banner-url-${idx}`} />
+                              ) : (
+                                <button type="button" onClick={() => { const f = document.createElement('input'); f.type = 'file'; f.accept = 'image/*'; f.onchange = (e: any) => { const file = e.target.files?.[0]; if (!file) return; const fd = new FormData(); fd.append('file', file); const token = localStorage.getItem('coupons_hub_token'); fetch('/api/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd }).then(r => r.json()).then(d => { if (d.url) setShopBanners(b => b.map((v, i) => i === idx ? d.url : v)); }); }; f.click(); }} className="px-3 py-1.5 text-xs bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-semibold transition-all" data-testid={`button-upload-banner-${idx}`}>Click to Upload</button>
+                              )}
                               {shopBanners.length > 1 && (
-                                <button type="button" onClick={() => setShopBanners(b => b.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600 p-1 rounded-lg" data-testid={`button-remove-banner-${idx}`}>
+                                <button type="button" onClick={() => { setShopBanners(b => b.filter((_, i) => i !== idx)); setShopBannerModes(m => m.filter((_, i) => i !== idx)); }} className="text-red-400 hover:text-red-600 p-1 rounded-lg self-start" data-testid={`button-remove-banner-${idx}`}>
                                   <X className="w-4 h-4" />
                                 </button>
                               )}
