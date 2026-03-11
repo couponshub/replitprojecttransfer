@@ -1266,8 +1266,8 @@ function NearbyMapPanel({
           ${hasActiveCoupon ? `<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px;">
             ${shopCoupons.map(c => {
               const offerLabel = c.type === "percentage" ? c.value + "% OFF" : c.type === "flat" ? "₹" + c.value + " OFF" : "FREE ITEM";
-              const payload = encodeURIComponent(JSON.stringify({ id: c.id, code: c.code, type: c.type, value: c.value, description: c.description || "", min_order_amount: c.min_order_amount, expiry_date: c.expiry_date, shopName: shop.name }));
-              return `<div onclick="window.__showMapCoupon('${payload}')" style="padding:5px 8px;background:#fef3c7;border-radius:6px;font-weight:bold;color:#92400e;font-size:11px;cursor:pointer;border:1.5px solid #f59e0b;display:flex;align-items:center;justify-content:space-between;gap:6px;">
+              const navPayload = encodeURIComponent(JSON.stringify({ shopId: shop.id, couponId: c.id }));
+              return `<div onclick="window.__navToShopCoupon('${navPayload}')" style="padding:5px 8px;background:#fef3c7;border-radius:6px;font-weight:bold;color:#92400e;font-size:11px;cursor:pointer;border:1.5px solid #f59e0b;display:flex;align-items:center;justify-content:space-between;gap:6px;">
                 <span>🏷️ ${c.code} · ${offerLabel}</span>
                 <span style="font-size:10px;color:#b45309;white-space:nowrap;">View →</span>
               </div>`;
@@ -1284,13 +1284,16 @@ function NearbyMapPanel({
     });
   }, [mappableShops, coupons]);
 
-  // Expose global handler for map popup coupon clicks
+  // Expose global handler for map popup coupon clicks — navigates to shop page and highlights coupon
   useEffect(() => {
-    (window as any).__showMapCoupon = (payload: string) => {
-      try { setSelectedMapCoupon(JSON.parse(decodeURIComponent(payload))); } catch {}
+    (window as any).__navToShopCoupon = (payload: string) => {
+      try {
+        const { shopId, couponId } = JSON.parse(decodeURIComponent(payload));
+        navigate(`/shop/${shopId}?highlight=${couponId}`);
+      } catch {}
     };
-    return () => { delete (window as any).__showMapCoupon; };
-  }, []);
+    return () => { delete (window as any).__navToShopCoupon; };
+  }, [navigate]);
 
   useEffect(() => {
     if (!isOpen) {

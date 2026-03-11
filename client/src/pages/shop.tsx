@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useParams, useLocation } from "wouter";
+import { useParams, useLocation, useSearch } from "wouter";
 import { Navbar } from "@/components/Navbar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -74,6 +74,8 @@ function isShopOpen(hours: string | null | undefined): boolean {
 export default function ShopPage() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
+  const search = useSearch();
+  const highlightCouponId = new URLSearchParams(search).get("highlight");
   const { 
     addItem, items, updateQuantity, itemCount, addItems, 
     removeFreeItemsForShop, applyCoupon, removeCoupon, appliedCoupons 
@@ -89,6 +91,8 @@ export default function ShopPage() {
   const [pickOneModal, setPickOneModal] = useState(false);
   const [pickOneItems, setPickOneItems] = useState<any[]>([]);
   const [pendingCouponResult, setPendingCouponResult] = useState<any>(null);
+  const [highlightedId, setHighlightedId] = useState<string | null>(highlightCouponId);
+  const couponRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const { data: shop, isLoading: shopLoading } = useQuery<Shop & { category?: Category }>({
     queryKey: [`/api/shops/${id}`],
@@ -97,6 +101,23 @@ export default function ShopPage() {
   useEffect(() => {
     if (id) localStorage.setItem("lastShopId", id);
   }, [id]);
+
+  // Scroll to & highlight the coupon when arriving from map
+  useEffect(() => {
+    if (!highlightCouponId) return;
+    const tryScroll = () => {
+      const el = couponRefs.current[highlightCouponId];
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setHighlightedId(highlightCouponId);
+        setTimeout(() => setHighlightedId(null), 3000);
+      } else {
+        setTimeout(tryScroll, 300);
+      }
+    };
+    setTimeout(tryScroll, 600);
+  }, [highlightCouponId]);
+
   const { data: shopProducts = [], isLoading: prodLoading } = useQuery<Product[]>({
     queryKey: [`/api/products?shopId=${id}`],
   });
@@ -435,8 +456,18 @@ export default function ShopPage() {
                 };
                 const typeIcons: Record<string, string> = { percentage: "🏷️", flat: "💰", free_item: "🎁", flash: "⚡" };
                 const bannerImg = (coupon as any).banner_image || (shop as any)?.banner_image;
+                const isHighlighted = highlightedId === coupon.id;
                 return (
-                  <div key={coupon.id} className="relative rounded-2xl overflow-hidden shadow-lg border border-gray-100 dark:border-gray-800 flex flex-col bg-white dark:bg-gray-900" data-testid={`card-coupon-${coupon.id}`}>
+                  <div
+                    key={coupon.id}
+                    ref={el => { couponRefs.current[coupon.id] = el; }}
+                    className={`relative rounded-2xl overflow-hidden flex flex-col bg-white dark:bg-gray-900 transition-all duration-700 ${
+                      isHighlighted
+                        ? "shadow-2xl border-2 border-emerald-400 ring-4 ring-emerald-400/30 scale-[1.02]"
+                        : "shadow-lg border border-gray-100 dark:border-gray-800"
+                    }`}
+                    data-testid={`card-coupon-${coupon.id}`}
+                  >
                     {/* Banner — h-44 full width */}
                     <div className="relative w-full h-44 shrink-0 overflow-hidden">
                       {bannerImg ? (
