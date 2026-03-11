@@ -123,15 +123,8 @@ A full-stack marketplace for Eluru, AP — discover coupons, offline deals, and 
 
 ## Recent Updates
 
-### Multi-Category Support (In Progress)
-- **Status**: Code complete, awaiting database migration approval
-- **Changes Made**:
-  - Schema: Added `category_ids` (VARCHAR array) field to shops table
-  - Admin Form: Updated category selection to multi-select (click to toggle categories on/off)
-  - Storage: Ready to handle category_ids via Partial<InsertShop>
-  - **To Activate**: Run `npm run db:push` and approve the database migration when prompted by selecting "create column" option
-- **How to Use**: In admin dashboard → Shops → when creating/editing a shop, click multiple categories to assign the shop to all of them. Users will then see the shop in each of those categories.
-
-### Map Popup to Shop Page Navigation
-- Clicking "View →" on a coupon in the map popup now navigates directly to that shop's page and highlights the specific coupon with a glowing border
-- Coupon remains highlighted for 3 seconds then fades back to normal
+### Map Popup to Shop Page Navigation ✅
+- Clicking "View →" on a coupon in the map popup now navigates directly to that shop's page and highlights the specific coupon with a glowing emerald border
+- Coupon card scales up slightly and displays a ring effect (2-4px emerald border + ring shadow)
+- Highlight effect automatically fades after 3 seconds
+- Smooth scroll centers the coupon in the viewport
