@@ -1908,12 +1908,12 @@ export default function Home() {
     : featuredShops;
 
   const displayCategories = nearbyMode && nearbyPos && allNearbyShops.length > 0
-    ? [...categories].sort((a, b) => {
+    ? [...(categories || [])].sort((a, b) => {
         const aNearby = allNearbyShops.filter(s => s.category_id === a.id && shopDist(s) < 10000).length;
         const bNearby = allNearbyShops.filter(s => s.category_id === b.id && shopDist(s) < 10000).length;
         return bNearby - aNearby;
       })
-    : categories;
+    : (categories || []);
 
   const displayActiveCoupons = nearbyMode && nearbyPos
     ? [...activeCoupons].sort((a, b) => shopDist((a as any).shop) - shopDist((b as any).shop))

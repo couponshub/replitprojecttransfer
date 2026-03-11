@@ -1187,7 +1187,7 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="flex flex-col gap-3">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Categories (Select one or more)</p>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Category</p>
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                         <Input
@@ -1200,37 +1200,22 @@ export default function AdminDashboard() {
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1">
                         {categories
                           .filter(c => !catSearch || c.name.toLowerCase().includes(catSearch.toLowerCase()))
-                          .map(cat => {
-                            const isSelected = (formData.category_ids || []).includes(cat.id) || formData.category_id === cat.id;
-                            return (
-                              <button
-                                key={cat.id}
-                                type="button"
-                                onClick={() => {
-                                  const current = formData.category_ids || [];
-                                  if (isSelected) {
-                                    setForm("category_ids", current.filter(id => id !== cat.id));
-                                  } else {
-                                    setForm("category_ids", [...current, cat.id]);
-                                  }
-                                }}
-                                className={`px-3 py-2.5 rounded-xl text-xs font-medium transition-all text-left border ${
-                                  isSelected
-                                    ? "bg-blue-500 text-white border-blue-500 shadow-md shadow-blue-500/25"
-                                    : "bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-300"
-                                }`}
-                                data-testid={`cat-pick-${cat.id}`}
-                              >
-                                {cat.name} {isSelected && "✓"}
-                              </button>
-                            );
-                          })}
+                          .map(cat => (
+                            <button
+                              key={cat.id}
+                              type="button"
+                              onClick={() => setForm("category_id", cat.id)}
+                              className={`px-3 py-2.5 rounded-xl text-xs font-medium transition-all text-left border ${
+                                formData.category_id === cat.id
+                                  ? "bg-blue-500 text-white border-blue-500 shadow-md shadow-blue-500/25"
+                                  : "bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-300"
+                              }`}
+                              data-testid={`cat-pick-${cat.id}`}
+                            >
+                              {cat.name}
+                            </button>
+                          ))}
                       </div>
-                      {(formData.category_ids || []).length > 0 && (
-                        <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">
-                          {(formData.category_ids || []).length} categor{(formData.category_ids || []).length === 1 ? "y" : "ies"} selected
-                        </div>
-                      )}
                     </div>
 
                     <div className="flex flex-col gap-4">

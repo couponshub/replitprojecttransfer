@@ -58,7 +58,16 @@ A full-stack marketplace for Eluru, AP — discover coupons, offline deals, and 
 ### Home Page
 - **Top Categories** (Apple-style grid): Shows categories with `is_top=true` in a 5-column×2-row horizontally scrollable grid; falls back to standard list if none marked
 - **Top Shops**: Shows shops with `is_top=true` as circular logos; falls back to featured/all shops
+- **Top Coupons / Offline Coupons**: Tabbed section showing featured/active coupons and offline printable coupons
 - Admin marks categories/shops as "top" via the ★ toggle in the Admin panel → Categories tab and all-shops list
+- Note: "For You" personalized sections based on browsing history were removed to simplify layout
+
+### Nearby Shops Map Feature
+- Click "Map Radar" button to open interactive Leaflet map with nearby shops
+- When clicking a shop in the nearby list or map:
+  - Detailed card displays shop info, address, distance, and all active coupons
+  - "GO THERE NOW" button navigates to full shop page
+  - "Back" button returns to shop list
 
 ### API Endpoints
 - `POST /api/auth/login` - Login (email or phone)
