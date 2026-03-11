@@ -1204,7 +1204,7 @@ export default function AdminDashboard() {
                             <button
                               key={cat.id}
                               type="button"
-                              onClick={() => setForm("category_id", cat.id)}
+                              onClick={() => setForm("category_id", formData.category_id === cat.id ? null : cat.id)}
                               className={`px-3 py-2.5 rounded-xl text-xs font-medium transition-all text-left border ${
                                 formData.category_id === cat.id
                                   ? "bg-blue-500 text-white border-blue-500 shadow-md shadow-blue-500/25"
