@@ -1153,6 +1153,7 @@ function NearbyMapPanel({
 
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
   const [distances, setDistances] = useState<Record<string, number>>({});
+  const [selectedMapShop, setSelectedMapShop] = useState<(Shop & { category?: Category; coords?: { lat: number; lng: number } }) | null>(null);
 
   const mappableShops = useMemo(() =>
     shops
@@ -1416,8 +1417,54 @@ function NearbyMapPanel({
             </button>
           </div>
 
-          {/* Shops list — 10 nearest (sorted by GPS distance) */}
-          {nearbyShops.length > 0 && (
+          {/* Shops list — 10 nearest (sorted by GPS distance) OR selected shop detail */}
+          {selectedMapShop ? (
+            <div className="overflow-y-auto flex-1 px-3 pb-4 pt-2">
+              <div className="flex items-center gap-2 mb-4">
+                <button onClick={() => setSelectedMapShop(null)} className="flex items-center gap-1 text-blue-400 hover:text-blue-300 text-sm font-semibold" data-testid="button-map-shop-detail-back">
+                  <ChevronLeft className="w-4 h-4" />
+                  Back
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-white/60 text-xs uppercase tracking-wider mb-1">Shop Details</p>
+                  <h3 className="text-white text-lg font-bold">{selectedMapShop.name}</h3>
+                  <p className="text-white/70 text-xs mt-1">{selectedMapShop.address}</p>
+                  {distances[selectedMapShop.id] != null && (
+                    <p className="text-blue-400 text-xs font-semibold mt-2">{formatDist(distances[selectedMapShop.id])} away</p>
+                  )}
+                </div>
+                {coupons.filter(c => c.shop_id === selectedMapShop.id).length > 0 && (
+                  <div>
+                    <p className="text-white/60 text-xs uppercase tracking-wider mb-2">Active Coupons</p>
+                    <div className="space-y-2">
+                      {coupons.filter(c => c.shop_id === selectedMapShop.id).map(c => (
+                        <div key={c.id} className="bg-white/5 border border-amber-500/30 rounded-lg p-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-amber-400 text-sm font-bold">{c.code}</p>
+                              <p className="text-white/70 text-xs mt-0.5">
+                                {c.type === "percentage" ? `${c.value}% OFF` : c.type === "flat" ? `₹${c.value} OFF` : "FREE ITEM"}
+                              </p>
+                              {c.description && <p className="text-white/50 text-xs mt-1">{c.description}</p>}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <button
+                  onClick={() => { navigate(`/shop/${selectedMapShop.id}`); setSelectedMapShop(null); onClose(); }}
+                  className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-bold text-sm transition-all hover:shadow-lg active:scale-95"
+                  data-testid="button-map-shop-detail-go"
+                >
+                  GO THERE NOW
+                </button>
+              </div>
+            </div>
+          ) : nearbyShops.length > 0 ? (
             <div className="overflow-y-auto flex-1 px-3 pb-4 space-y-2 pt-2">
               {nearbyShops.map((shop) => {
                 const dist = distances[shop.id];
@@ -1442,7 +1489,7 @@ function NearbyMapPanel({
                         boxShadow: hasActiveCoupon ? "0 0 14px #fbbf24aa" : `0 0 10px ${shop.color}66`,
                         borderColor: hasActiveCoupon ? "#fef08a" : "rgba(255,255,255,0.2)",
                       }}
-                      onClick={() => { onClose(); navigate(`/shop/${shop.id}`); }}
+                      onClick={() => { setSelectedMapShop(shop); }}
                     >
                       <div className="absolute -left-1 w-2 h-2 rounded-full bg-black/50" />
                       <div className="absolute -right-1 w-2 h-2 rounded-full bg-black/50" />
@@ -1451,10 +1498,10 @@ function NearbyMapPanel({
                       </span>
                     </div>
 
-                    {/* Info — clicking opens shop page */}
+                    {/* Info — clicking shows detail card */}
                     <div
                       className="flex-1 min-w-0 cursor-pointer"
-                      onClick={() => { onClose(); navigate(`/shop/${shop.id}`); }}
+                      onClick={() => { setSelectedMapShop(shop); }}
                     >
                       <p className="text-white text-sm font-semibold truncate">{shop.name}</p>
                       {hasActiveCoupon ? (
@@ -1505,7 +1552,7 @@ function NearbyMapPanel({
                 );
               })}
             </div>
-          )}
+          ) : null}
 
           <div className="shrink-0 pb-safe pb-2 pt-1 flex justify-center">
             <p className="text-white/20 text-[10px]">Tap a shop to open in Google Maps · Live GPS</p>
