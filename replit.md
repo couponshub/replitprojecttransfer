@@ -15,7 +15,7 @@ A full-stack marketplace for Eluru, AP — discover coupons, offline deals, and 
 ### Database Tables
 - `users` - Admin and user accounts (role: admin | user, supports phone field)
 - `categories` - Shop categories (Food, Fashion, Electronics, etc.)
-- `shops` - Marketplace shops with premium/featured flags, listing_type (products/services/both), business_hours (format: HH:MM-HH:MM), show_on_radar (boolean, default true), marker_color (text, optional custom map marker color)
+- `shops` - Marketplace shops with premium/featured flags, listing_type (products/services/both), business_hours (format: HH:MM-HH:MM), show_on_radar (boolean, default true), marker_color (text, optional custom map marker color), category_ids (VARCHAR array for multi-category support)
 - `products` - Products within shops (is_active toggle supported)
 - `coupons` - Discount coupons (percentage, flat, free_item, bogo, flash, category_offer, min_order, combo types) with is_active + featured flags; BOGO supports bogo_buy_product_id, bogo_buy_qty, bogo_get_product_id, bogo_get_qty; category_offer uses category_offer_subtype (percentage/flat/free_item) + restrict_sub_category[]; min_order uses min_order_amount + category_offer_subtype (percentage/flat); combo uses coupon_products table with custom_price per item (originalPrice fetched from product for cart savings display)
 - `orders` - Customer orders (pending, confirmed, completed, cancelled); includes `customer_location` (optional GPS "lat,lng")
@@ -120,3 +120,18 @@ A full-stack marketplace for Eluru, AP — discover coupons, offline deals, and 
 - **Migration status**: COMPLETE — Production data migrated (41 shops, 15 categories, 55 coupons, 126 products, 14 users, 37 orders, 92 order_items, 29 vendors, 200 offline_coupon_codes)
 - **Connection**: `server/storage.ts` auto-converts SUPABASE_DATABASE_URL to pooler URL (IPv4 compatible)
 - Seeding disabled — live production data in Supabase
+
+## Recent Updates
+
+### Multi-Category Support (In Progress)
+- **Status**: Code complete, awaiting database migration approval
+- **Changes Made**:
+  - Schema: Added `category_ids` (VARCHAR array) field to shops table
+  - Admin Form: Updated category selection to multi-select (click to toggle categories on/off)
+  - Storage: Ready to handle category_ids via Partial<InsertShop>
+  - **To Activate**: Run `npm run db:push` and approve the database migration when prompted by selecting "create column" option
+- **How to Use**: In admin dashboard → Shops → when creating/editing a shop, click multiple categories to assign the shop to all of them. Users will then see the shop in each of those categories.
+
+### Map Popup to Shop Page Navigation
+- Clicking "View →" on a coupon in the map popup now navigates directly to that shop's page and highlights the specific coupon with a glowing border
+- Coupon remains highlighted for 3 seconds then fades back to normal
