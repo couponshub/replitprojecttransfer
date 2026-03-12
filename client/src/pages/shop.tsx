@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
   ArrowLeft, Crown, MapPin, Phone, ShoppingCart, Tag, Copy, Check,
-  Plus, Minus, Globe, ChevronLeft, ChevronRight, Zap, Package, Clock, Gift, Bookmark, BookmarkCheck
+  Plus, Minus, Globe, ChevronLeft, ChevronRight, Zap, Package, Clock, Gift, Bookmark, BookmarkCheck, Share2
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { Category, Shop, Product, Coupon } from "@shared/schema";
@@ -87,6 +87,7 @@ export default function ShopPage() {
   const [claimingCoupon, setClaimingCoupon] = useState<string | null>(null);
   const [savedCoupons, setSavedCoupons] = useState<Set<string>>(new Set());
   const [savingCoupon, setSavingCoupon] = useState<string | null>(null);
+  const [sharedCoupon, setSharedCoupon] = useState<string | null>(null);
   const [activeSubCat, setActiveSubCat] = useState<string>("All");
   const [pickOneModal, setPickOneModal] = useState(false);
   const [pickOneItems, setPickOneItems] = useState<any[]>([]);
@@ -146,6 +147,22 @@ export default function ShopPage() {
     setCopiedCode(code);
     toast({ title: `Coupon code "${code}" copied!` });
     setTimeout(() => setCopiedCode(null), 2000);
+  };
+
+  const shareCoupon = async (couponId: string, couponCode: string) => {
+    const shopId = id;
+    const shareUrl = `${window.location.origin}/shop/${shopId}?highlight=${couponId}`;
+    const shareText = `Check out this deal "${couponCode}" at ${shop?.name || "this shop"} on CouponsHub X!`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `${couponCode} - ${shop?.name}`, text: shareText, url: shareUrl });
+        return;
+      } catch {}
+    }
+    navigator.clipboard.writeText(shareUrl);
+    setSharedCoupon(couponId);
+    toast({ title: "Share link copied!", description: "Paste it anywhere to share this coupon." });
+    setTimeout(() => setSharedCoupon(null), 2000);
   };
 
   const finishCouponClaim = (result: any, chosenFreeItem?: any) => {
@@ -540,6 +557,16 @@ export default function ShopPage() {
                           {savedCoupons.has(coupon.id)
                             ? <BookmarkCheck className="w-3.5 h-3.5 text-violet-600 dark:text-violet-400" />
                             : <Bookmark className="w-3.5 h-3.5 text-gray-500" />}
+                        </button>
+                        <button
+                          onClick={() => shareCoupon(coupon.id, coupon.code)}
+                          className="shrink-0 w-8 h-8 flex items-center justify-center rounded-xl border transition-colors bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-emerald-50 dark:hover:bg-emerald-950 hover:border-emerald-300"
+                          data-testid={`button-share-coupon-${coupon.id}`}
+                          title="Share this coupon"
+                        >
+                          {sharedCoupon === coupon.id
+                            ? <Check className="w-3.5 h-3.5 text-emerald-500" />
+                            : <Share2 className="w-3.5 h-3.5 text-gray-500" />}
                         </button>
                       </div>
                     </div>
