@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
   ArrowLeft, Crown, MapPin, Phone, ShoppingCart, Tag, Copy, Check,
-  Plus, Minus, Globe, ChevronLeft, ChevronRight, Zap, Package, Clock, Gift, Bookmark, BookmarkCheck, Share2
+  Plus, Minus, Globe, ChevronLeft, ChevronRight, Zap, Package, Clock, Gift, Bookmark, BookmarkCheck, Share2, Store
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { Category, Shop, Product, Coupon } from "@shared/schema";
@@ -598,6 +598,14 @@ export default function ShopPage() {
                             : <Share2 className="w-3.5 h-3.5 text-gray-500" />}
                         </button>
                       </div>
+                      <button
+                        onClick={() => navigate(`/redeem/${coupon.id}`)}
+                        className="w-full flex items-center justify-center gap-1.5 h-8 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 text-xs font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
+                        data-testid={`button-use-at-store-${coupon.id}`}
+                      >
+                        <Store className="w-3.5 h-3.5" />
+                        Use at Store
+                      </button>
                     </div>
                   </div>
                 );

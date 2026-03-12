@@ -2283,5 +2283,41 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
+  // ── In-store coupon redemption ─────────────────────────────────────────────
+  app.post("/api/coupons/:id/redeem-store", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const couponId = req.params.id;
+      const coupon = await storage.getCoupon(couponId);
+      if (!coupon) return res.status(404).json({ error: "Coupon not found" });
+      if (!coupon.is_active) return res.status(400).json({ error: "Coupon is not active" });
+      const shop = await storage.getShop(coupon.shop_id!);
+      if (!shop) return res.status(404).json({ error: "Shop not found" });
+      const order = await storage.createOrder({
+        user_id: userId,
+        shop_id: coupon.shop_id!,
+        shop_name: shop.name,
+        total_amount: "0",
+        discount_amount: "0",
+        final_amount: "0",
+        status: "completed",
+        payment_status: "store",
+        coupon_code: coupon.code,
+        redemption_type: "store",
+      } as any, []);
+      res.json({ success: true, order });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ── Get coupon public info (for redeem page) ───────────────────────────────
+  app.get("/api/coupons/:id/public", async (req, res) => {
+    try {
+      const coupon = await storage.getCoupon(req.params.id);
+      if (!coupon) return res.status(404).json({ error: "Not found" });
+      const shop = await storage.getShop(coupon.shop_id!);
+      res.json({ ...coupon, shop });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   return httpServer;
 }

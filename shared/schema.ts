@@ -53,6 +53,8 @@ export const shops = pgTable("shops", {
   business_hours: text("business_hours"),
   show_on_radar: boolean("show_on_radar").notNull().default(true),
   marker_color: text("marker_color"),
+  delivery_fee_enabled: boolean("delivery_fee_enabled").default(false),
+  delivery_fee_amount: numeric("delivery_fee_amount", { precision: 10, scale: 2 }).default("0"),
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -122,6 +124,7 @@ export const orders = pgTable("orders", {
   razorpay_order_id: text("razorpay_order_id"),
   coupon_code: text("coupon_code"),
   customer_location: text("customer_location"),
+  redemption_type: text("redemption_type").default("online"),
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });
 

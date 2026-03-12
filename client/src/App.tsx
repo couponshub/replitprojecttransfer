@@ -21,6 +21,7 @@ import VendorDashboard from "@/pages/vendor-dashboard";
 import ContestsPage from "@/pages/contests";
 import NotificationsPage from "@/pages/notifications";
 import MyCouponsPage from "@/pages/my-coupons";
+import RedeemPage from "@/pages/redeem";
 
 
 function Router() {
@@ -60,6 +61,7 @@ function Router() {
       <Route path="/contests" component={ContestsPage} />
       <Route path="/notifications" component={NotificationsPage} />
       <Route path="/my-coupons" component={MyCouponsPage} />
+      <Route path="/redeem/:id" component={RedeemPage} />
       <Route component={NotFound} />
     </Switch>
   );

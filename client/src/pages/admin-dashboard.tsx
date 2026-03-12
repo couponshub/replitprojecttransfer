@@ -2691,6 +2691,7 @@ export default function AdminDashboard() {
                           <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Customer</th>
                           <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Phone</th>
                           <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Shop</th>
+                          <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Type</th>
                           <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Amount</th>
                           <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Date</th>
                           <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Status</th>
@@ -2716,6 +2717,17 @@ export default function AdminDashboard() {
                             </td>
                             <td className="px-5 py-3.5">
                               <span className="text-xs text-muted-foreground truncate max-w-[120px] block">{order.shop_name || "—"}</span>
+                            </td>
+                            <td className="px-5 py-3.5">
+                              {(order as any).redemption_type === "store" ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400">
+                                  <Store className="w-2.5 h-2.5" /> Used at Store
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400">
+                                  Online
+                                </span>
+                              )}
                             </td>
                             <td className="px-5 py-3.5">
                               <span className="font-bold text-sm text-gray-900 dark:text-white">₹{parseFloat(order.final_amount as string).toLocaleString()}</span>

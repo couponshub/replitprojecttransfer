@@ -298,19 +298,6 @@ export default function Login() {
                       )}
                     </Button>
                   </form>
-                  <div className="flex items-center gap-3 my-5">
-                    <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
-                    <span className="text-xs text-muted-foreground">or continue with</span>
-                    <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
-                  </div>
-                  <a
-                    href="/api/auth/google"
-                    className="flex items-center justify-center gap-3 w-full h-12 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-medium text-sm hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
-                    data-testid="button-google-login"
-                  >
-                    <SiGoogle className="w-4 h-4 text-[#4285F4]" />
-                    Sign in with Google
-                  </a>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -388,19 +375,6 @@ export default function Login() {
                       )}
                     </Button>
                   </form>
-                  <div className="flex items-center gap-3 my-5">
-                    <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
-                    <span className="text-xs text-muted-foreground">or sign up with</span>
-                    <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
-                  </div>
-                  <a
-                    href="/api/auth/google"
-                    className="flex items-center justify-center gap-3 w-full h-12 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-medium text-sm hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
-                    data-testid="button-google-register"
-                  >
-                    <SiGoogle className="w-4 h-4 text-[#4285F4]" />
-                    Continue with Google
-                  </a>
                 </CardContent>
               </Card>
             </TabsContent>
