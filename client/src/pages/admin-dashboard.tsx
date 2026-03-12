@@ -2687,6 +2687,7 @@ export default function AdminDashboard() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-gray-100 dark:border-gray-800">
+                          <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Order ID</th>
                           <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Customer</th>
                           <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Mobile</th>
                           <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Shop</th>
@@ -2701,7 +2702,10 @@ export default function AdminDashboard() {
                           const isPending = order.status === "pending";
                           const isConfirmed = order.status === "confirmed";
                           return (
-                          <tr key={order.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors" data-testid={`row-order-${order.id}`}>
+                          <tr key={order.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer" data-testid={`row-order-${order.id}`} onClick={() => setSelectedOrderId(order.id)}>
+                            <td className="px-5 py-3.5">
+                              <button className="font-mono font-bold text-sm text-blue-600 dark:text-blue-400 hover:underline" data-testid={`button-order-detail-${order.id}`} onClick={e => { e.stopPropagation(); setSelectedOrderId(order.id); }}>#{order.id.slice(0, 8).toUpperCase()}</button>
+                            </td>
                             <td className="px-5 py-3.5">
                               <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{(order as any).user?.name || "Unknown"}</span>
                             </td>
@@ -2860,11 +2864,27 @@ export default function AdminDashboard() {
                         </div>
                       </div>
 
-                      {/* Shop */}
-                      {selectedOrderDetail.shop_name && (
+                      {/* Redemption Type */}
+                      {(selectedOrderDetail as any).redemption_type === "store" && (
+                        <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-2xl p-4 border border-emerald-200 dark:border-emerald-800/30">
+                          <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mb-2">Redeemed at Store</p>
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
+                              <Store className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-sm text-gray-900 dark:text-white">{selectedOrderDetail.shop_name || "Unknown Shop"}</p>
+                              {selectedOrderDetail.coupon_code && <p className="text-xs text-muted-foreground">Coupon: <span className="font-bold text-emerald-600 dark:text-emerald-400">{selectedOrderDetail.coupon_code}</span></p>}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Shop for Online Orders */}
+                      {(selectedOrderDetail as any).redemption_type !== "store" && selectedOrderDetail.shop_name && (
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center shrink-0">
-                            <Store className="w-4 h-4 text-emerald-600" />
+                          <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/30 flex items-center justify-center shrink-0">
+                            <Store className="w-4 h-4 text-blue-600" />
                           </div>
                           <div>
                             <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Shop</p>
@@ -2874,13 +2894,14 @@ export default function AdminDashboard() {
                       )}
 
                       {/* Items */}
+                      {(selectedOrderDetail as any).redemption_type !== "store" && (
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Order Items ({selectedOrderDetail.items?.length || 0})</p>
                         <div className="flex flex-col gap-2">
                           {(selectedOrderDetail.items || []).map((item, i) => (
                             <div key={i} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{item.product_name}{item.is_free_item ? " 🎁" : ""}</p>
+                                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{item.product_name}{item.is_free_item ? " (Free)" : ""}</p>
                                 <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
                               </div>
                               <span className="font-semibold text-sm text-gray-900 dark:text-white shrink-0">
@@ -2890,6 +2911,7 @@ export default function AdminDashboard() {
                           ))}
                         </div>
                       </div>
+                      )}
 
                       {/* Amounts */}
                       <div className="bg-gradient-to-br from-blue-50 to-violet-50 dark:from-blue-950/30 dark:to-violet-950/30 rounded-2xl p-4">
