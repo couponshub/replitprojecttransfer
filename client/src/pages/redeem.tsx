@@ -120,7 +120,7 @@ export default function RedeemPage() {
                 <p className="text-sm opacity-80 mb-4">{coupon.description}</p>
               )}
 
-              <div className="flex items-center gap-4 text-sm opacity-75">
+              <div className="flex items-center gap-4 text-sm opacity-75 flex-wrap">
                 {coupon.expiry_date && (
                   <span className="flex items-center gap-1">
                     <Clock className="w-3.5 h-3.5" />
@@ -129,6 +129,11 @@ export default function RedeemPage() {
                 )}
                 {coupon.min_order_amount && (
                   <span>Min ₹{coupon.min_order_amount}</span>
+                )}
+                {coupon.usage_limit != null && (
+                  <span className="flex items-center gap-1 font-bold">
+                    {Math.max(0, coupon.usage_limit - (coupon.usage_count ?? 0))} of {coupon.usage_limit} remaining
+                  </span>
                 )}
               </div>
 

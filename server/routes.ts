@@ -1588,8 +1588,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.put("/api/orders/:id/status", adminMiddleware, async (req, res) => {
     const { status } = req.body;
+    const existingOrder = await storage.getOrder(req.params.id);
+    if (!existingOrder) return res.status(404).json({ error: "Not found" });
     const order = await storage.updateOrderStatus(req.params.id, status);
     if (!order) return res.status(404).json({ error: "Not found" });
+    // When admin confirms a store redemption, deduct from usage_count
+    if (status === "confirmed" && (existingOrder as any).redemption_type === "store" && existingOrder.coupon_code && existingOrder.shop_id) {
+      try { await storage.incrementCouponUsage(existingOrder.coupon_code, existingOrder.shop_id); } catch {}
+    }
     res.json(order);
   });
 
@@ -2300,7 +2306,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         total_amount: "0",
         discount_amount: "0",
         final_amount: "0",
-        status: "completed",
+        status: "pending",
         payment_status: "store",
         coupon_code: coupon.code,
         redemption_type: "store",

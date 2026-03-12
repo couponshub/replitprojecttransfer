@@ -16,7 +16,7 @@ import { DragDropImageUpload } from "@/components/drag-drop-image-upload";
 import {
   LayoutDashboard, Tag, Store, Package, Ticket, ShoppingBag,
   Plus, Edit, Trash2, Crown, LogOut, ChevronRight, Users, TrendingUp,
-  Zap, Star, Check, X, Menu, Award, Flame, UserCheck, Phone, Mail,
+  Zap, Star, Check, CheckCircle, X, Menu, Award, Flame, UserCheck, Phone, Mail,
   Globe, MapPin, Wifi, WifiOff, Search, Image, Link, ExternalLink, Upload, Loader2, Eye, EyeOff,
   Download, RefreshCw, ArrowUpAZ, ArrowDownAZ, Settings, MessageCircle, Save, Trophy, Gift, Layout
 } from "lucide-react";
@@ -2687,28 +2687,27 @@ export default function AdminDashboard() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-gray-100 dark:border-gray-800">
-                          <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Order</th>
                           <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Customer</th>
-                          <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Phone</th>
+                          <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Mobile</th>
                           <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Shop</th>
                           <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Type</th>
-                          <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Amount</th>
                           <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Date</th>
-                          <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Status</th>
+                          <th className="text-left text-xs font-semibold text-muted-foreground px-5 py-3">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-50 dark:divide-gray-800/50">
-                        {orders.filter(order => !orderSearch || order.id.toLowerCase().includes(orderSearch.toLowerCase()) || (order as any).user?.name?.toLowerCase().includes(orderSearch.toLowerCase()) || (order as any).user?.phone?.includes(orderSearch) || (order as any).shop_name?.toLowerCase().includes(orderSearch.toLowerCase())).map(order => (
-                          <tr key={order.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer" data-testid={`row-order-${order.id}`} onClick={() => setSelectedOrderId(order.id)}>
+                        {orders.filter(order => !orderSearch || order.id.toLowerCase().includes(orderSearch.toLowerCase()) || (order as any).user?.name?.toLowerCase().includes(orderSearch.toLowerCase()) || (order as any).user?.phone?.includes(orderSearch) || (order as any).shop_name?.toLowerCase().includes(orderSearch.toLowerCase())).map(order => {
+                          const isStore = (order as any).redemption_type === "store";
+                          const isPending = order.status === "pending";
+                          const isConfirmed = order.status === "confirmed";
+                          return (
+                          <tr key={order.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors" data-testid={`row-order-${order.id}`}>
                             <td className="px-5 py-3.5">
-                              <button className="font-mono font-bold text-sm text-blue-600 dark:text-blue-400 hover:underline" data-testid={`button-order-detail-${order.id}`}>#{order.id.slice(0, 8).toUpperCase()}</button>
-                            </td>
-                            <td className="px-5 py-3.5">
-                              <span className="text-sm text-gray-700 dark:text-gray-300">{(order as any).user?.name || "Unknown"}</span>
+                              <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{(order as any).user?.name || "Unknown"}</span>
                             </td>
                             <td className="px-5 py-3.5">
                               {(order as any).user?.phone ? (
-                                <a href={`tel:+91${(order as any).user.phone}`} className="text-sm text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:underline" onClick={e => e.stopPropagation()} data-testid={`link-order-phone-${order.id}`}>
+                                <a href={`tel:+91${(order as any).user.phone}`} className="text-sm text-blue-600 dark:text-blue-400 flex items-center gap-1 hover:underline" data-testid={`link-order-phone-${order.id}`}>
                                   <Phone className="w-3 h-3" />+91 {(order as any).user.phone}
                                 </a>
                               ) : (
@@ -2716,10 +2715,10 @@ export default function AdminDashboard() {
                               )}
                             </td>
                             <td className="px-5 py-3.5">
-                              <span className="text-xs text-muted-foreground truncate max-w-[120px] block">{order.shop_name || "—"}</span>
+                              <span className="text-xs text-muted-foreground truncate max-w-[140px] block">{order.shop_name || "—"}</span>
                             </td>
                             <td className="px-5 py-3.5">
-                              {(order as any).redemption_type === "store" ? (
+                              {isStore ? (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400">
                                   <Store className="w-2.5 h-2.5" /> Used at Store
                                 </span>
@@ -2729,30 +2728,48 @@ export default function AdminDashboard() {
                                 </span>
                               )}
                             </td>
-                            <td className="px-5 py-3.5">
-                              <span className="font-bold text-sm text-gray-900 dark:text-white">₹{parseFloat(order.final_amount as string).toLocaleString()}</span>
-                            </td>
-                            <td className="px-5 py-3.5 text-xs text-muted-foreground">
-                              {new Date(order.created_at).toLocaleDateString()}
+                            <td className="px-5 py-3.5 text-xs text-muted-foreground whitespace-nowrap">
+                              {new Date(order.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "2-digit" })}
                             </td>
                             <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
-                              <Select
-                                value={order.status}
-                                onValueChange={v => updateOrderStatus.mutate({ id: order.id, status: v })}
-                              >
-                                <SelectTrigger className={`w-32 rounded-xl text-xs ${STATUS_COLORS[order.status] || ""} border-0`} data-testid={`select-order-status-${order.id}`}>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="pending">Pending</SelectItem>
-                                  <SelectItem value="confirmed">Confirmed</SelectItem>
-                                  <SelectItem value="completed">Completed</SelectItem>
-                                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                                </SelectContent>
-                              </Select>
+                              {isStore ? (
+                                isConfirmed ? (
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                                    <CheckCircle className="w-3.5 h-3.5" /> Confirmed
+                                  </span>
+                                ) : isPending ? (
+                                  <Button
+                                    size="sm"
+                                    className="h-7 px-3 text-xs rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white border-0"
+                                    onClick={() => updateOrderStatus.mutate({ id: order.id, status: "confirmed" })}
+                                    disabled={updateOrderStatus.isPending}
+                                    data-testid={`button-confirm-store-order-${order.id}`}
+                                  >
+                                    Confirm Use
+                                  </Button>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground capitalize">{order.status}</span>
+                                )
+                              ) : (
+                                <Select
+                                  value={order.status}
+                                  onValueChange={v => updateOrderStatus.mutate({ id: order.id, status: v })}
+                                >
+                                  <SelectTrigger className={`w-28 rounded-xl text-xs ${STATUS_COLORS[order.status] || ""} border-0`} data-testid={`select-order-status-${order.id}`}>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="pending">Pending</SelectItem>
+                                    <SelectItem value="confirmed">Confirmed</SelectItem>
+                                    <SelectItem value="completed">Completed</SelectItem>
+                                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              )}
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>

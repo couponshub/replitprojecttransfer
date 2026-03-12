@@ -447,7 +447,9 @@ export class PgStorage implements IStorage {
   async createOrder(order: InsertOrder, items: InsertOrderItem[]): Promise<Order> {
     const result = await db.insert(orders).values(order).returning();
     const created = result[0];
-    await db.insert(orderItems).values(items.map(i => ({ ...i, order_id: created.id })));
+    if (items.length > 0) {
+      await db.insert(orderItems).values(items.map(i => ({ ...i, order_id: created.id })));
+    }
     return created;
   }
 
