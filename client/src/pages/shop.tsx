@@ -149,6 +149,23 @@ export default function ShopPage() {
     setTimeout(() => setCopiedCode(null), 2000);
   };
 
+  const [sharedShop, setSharedShop] = useState(false);
+
+  const shareShop = async () => {
+    const shareUrl = `${window.location.origin}/shop/${id}`;
+    const shareText = `Check out ${shop?.name || "this shop"} on CouponsHub X — exclusive local deals in Eluru!`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: shop?.name, text: shareText, url: shareUrl });
+        return;
+      } catch {}
+    }
+    navigator.clipboard.writeText(shareUrl);
+    setSharedShop(true);
+    toast({ title: "Shop link copied!", description: "Share it with friends to let them discover this shop." });
+    setTimeout(() => setSharedShop(false), 2000);
+  };
+
   const shareCoupon = async (couponId: string, couponCode: string) => {
     const shopId = id;
     const shareUrl = `${window.location.origin}/shop/${shopId}?highlight=${couponId}`;
@@ -382,7 +399,19 @@ export default function ShopPage() {
               onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
             />
           )}
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white mb-3">{shop.name}</h1>
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">{shop.name}</h1>
+            <button
+              onClick={shareShop}
+              className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl border transition-colors bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-emerald-50 dark:hover:bg-emerald-950 hover:border-emerald-300 shadow-sm"
+              data-testid="button-share-shop"
+              title="Share this shop"
+            >
+              {sharedShop
+                ? <Check className="w-4 h-4 text-emerald-500" />
+                : <Share2 className="w-4 h-4 text-gray-500" />}
+            </button>
+          </div>
           <div className="flex items-center gap-2 flex-wrap justify-center mb-3">
             {shop.is_premium && (
               <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 gap-1 border-0">
