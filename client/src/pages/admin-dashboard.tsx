@@ -3173,8 +3173,8 @@ function BannersTab({ toast, allCoupons }: { toast: any; allCoupons: any[] }) {
   };
 
   return (
-    <div className="p-6 sm:p-8">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-6 sm:p-8 h-full flex flex-col">
+      <div className="flex items-center justify-between mb-6 flex-shrink-0">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">Banners</h2>
@@ -3186,22 +3186,23 @@ function BannersTab({ toast, allCoupons }: { toast: any; allCoupons: any[] }) {
           </div>
           <p className="text-sm text-muted-foreground mt-0.5">Manage homepage coupon banners · slides every 3 sec</p>
         </div>
-        <Button onClick={openAdd} className="rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 border-0 text-white gap-2" data-testid="button-add-banner">
+        <Button onClick={openAdd} className="rounded-xl bg-gradient-to-r from-blue-500 to-violet-600 border-0 text-white gap-2 flex-shrink-0" data-testid="button-add-banner">
           <Plus className="w-4 h-4" /> Add Banner
         </Button>
       </div>
 
-      {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1,2,3].map(i => <Skeleton key={i} className="h-48 rounded-2xl" />)}
-        </div>
-      ) : banners.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground">
-          <Image className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p>No banners yet. Add your first banner!</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="flex-1 overflow-y-auto">
+        {isLoading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1,2,3].map(i => <Skeleton key={i} className="h-48 rounded-2xl" />)}
+          </div>
+        ) : banners.length === 0 ? (
+          <div className="text-center py-16 text-muted-foreground">
+            <Image className="w-12 h-12 mx-auto mb-3 opacity-30" />
+            <p>No banners yet. Add your first banner!</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-4">
           {banners.map((b: any) => (
             <div key={b.id} className="rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 shadow-sm bg-white dark:bg-gray-900" data-testid={`card-banner-${b.id}`}>
               <div className="relative aspect-video bg-gray-100 dark:bg-gray-800 overflow-hidden">
@@ -3231,8 +3232,9 @@ function BannersTab({ toast, allCoupons }: { toast: any; allCoupons: any[] }) {
               </div>
             </div>
           ))}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md rounded-2xl">
