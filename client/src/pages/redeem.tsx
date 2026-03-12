@@ -24,6 +24,12 @@ export default function RedeemPage() {
     onSuccess: () => {
       setRedeemed(true);
       toast({ title: "Coupon redeemed at store!", description: "Show this screen to the shopkeeper." });
+      // Auto-navigate back to shop after 3 seconds
+      setTimeout(() => {
+        if (coupon?.shop_id) {
+          navigate(`/shop/${coupon.shop_id}`);
+        }
+      }, 3000);
     },
     onError: (e: any) => {
       toast({ title: "Redemption failed", description: e.message, variant: "destructive" });
