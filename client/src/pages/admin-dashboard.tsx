@@ -3148,7 +3148,7 @@ function BannersTab({ toast, allCoupons }: { toast: any; allCoupons: any[] }) {
     if (!file) return;
     setUploading(true);
     const fd = new FormData();
-    fd.append("image", file);
+    fd.append("file", file);
     try {
       const token = localStorage.getItem("coupons_hub_token");
       const res = await fetch("/api/upload", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: fd });
