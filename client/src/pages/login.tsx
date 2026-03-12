@@ -180,9 +180,9 @@ export default function Login() {
 
           <Tabs value={tab} onValueChange={v => setTab(v as any)}>
             <div className="flex items-center gap-2 mb-8">
-              <TabsList className="flex-1 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-1 grid grid-cols-2">
-                <TabsTrigger value="register" className="rounded-xl text-xs sm:text-sm" data-testid="tab-register">Register</TabsTrigger>
-                <TabsTrigger value="login" className="rounded-xl text-xs sm:text-sm" data-testid="tab-login">Sign In</TabsTrigger>
+              <TabsList className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-2xl p-1 grid grid-cols-2">
+                <TabsTrigger value="register" className="rounded-xl text-xs sm:text-sm font-semibold data-[state=active]:bg-white dark:data-[state=active]:bg-gray-900 data-[state=active]:text-blue-600 data-[state=active]:shadow-md transition-all" data-testid="tab-register">Register</TabsTrigger>
+                <TabsTrigger value="login" className="rounded-xl text-xs sm:text-sm font-semibold data-[state=active]:bg-white dark:data-[state=active]:bg-gray-900 data-[state=active]:text-blue-600 data-[state=active]:shadow-md transition-all" data-testid="tab-login">Sign In</TabsTrigger>
               </TabsList>
 
               <DropdownMenu>
@@ -454,7 +454,7 @@ export default function Login() {
                       <Input
                         id="admin-email"
                         type="email"
-                        placeholder="admin@marketplace.com"
+                        placeholder="Enter admin email"
                         value={adminForm.email}
                         onChange={e => setAdminForm(f => ({ ...f, email: e.target.value }))}
                         className="h-12 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
