@@ -49,7 +49,10 @@ function BannerSlider({ banners }: { banners: BannerWithCoupon[] }) {
           ? `Visit ${banner.coupon.shop.name} to use it`
           : "Use this code at checkout",
       });
-      if (banner.coupon.shop) navigate(`/shop/${banner.coupon.shop.id}`);
+      if (banner.coupon.shop) {
+        localStorage.setItem("lastShopId", banner.coupon.shop.id);
+        navigate(`/shop/${banner.coupon.shop.id}`);
+      }
     } else if ((banner as any).link_url) {
       navigate((banner as any).link_url);
     }
@@ -282,7 +285,7 @@ function SearchBar({ placeholder }: { placeholder?: string }) {
                       {results!.shops.map(shop => (
                         <button
                           key={shop.id}
-                          onClick={() => { navigate(`/shop/${shop.id}`); setOpen(false); setQuery(""); }}
+                          onClick={() => { localStorage.setItem("lastShopId", shop.id); navigate(`/shop/${shop.id}`); setOpen(false); setQuery(""); }}
                           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-left group"
                           data-testid={`search-result-shop-${shop.id}`}
                         >
@@ -309,7 +312,7 @@ function SearchBar({ placeholder }: { placeholder?: string }) {
                       {results!.products.map(product => (
                         <button
                           key={product.id}
-                          onClick={() => { navigate(`/shop/${product.shop_id}`); setOpen(false); setQuery(""); }}
+                          onClick={() => { localStorage.setItem("lastShopId", product.shop_id); navigate(`/shop/${product.shop_id}`); setOpen(false); setQuery(""); }}
                           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors text-left group"
                           data-testid={`search-result-product-${product.id}`}
                         >
@@ -341,7 +344,10 @@ function SearchBar({ placeholder }: { placeholder?: string }) {
                               title: `🎉 "${coupon.code}" copied!`,
                               description: coupon.shop ? `Apply at ${coupon.shop.name}` : "Apply at checkout",
                             });
-                            if (coupon.shop_id) navigate(`/shop/${coupon.shop_id}`);
+                            if (coupon.shop_id) {
+                              localStorage.setItem("lastShopId", coupon.shop_id);
+                              navigate(`/shop/${coupon.shop_id}`);
+                            }
                             setOpen(false);
                             setQuery("");
                           }}
@@ -451,7 +457,7 @@ function ShopCard({ shop }: { shop: Shop & { category?: Category } }) {
   return (
     <Card
       className="rounded-2xl border-0 shadow-md cursor-pointer hover-elevate transition-all overflow-visible"
-      onClick={() => navigate(`/shop/${shop.id}`)}
+      onClick={() => { localStorage.setItem("lastShopId", shop.id); navigate(`/shop/${shop.id}`); }}
       data-testid={`card-shop-${shop.id}`}
     >
       <div className="h-28 rounded-t-2xl bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 relative overflow-hidden">
@@ -518,7 +524,7 @@ function ShopLogoCircle({ shop, onView }: { shop: Shop & { category?: Category }
   return (
     <button
       type="button"
-      onClick={() => { recordShopView(shop.id, shop.category_id || undefined); onView?.(); navigate(`/shop/${shop.id}`); }}
+      onClick={() => { localStorage.setItem("lastShopId", shop.id); recordShopView(shop.id, shop.category_id || undefined); onView?.(); navigate(`/shop/${shop.id}`); }}
       className="flex flex-col items-center gap-2 shrink-0 w-16 group"
       data-testid={`logo-shop-${shop.id}`}
     >
@@ -1003,8 +1009,12 @@ function CouponCard({ coupon }: { coupon: Coupon & { shop?: Shop } }) {
   };
 
   const handleClaim = () => {
-    if (coupon.shop_id) navigate(`/shop/${coupon.shop_id}`);
-    else navigate("/home");
+    if (coupon.shop_id) {
+      localStorage.setItem("lastShopId", coupon.shop_id);
+      navigate(`/shop/${coupon.shop_id}`);
+    } else {
+      navigate("/home");
+    }
   };
 
   const handleCopy = () => {
@@ -1289,6 +1299,7 @@ function NearbyMapPanel({
     (window as any).__navToShopCoupon = (payload: string) => {
       try {
         const { shopId, couponId } = JSON.parse(decodeURIComponent(payload));
+        localStorage.setItem("lastShopId", shopId);
         navigate(`/shop/${shopId}?highlight=${couponId}`);
       } catch {}
     };
@@ -1459,7 +1470,7 @@ function NearbyMapPanel({
                   </div>
                 )}
                 <button
-                  onClick={() => { navigate(`/shop/${selectedMapShop.id}`); setSelectedMapShop(null); onClose(); }}
+                  onClick={() => { localStorage.setItem("lastShopId", selectedMapShop.id); navigate(`/shop/${selectedMapShop.id}`); setSelectedMapShop(null); onClose(); }}
                   className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-bold text-sm transition-all hover:shadow-lg active:scale-95"
                   data-testid="button-map-shop-detail-go"
                 >
