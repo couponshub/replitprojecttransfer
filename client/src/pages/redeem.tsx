@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Navbar } from "@/components/Navbar";
@@ -14,6 +14,7 @@ export default function RedeemPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [redeemed, setRedeemed] = useState(false);
+  const [countdown, setCountdown] = useState(20);
 
   const { data: coupon, isLoading } = useQuery<any>({
     queryKey: [`/api/coupons/${couponId}/public`],
@@ -23,18 +24,24 @@ export default function RedeemPage() {
     mutationFn: () => apiRequest("POST", `/api/coupons/${couponId}/redeem-store`),
     onSuccess: () => {
       setRedeemed(true);
+      setCountdown(20);
       toast({ title: "Coupon redeemed at store!", description: "Show this screen to the shopkeeper." });
-      // Auto-navigate back to shop after 3 seconds
-      setTimeout(() => {
-        if (coupon?.shop_id) {
-          navigate(`/shop/${coupon.shop_id}`);
-        }
-      }, 3000);
     },
     onError: (e: any) => {
       toast({ title: "Redemption failed", description: e.message, variant: "destructive" });
     },
   });
+
+  // Countdown timer - auto-navigate after 20 seconds
+  useEffect(() => {
+    if (!redeemed) return;
+    if (countdown <= 0) {
+      if (coupon?.shop_id) navigate(`/shop/${coupon.shop_id}`);
+      return;
+    }
+    const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [redeemed, countdown, coupon?.shop_id, navigate]);
 
   const handleRedeem = () => {
     if (!user) {
@@ -165,17 +172,21 @@ export default function RedeemPage() {
 
             {/* Redeem Button */}
             {redeemed ? (
-              <div className="text-center py-4">
-                <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
-                <p className="font-bold text-gray-900 dark:text-white">Coupon Used!</p>
-                <p className="text-sm text-muted-foreground mt-1">Your redemption has been recorded.</p>
+              <div className="text-center py-6 px-4 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 rounded-3xl border border-emerald-200 dark:border-emerald-800">
+                <div className="mb-4">
+                  <CheckCircle2 className="w-14 h-14 text-emerald-500 mx-auto animate-bounce" />
+                </div>
+                <p className="font-bold text-2xl text-gray-900 dark:text-white mb-1">Coupon Used!</p>
+                <p className="text-sm text-muted-foreground mb-4">Your redemption has been recorded.</p>
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold mb-4">
+                  Returning to shop in {countdown}s...
+                </p>
                 <Button
-                  variant="outline"
-                  className="mt-4 rounded-xl"
                   onClick={() => navigate(`/shop/${coupon.shop_id}`)}
-                  data-testid="button-back-to-shop"
+                  className="w-full h-12 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 border-0 text-white font-bold"
+                  data-testid="button-back-to-shop-now"
                 >
-                  Back to Shop
+                  Back to Shop Now
                 </Button>
               </div>
             ) : (
