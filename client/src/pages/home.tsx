@@ -1865,6 +1865,27 @@ export default function Home() {
   const [couponTab, setCouponTab] = useState<"top" | "offline" | "downloads">("top");
   const { isAuthenticated, token } = useAuth();
 
+  // Category strip auto-scroll
+  const catScrollRef = useRef<HTMLDivElement>(null);
+  const catPausedRef = useRef(false);
+  useEffect(() => {
+    const el = catScrollRef.current;
+    if (!el) return;
+    let animId: number;
+    const speed = 0.38; // pixels per frame — slow Apple-style drift
+    const tick = () => {
+      if (!catPausedRef.current && el.scrollWidth > el.clientWidth) {
+        el.scrollLeft += speed;
+        if (el.scrollLeft >= el.scrollWidth - el.clientWidth - 2) {
+          el.scrollLeft = 0;
+        }
+      }
+      animId = requestAnimationFrame(tick);
+    };
+    animId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animId);
+  }, []);
+
   const { data: activeCoupons = [], isLoading: couponLoading } = useQuery<(Coupon & { shop?: Shop })[]>({
     queryKey: ["/api/coupons/active"],
   });
@@ -2069,12 +2090,24 @@ export default function Home() {
             }
           </div>
         ) : topCategories.length > 0 ? (
-          /* Apple-style grid: 4 columns wide, overflow scroll, 2 visible rows */
-          <div className="overflow-x-auto scrollbar-hide -mx-1 px-1">
+          /* 2-row auto-scrolling Apple-style category strip */
+          <div
+            ref={catScrollRef}
+            className="overflow-x-auto scrollbar-hide -mx-4 px-4 cursor-grab active:cursor-grabbing"
+            onTouchStart={() => { catPausedRef.current = true; }}
+            onTouchEnd={() => { setTimeout(() => { catPausedRef.current = false; }, 1200); }}
+            onMouseEnter={() => { catPausedRef.current = true; }}
+            onMouseLeave={() => { catPausedRef.current = false; }}
+            data-testid="section-top-categories-grid"
+          >
             <div
-              className="grid gap-x-3 gap-y-4 pb-2"
-              style={{ gridTemplateColumns: "repeat(5, minmax(72px, 1fr))", gridTemplateRows: "auto auto", gridAutoFlow: "column" }}
-              data-testid="section-top-categories-grid"
+              className="grid gap-x-4 gap-y-3 pb-2"
+              style={{
+                gridTemplateRows: "repeat(2, auto)",
+                gridAutoFlow: "column",
+                gridAutoColumns: "72px",
+                width: "max-content",
+              }}
             >
               {topCategories.map((cat, i) => {
                 const IconComp = getCategoryIconComponent(cat.name);
@@ -2086,7 +2119,7 @@ export default function Home() {
                     className="flex flex-col items-center gap-1.5 group"
                     data-testid={`card-top-category-${cat.id}`}
                   >
-                    <div className={`w-[72px] h-[72px] rounded-[20px] border ${bgCls} flex items-center justify-center shadow-sm transition-all active:scale-95 group-hover:scale-105 group-hover:shadow-md overflow-hidden relative p-2`}>
+                    <div className={`w-[68px] h-[68px] rounded-[20px] border ${bgCls} flex items-center justify-center shadow-sm transition-all active:scale-95 group-hover:scale-105 group-hover:shadow-md overflow-hidden relative p-2`}>
                       {cat.image && cat.image.startsWith("http") ? (
                         <img src={cat.image} alt={cat.name} className="w-full h-full object-cover rounded-[12px]" onError={e => { (e.target as any).style.display = "none"; }} />
                       ) : IconComp ? (
@@ -2095,7 +2128,7 @@ export default function Home() {
                         <span className="text-3xl">{getCategoryIcon(cat.name)}</span>
                       )}
                     </div>
-                    <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 text-center leading-tight max-w-[72px]">{cat.name}</span>
+                    <span className="text-[10px] font-semibold text-gray-700 dark:text-gray-300 text-center leading-tight max-w-[72px]">{cat.name}</span>
                   </button>
                 );
               })}
