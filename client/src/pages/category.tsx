@@ -63,7 +63,7 @@ export default function CategoryPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        <Button variant="ghost" size="sm" onClick={() => window.history.back()} className="mb-4 -ml-2" data-testid="button-back">
+        <Button variant="ghost" size="sm" onClick={() => navigate("/categories")} className="mb-4 -ml-2" data-testid="button-back">
           <ArrowLeft className="w-4 h-4 mr-1" /> Back to Categories
         </Button>
 
@@ -142,7 +142,7 @@ export default function CategoryPage() {
                       <h2 className="text-lg font-bold text-gray-900 dark:text-white">Premium Shops</h2>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                      {premiumShops.map(shop => <ShopListCard key={shop.id} shop={shop} />)}
+                      {premiumShops.map(shop => <ShopListCard key={shop.id} shop={shop} categoryId={id} />)}
                     </div>
                   </div>
                 )}
@@ -150,7 +150,7 @@ export default function CategoryPage() {
                   <div>
                     <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">All Shops</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                      {regularShops.map(shop => <ShopListCard key={shop.id} shop={shop} />)}
+                      {regularShops.map(shop => <ShopListCard key={shop.id} shop={shop} categoryId={id} />)}
                     </div>
                   </div>
                 )}
@@ -203,7 +203,12 @@ export default function CategoryPage() {
                     <Card
                       key={prod.id}
                       className="rounded-2xl border-0 shadow-sm cursor-pointer hover:shadow-md transition-shadow overflow-hidden"
-                      onClick={() => prod.shop_id && navigate(`/shop/${prod.shop_id}`)}
+                      onClick={() => {
+                        if (prod.shop_id) {
+                          localStorage.setItem("lastCategoryId", id || "");
+                          navigate(`/shop/${prod.shop_id}`);
+                        }
+                      }}
                       data-testid={`card-product-${prod.id}`}
                     >
                       {prod.image ? (
@@ -232,12 +237,15 @@ export default function CategoryPage() {
   );
 }
 
-function ShopListCard({ shop }: { shop: Shop & { category?: Category } }) {
+function ShopListCard({ shop, categoryId }: { shop: Shop & { category?: Category }; categoryId?: string }) {
   const [, navigate] = useLocation();
   return (
     <Card
       className="rounded-2xl border-0 shadow-md cursor-pointer hover-elevate overflow-visible"
-      onClick={() => navigate(`/shop/${shop.id}`)}
+      onClick={() => {
+        if (categoryId) localStorage.setItem("lastCategoryId", categoryId);
+        navigate(`/shop/${shop.id}`);
+      }}
       data-testid={`card-shop-${shop.id}`}
     >
       <div className="h-32 rounded-t-2xl relative overflow-hidden bg-gradient-to-br from-blue-500/30 to-violet-600/30">

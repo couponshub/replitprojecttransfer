@@ -100,8 +100,13 @@ export default function ShopPage() {
   });
 
   useEffect(() => {
-    if (id) localStorage.setItem("lastShopId", id);
-  }, [id]);
+    if (id) {
+      localStorage.setItem("lastShopId", id);
+      if (shop?.category_id) {
+        localStorage.setItem("lastCategoryId", shop.category_id);
+      }
+    }
+  }, [id, shop?.category_id]);
 
   // Scroll to & highlight the coupon when arriving from map
   useEffect(() => {
@@ -353,7 +358,11 @@ export default function ShopPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 pb-28">
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        <Button variant="ghost" size="sm" onClick={() => window.history.back()} className="mb-4 -ml-2" data-testid="button-back">
+        <Button variant="ghost" size="sm" onClick={() => {
+          const lastCatId = localStorage.getItem("lastCategoryId");
+          if (lastCatId) navigate(`/category/${lastCatId}`);
+          else navigate("/categories");
+        }} className="mb-4 -ml-2" data-testid="button-back">
           <ArrowLeft className="w-4 h-4 mr-1" /> Back
         </Button>
 

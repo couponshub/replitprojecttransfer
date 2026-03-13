@@ -2126,7 +2126,7 @@ export default function Home() {
                 return (
                   <button
                     key={cat.id}
-                    onClick={() => { recordCategoryView(cat.id); navigate(`/category/${cat.id}`); }}
+                    onClick={() => { localStorage.setItem("lastCategoryViewFrom", "home"); recordCategoryView(cat.id); navigate(`/category/${cat.id}`); }}
                     className="flex flex-col items-center gap-1.5 group"
                     data-testid={`card-top-category-${cat.id}`}
                   >
@@ -2146,17 +2146,56 @@ export default function Home() {
             </div>
           </div>
         ) : (
-          /* Fallback if no top categories set */
-          <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide">
-            {catLoading
-              ? Array(8).fill(0).map((_, i) => (
-                  <div key={i} className="flex flex-col items-center gap-2 shrink-0">
-                    <Skeleton className="w-[72px] h-[72px] rounded-2xl" />
-                    <Skeleton className="w-14 h-3 rounded" />
-                  </div>
-                ))
-              : displayCategories.map((cat, i) => <CategoryCard key={cat.id} category={cat} index={i} />)
-            }
+          /* Fallback: auto-scrolling 2-row grid for all categories */
+          <div
+            ref={catScrollRef}
+            className="overflow-x-auto scrollbar-hide -mx-4 px-4 cursor-grab active:cursor-grabbing"
+            onTouchStart={() => { catPausedRef.current = true; }}
+            onTouchEnd={() => { setTimeout(() => { catPausedRef.current = false; }, 1200); }}
+            onMouseEnter={() => { catPausedRef.current = true; }}
+            onMouseLeave={() => { catPausedRef.current = false; }}
+          >
+            <div
+              className="grid gap-x-4 gap-y-3 pb-2"
+              style={{
+                gridTemplateRows: "repeat(2, auto)",
+                gridAutoFlow: "column",
+                gridAutoColumns: "72px",
+                width: "max-content",
+              }}
+            >
+              {catLoading
+                ? Array(8).fill(0).map((_, i) => (
+                    <div key={i} className="flex flex-col items-center gap-2">
+                      <Skeleton className="w-[68px] h-[68px] rounded-2xl" />
+                      <Skeleton className="w-12 h-2 rounded" />
+                    </div>
+                  ))
+                : displayCategories.map((cat, i) => {
+                    const IconComp = getCategoryIconComponent(cat.name);
+                    const bgCls = getCategoryBg(cat.name);
+                    return (
+                      <button
+                        key={cat.id}
+                        onClick={() => { localStorage.setItem("lastCategoryViewFrom", "home"); recordCategoryView(cat.id); navigate(`/category/${cat.id}`); }}
+                        className="flex flex-col items-center gap-1.5 group"
+                        data-testid={`card-category-${cat.id}`}
+                      >
+                        <div className={`w-[68px] h-[68px] rounded-[20px] border ${bgCls} flex items-center justify-center shadow-sm transition-all active:scale-95 group-hover:scale-105 group-hover:shadow-md overflow-hidden relative p-2`}>
+                          {cat.image && cat.image.startsWith("http") ? (
+                            <img src={cat.image} alt={cat.name} className="w-full h-full object-cover rounded-[12px]" onError={e => { (e.target as any).style.display = "none"; }} />
+                          ) : IconComp ? (
+                            <IconComp />
+                          ) : (
+                            <span className="text-3xl">{getCategoryIcon(cat.name)}</span>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-semibold text-gray-700 dark:text-gray-300 text-center leading-tight max-w-[72px]">{cat.name}</span>
+                      </button>
+                    );
+                  })
+              }
+            </div>
           </div>
         )}
       </div>
