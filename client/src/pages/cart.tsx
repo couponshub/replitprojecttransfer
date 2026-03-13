@@ -172,7 +172,9 @@ function ShopSection({ shopId, shopItems, coupons, couponCode, couponLoading, us
   const dist = (userGPS && shopData?.latitude && shopData?.longitude)
     ? haversineKm(userGPS.lat, userGPS.lon, parseFloat(shopData.latitude), parseFloat(shopData.longitude))
     : null;
-  const deliveryFee = dist !== null ? Math.round(dist * 15) : null;
+  const deliveryFee = (shopData?.delivery_fee_enabled && shopData?.delivery_fee_amount) 
+    ? Math.round(parseFloat(shopData.delivery_fee_amount)) 
+    : null;
 
   return (
     <div className="flex flex-col gap-3">
@@ -515,8 +517,11 @@ export default function CartPage() {
   const afterDiscount = totalSubtotal - totalDiscount;
   const serviceFee = Math.round(afterDiscount * 0.02);
   const deliveryFee = uniqueShopIds.reduce((s, sid) => {
-    const dist = getShopDistance(sid);
-    return s + (dist !== null ? Math.round(dist * 15) : 0);
+    const shopData = shopDataMap[sid];
+    const fee = (shopData?.delivery_fee_enabled && shopData?.delivery_fee_amount) 
+      ? Math.round(parseFloat(shopData.delivery_fee_amount)) 
+      : 0;
+    return s + fee;
   }, 0);
   const grandTotal = afterDiscount + serviceFee + (userGPS ? deliveryFee : 0);
 
