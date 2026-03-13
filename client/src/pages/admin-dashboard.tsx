@@ -1408,6 +1408,8 @@ export default function AdminDashboard() {
                             onCls: "border-violet-400 bg-violet-50 dark:bg-violet-900/20", textCls: "text-violet-700 dark:text-violet-400", trackCls: "bg-violet-500" },
                           { key: "is_premium", label: "Premium Vendor", desc: "Premium badge shown",
                             onCls: "border-amber-400 bg-amber-50 dark:bg-amber-900/20", textCls: "text-amber-700 dark:text-amber-400", trackCls: "bg-amber-500" },
+                          { key: "delivery_fee_enabled", label: "Delivery Charge", desc: "Enable delivery fee",
+                            onCls: "border-blue-400 bg-blue-50 dark:bg-blue-900/20", textCls: "text-blue-700 dark:text-blue-400", trackCls: "bg-blue-500" },
                         ] as const).map(({ key, label, desc, onCls, textCls, trackCls }) => {
                           const checked = formData[key] ?? (key === "subscription_active");
                           return (
@@ -1429,6 +1431,12 @@ export default function AdminDashboard() {
                           );
                         })}
                       </div>
+                      {(formData as any).delivery_fee_enabled && (
+                        <div>
+                          <Label className="text-sm">Delivery Fee (₹)</Label>
+                          <Input type="number" min="0" step="0.01" value={(formData as any).delivery_fee_amount || ""} onChange={e => setForm("delivery_fee_amount", e.target.value)} className="mt-1.5 rounded-xl" placeholder="e.g. 50" data-testid="input-delivery-fee" />
+                        </div>
+                      )}
                     </div>
 
                     <Button
