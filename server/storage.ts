@@ -268,6 +268,52 @@ export class PgStorage implements IStorage {
   }
 
   async deleteShop(id: string): Promise<void> {
+    // Delete in cascade order to avoid FK constraint violations
+    // 1. Delete banners (linked via coupons)
+    const couponsToDelete = await db.select({ id: coupons.id }).from(coupons).where(eq(coupons.shop_id, id));
+    for (const coupon of couponsToDelete) {
+      await db.delete(banners).where(eq(banners.coupon_id, coupon.id));
+    }
+    
+    // 2. Delete coupon_products & user_coupons (linked to coupons)
+    await db.delete(couponProducts).where(
+      sql`coupon_id IN (SELECT id FROM coupons WHERE shop_id = ${id})`
+    );
+    await db.delete(userCoupons).where(
+      sql`coupon_id IN (SELECT id FROM coupons WHERE shop_id = ${id})`
+    );
+    
+    // 3. Delete coupons
+    await db.delete(coupons).where(eq(coupons.shop_id, id));
+    
+    // 4. Delete contest_slots & contests
+    const contestsToDelete = await db.select({ id: contests.id }).from(contests).where(eq(contests.shop_id, id));
+    for (const contest of contestsToDelete) {
+      await db.delete(contestSlots).where(eq(contestSlots.contest_id, contest.id));
+    }
+    await db.delete(contests).where(eq(contests.shop_id, id));
+    
+    // 5. Delete offline_coupon_codes & offline_coupons
+    const offlineToDelete = await db.select({ id: offlineCoupons.id }).from(offlineCoupons).where(eq(offlineCoupons.shop_id, id));
+    for (const oc of offlineToDelete) {
+      await db.delete(offlineCouponCodes).where(eq(offlineCouponCodes.offline_coupon_id, oc.id));
+    }
+    await db.delete(offlineCoupons).where(eq(offlineCoupons.shop_id, id));
+    
+    // 6. Delete order_items & orders
+    const ordersToDelete = await db.select({ id: orders.id }).from(orders).where(eq(orders.shop_id, id));
+    for (const order of ordersToDelete) {
+      await db.delete(orderItems).where(eq(orderItems.order_id, order.id));
+    }
+    await db.delete(orders).where(eq(orders.shop_id, id));
+    
+    // 7. Delete products
+    await db.delete(products).where(eq(products.shop_id, id));
+    
+    // 8. Delete vendors
+    await db.delete(vendors).where(eq(vendors.shop_id, id));
+    
+    // 9. Finally delete the shop
     await db.delete(shops).where(eq(shops.id, id));
   }
 
