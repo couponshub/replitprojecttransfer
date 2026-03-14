@@ -1260,8 +1260,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.delete("/api/shops/:id", adminMiddleware, async (req, res) => {
-    await storage.deleteShop(req.params.id);
-    res.json({ success: true });
+    try {
+      const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({ error: "Shop ID is required" });
+      }
+      await storage.deleteShop(id);
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Delete shop error:", error);
+      return res.status(500).json({ error: "Failed to delete shop" });
+    }
   });
 
   // Products
