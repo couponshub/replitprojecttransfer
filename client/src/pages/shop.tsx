@@ -26,13 +26,15 @@ interface CouponProduct {
   product?: Product;
 }
 
-function CouponProductsList({ couponId }: { couponId: string }) {
+function CouponProductsList({ couponId, couponType }: { couponId: string; couponType: string }) {
   const { data: cpItems = [], isLoading } = useQuery<CouponProduct[]>({
     queryKey: [`/api/coupons/${couponId}/products`],
   });
 
   if (isLoading) return <div className="h-4 w-full bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />;
-  if (cpItems.length === 0) return null;
+  
+  // Hide included items for flat/percentage discounts - they auto-add when claiming
+  if (cpItems.length === 0 || (couponType === "flat" || couponType === "percentage")) return null;
 
   return (
     <div className="mt-2 border-t border-gray-200 dark:border-gray-700 pt-2">
@@ -210,6 +212,9 @@ export default function ShopPage() {
   const finishCouponClaim = (result: any, chosenFreeItem?: any) => {
     const hasItemsToAdd = result.items_to_add && result.items_to_add.length > 0;
     const hasFreeItems = (result.items_to_add || []).some((i: any) => i.isFreeItem) || !!chosenFreeItem;
+    const includeItems = (result.items_to_add || []).filter((i: any) => i.isIncludeItem);
+    const hasIncludeItems = includeItems.length > 0;
+    
     if (hasFreeItems && id) {
       removeFreeItemsForShop(id);
     }
@@ -219,6 +224,7 @@ export default function ShopPage() {
         shop_id: item.shop_id, shopName: item.shopName,
         isFreeItem: item.isFreeItem ?? false,
         isComboItem: item.isComboItem ?? false,
+        isIncludeItem: item.isIncludeItem ?? false, // Mark as auto-added
         couponCode: result.code,
         originalPrice: item.originalPrice,
         sub_category: item.sub_category,
@@ -237,6 +243,7 @@ export default function ShopPage() {
     if (result.type === "flat" && parseFloat(result.value) > 0) parts.push(`₹${result.value} off`);
     if (chosenFreeItem) parts.push(`${chosenFreeItem.name} added free`);
     else if (result.items_to_add?.some((i: any) => i.isFreeItem)) parts.push("free item added");
+    else if (hasIncludeItems) parts.push(`${includeItems.length} item${includeItems.length > 1 ? "s" : ""} auto-added`);
     else if (hasItemsToAdd) parts.push(`${result.items_to_add.length} item${result.items_to_add.length > 1 ? "s" : ""} added`);
     if (id) { applyCoupon(id, { code: result.code, type: result.type, value: result.value, items_to_add: result.items_to_add, restrict_sub_category: result.restrict_sub_category, category_offer_subtype: result.category_offer_subtype, bogo_buy_product_name: result.bogo_buy_product_name, bogo_get_product_name: result.bogo_get_product_name }); }
     toast({ title: `✓ Coupon "${result.code}" applied!`, description: parts.join(" • ") || "Coupon applied to cart" });
@@ -303,6 +310,28 @@ export default function ShopPage() {
     try {
       const cartTotal = storeItems.reduce((s, i) => s + i.price * i.quantity, 0);
       const result = await apiRequest("POST", "/api/coupons/validate", { code: coupon.code, shopId, cartTotal: cartTotal.toString() });
+
+      // For flat/percentage coupons with included items, fetch and add them to items_to_add
+      if ((coupon.type === "flat" || coupon.type === "percentage") && !result.items_to_add) {
+        try {
+          const couponProducts = await apiRequest("GET", `/api/coupons/${coupon.id}/products`);
+          if (couponProducts && couponProducts.length > 0) {
+            result.items_to_add = couponProducts.map((cp: any) => ({
+              id: cp.product_id,
+              name: cp.product?.name || "Product",
+              price: parseFloat(cp.custom_price),
+              shop_id: shopId,
+              shopName: shop?.name || "",
+              isFreeItem: parseFloat(cp.custom_price) === 0,
+              isIncludeItem: true, // Mark as auto-added include item
+              sub_category: cp.product?.sub_category,
+              originalPrice: cp.product?.price,
+            }));
+          }
+        } catch (err) {
+          // If fetch fails, continue without included items
+        }
+      }
 
       const hasItemsToAdd = result.items_to_add && result.items_to_add.length > 0;
       const hasPickOne = result.pick_one_items && result.pick_one_items.length > 0;
@@ -573,7 +602,7 @@ export default function ShopPage() {
                         <p className="text-xs font-bold text-gray-900 dark:text-white leading-snug line-clamp-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg px-2.5 py-1.5">{(coupon as any).description}</p>
                       )}
 
-                      <CouponProductsList couponId={coupon.id} />
+                      <CouponProductsList couponId={coupon.id} couponType={coupon.type} />
 
                       {/* Restrict category badge */}
                       {(coupon as any).restrict_sub_category && (

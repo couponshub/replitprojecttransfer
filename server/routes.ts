@@ -1473,7 +1473,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
 
-  app.get("/api/coupons/:id/products", adminMiddleware, async (req, res) => {
+  app.get("/api/coupons/:id/products", async (req, res) => {
     res.json(await storage.getCouponProducts(req.params.id));
   });
 
