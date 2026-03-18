@@ -306,53 +306,55 @@ export default function ShopPage() {
 
     setClaimingCoupon(coupon.id);
     try {
+      // For flat/percentage coupons, directly fetch items without validation
+      if (coupon.type === "flat" || coupon.type === "percentage") {
+        const couponProducts = await apiRequest("GET", `/api/coupons/${coupon.id}/products`);
+        const result = {
+          code: coupon.code,
+          type: coupon.type,
+          value: coupon.value,
+          items_to_add: couponProducts && couponProducts.length > 0 
+            ? couponProducts.map((cp: any) => ({
+                id: cp.product_id,
+                name: cp.product?.name || "Product",
+                price: parseFloat(cp.custom_price),
+                shop_id: shopId,
+                shopName: shop?.name || "",
+                isFreeItem: parseFloat(cp.custom_price) === 0,
+                isIncludeItem: true,
+                sub_category: cp.product?.sub_category,
+                originalPrice: cp.product?.price,
+              }))
+            : [],
+        };
+
+        // If same store already has a coupon, auto-remove it first
+        if (existingForThisShop.length > 0) {
+          const oldCode = existingForThisShop[0].code;
+          removeCoupon(shopId, oldCode);
+        }
+
+        finishCouponClaim(result);
+        return;
+      }
+
+      // For other coupon types, validate with cart
       const cartTotal = storeItems.reduce((s, i) => s + i.price * i.quantity, 0);
       const result = await apiRequest("POST", "/api/coupons/validate", { code: coupon.code, shopId, cartTotal: cartTotal.toString() });
-
-      // For flat/percentage coupons with included items, fetch and add them to items_to_add
-      if ((coupon.type === "flat" || coupon.type === "percentage") && !result.items_to_add) {
-        try {
-          const couponProducts = await apiRequest("GET", `/api/coupons/${coupon.id}/products`);
-          if (couponProducts && couponProducts.length > 0) {
-            result.items_to_add = couponProducts.map((cp: any) => ({
-              id: cp.product_id,
-              name: cp.product?.name || "Product",
-              price: parseFloat(cp.custom_price),
-              shop_id: shopId,
-              shopName: shop?.name || "",
-              isFreeItem: parseFloat(cp.custom_price) === 0,
-              isIncludeItem: true, // Mark as auto-added include item
-              sub_category: cp.product?.sub_category,
-              originalPrice: cp.product?.price,
-            }));
-          }
-        } catch (err) {
-          // If fetch fails, continue without included items
-        }
-      }
 
       const hasItemsToAdd = result.items_to_add && result.items_to_add.length > 0;
       const hasPickOne = result.pick_one_items && result.pick_one_items.length > 0;
 
-      // If same store already has a coupon, auto-remove it first
-      if (existingForThisShop.length > 0) {
-        const oldCode = existingForThisShop[0].code;
-        removeCoupon(shopId, oldCode);
-      }
-
-      // For flat/percentage coupons, directly claim without needing to add items to cart first
-      const isDirectClaimable = coupon.type === "flat" || coupon.type === "percentage";
-      if (!hasItemsToAdd && !hasPickOne && storeItems.length === 0 && !isDirectClaimable) {
+      if (!hasItemsToAdd && !hasPickOne && storeItems.length === 0) {
         toast({ title: "Add items from this store to cart first!", variant: "destructive" });
         setClaimingCoupon(null);
         return;
       }
 
-      // For flat discounts, if items are not being added, ask user to add items
-      if (!hasItemsToAdd && !hasPickOne && isDirectClaimable && storeItems.length === 0) {
-        toast({ title: "Please add items from this store to cart first!", variant: "destructive" });
-        setClaimingCoupon(null);
-        return;
+      // If same store already has a coupon, auto-remove it first
+      if (existingForThisShop.length > 0) {
+        const oldCode = existingForThisShop[0].code;
+        removeCoupon(shopId, oldCode);
       }
 
       if (hasPickOne) {
