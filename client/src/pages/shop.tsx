@@ -296,9 +296,9 @@ export default function ShopPage() {
       return;
     }
 
-    // For percentage/flat coupons — need items from this store in cart
     const storeItems = items.filter(i => i.shop_id === shopId && !i.couponCode);
-    const isDiscountOnly = coupon.type === "percentage" || coupon.type === "flat" || coupon.type === "min_order" || coupon.type === "category_offer";
+    // For min_order/category_offer coupons — need items from this store in cart
+    const isDiscountOnly = coupon.type === "min_order" || coupon.type === "category_offer";
     if (isDiscountOnly && storeItems.length === 0) {
       toast({ title: "Add items from this store to cart first, then claim the coupon!", variant: "destructive" });
       return;
@@ -327,6 +327,13 @@ export default function ShopPage() {
               }))
             : [],
         };
+
+        // If no included items and no cart items, ask user to add items first
+        if (result.items_to_add.length === 0 && storeItems.length === 0) {
+          toast({ title: "Add items from this store to cart first, then claim the coupon!", variant: "destructive" });
+          setClaimingCoupon(null);
+          return;
+        }
 
         // If same store already has a coupon, auto-remove it first
         if (existingForThisShop.length > 0) {
