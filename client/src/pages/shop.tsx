@@ -32,9 +32,7 @@ function CouponProductsList({ couponId, couponType }: { couponId: string; coupon
   });
 
   if (isLoading) return <div className="h-4 w-full bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />;
-  
-  // Hide included items for flat/percentage discounts - they auto-add when claiming
-  if (cpItems.length === 0 || (couponType === "flat" || couponType === "percentage")) return null;
+  if (cpItems.length === 0) return null;
 
   return (
     <div className="mt-2 border-t border-gray-200 dark:border-gray-700 pt-2">
@@ -342,8 +340,17 @@ export default function ShopPage() {
         removeCoupon(shopId, oldCode);
       }
 
-      if (!hasItemsToAdd && !hasPickOne && storeItems.length === 0) {
+      // For flat/percentage coupons, directly claim without needing to add items to cart first
+      const isDirectClaimable = coupon.type === "flat" || coupon.type === "percentage";
+      if (!hasItemsToAdd && !hasPickOne && storeItems.length === 0 && !isDirectClaimable) {
         toast({ title: "Add items from this store to cart first!", variant: "destructive" });
+        setClaimingCoupon(null);
+        return;
+      }
+
+      // For flat discounts, if items are not being added, ask user to add items
+      if (!hasItemsToAdd && !hasPickOne && isDirectClaimable && storeItems.length === 0) {
+        toast({ title: "Please add items from this store to cart first!", variant: "destructive" });
         setClaimingCoupon(null);
         return;
       }
