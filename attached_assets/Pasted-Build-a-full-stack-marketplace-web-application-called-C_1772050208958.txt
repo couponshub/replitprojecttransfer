@@ -1,0 +1,280 @@
+Build a full-stack marketplace web application called “CouponsHub X”.
+
+Tech Stack:
+- Backend: Node.js + Express
+- Database: PostgreSQL
+- Auth: JWT-based authentication
+- Password hashing: bcrypt
+- Frontend: EJS or React (server-side rendering preferred)
+- Clean scalable folder structure (MVC pattern)
+
+==================================================
+DATABASE STRUCTURE
+==================================================
+
+Use PostgreSQL tables:
+
+1. users
+- id (PK)
+- name
+- email (unique)
+- password (hashed)
+- role (admin | user)
+- created_at
+
+2. categories
+- id (PK)
+- name
+- image
+- created_at
+
+3. shops
+- id (PK)
+- name
+- description
+- banner_image
+- logo
+- address
+- whatsapp_number
+- category_id (FK)
+- is_premium (boolean default false)
+- commission_percentage
+- subscription_active (boolean)
+- featured (boolean)
+- created_at
+
+4. products
+- id (PK)
+- shop_id (FK)
+- name
+- description
+- price
+- image
+- created_at
+
+5. coupons
+- id (PK)
+- shop_id (FK)
+- code
+- type (percentage | flat | free_item | flash)
+- value
+- is_active
+- expiry_date
+- created_at
+
+6. orders
+- id (PK)
+- user_id (FK)
+- total_amount
+- discount_amount
+- final_amount
+- status (pending | confirmed | completed)
+- created_at
+
+7. order_items
+- id (PK)
+- order_id (FK)
+- product_id (FK)
+- quantity
+- price
+
+==================================================
+AUTHENTICATION SYSTEM
+==================================================
+
+1. Create two login pages:
+   - /admin-login
+   - /login
+
+2. Use users table for authentication.
+3. Hash passwords using bcrypt.
+4. Verify securely.
+5. Generate JWT token.
+6. Store token in httpOnly cookie.
+
+After login:
+- If role = admin → redirect to /admin-dashboard
+- If role = user → redirect to /home
+
+==================================================
+DEFAULT ADMIN ACCOUNT
+==================================================
+
+If not exists, create:
+
+Email: admin@marketplace.com
+Password: Admin@123
+Role: admin
+
+Ensure password is hashed before saving.
+
+==================================================
+ADMIN DASHBOARD
+==================================================
+
+Create clean professional sidebar layout:
+
+LEFT SIDEBAR:
+- Overview
+- Categories
+- Shops
+- Products
+- Coupons
+- Orders
+
+RIGHT CONTENT AREA:
+Dynamic content per tab.
+
+1. Overview
+- Total users
+- Total categories
+- Total shops
+- Total products
+- Total orders
+- Show recent 5 orders
+
+2. Categories
+- List all
+- Add
+- Edit
+- Delete
+
+3. Shops
+- List all
+- Filter by category
+- Add
+- Edit
+- Delete
+- Mark as premium
+
+4. Products
+- Filter by shop
+- Add
+- Edit
+- Delete
+
+5. Coupons
+- Add
+- Edit
+- Delete
+
+6. Orders
+- View all
+- View details
+- Update status
+
+==================================================
+USER SIDE
+==================================================
+
+After login redirect to /home
+
+HOME PAGE:
+- Search bar
+- Horizontal category slider
+- Show all categories
+- Featured shops
+- Featured coupons
+
+CATEGORY PAGE:
+- Filter shops by category
+
+SHOP PAGE:
+- Banner
+- Logo
+- Description
+- Address
+- WhatsApp button
+- Product list
+- Active coupons
+- Add to cart
+
+CART:
+- Add/remove products
+- Apply coupon
+- Auto calculate discount
+- Place order
+
+PROFILE:
+- My orders
+- Logout
+
+Users can:
+- View only their own orders
+- Cannot access admin routes
+
+==================================================
+ACCESS CONTROL
+==================================================
+
+- Middleware protect admin routes
+- Only role=admin allowed
+- JWT verification required
+- Protect APIs
+
+==================================================
+UI STYLE
+==================================================
+
+- Clean Apple-inspired minimal UI
+- Soft shadows
+- Rounded cards
+- White space
+- Smooth layout
+- Fully responsive
+- Professional admin panel
+
+==================================================
+SECURITY
+==================================================
+
+- Validate all inputs
+- Prevent unauthorized access
+- Use middleware for role protection
+- Sanitize form data
+
+==================================================
+SAMPLE DATA
+==================================================
+
+Insert:
+- 10 categories
+- 10 shops (mix premium & normal)
+- 30 products
+- 10 coupons
+- 5 sample users
+- 5 sample orders
+
+Ensure all relations are properly linked.
+
+==================================================
+TEST FLOW
+==================================================
+
+1. Login as admin → open dashboard
+2. Login as user → open marketplace
+3. Verify admin routes protected
+4. Verify users only see own orders
+5. Premium shops appear first
+
+==================================================
+CODE STRUCTURE
+==================================================
+
+Follow MVC:
+
+/models
+/routes
+/controllers
+/middleware
+/views
+/public
+/config
+
+Make the project scalable for:
+- Wallet
+- Loyalty tiers
+- Referral system
+- AI recommendations
+
+Ensure clean, production-ready code.
