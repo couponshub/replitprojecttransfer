@@ -18,7 +18,7 @@ import {
   Plus, Edit, Trash2, Crown, LogOut, ChevronRight, Users, TrendingUp,
   Zap, Star, Check, CheckCircle, X, Menu, Award, Flame, UserCheck, Phone, Mail,
   Globe, MapPin, Wifi, WifiOff, Search, Image, Link, ExternalLink, Upload, Loader2, Eye, EyeOff,
-  Download, RefreshCw, ArrowUpAZ, ArrowDownAZ, Settings, MessageCircle, Save, Trophy, Gift, Layout
+  Download, RefreshCw, ArrowUpAZ, ArrowDownAZ, Settings, MessageCircle, Save, Trophy, Gift, Layout, Bell
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import type { Category, Shop, Product, Coupon, Order, User, OrderItem } from "@shared/schema";
@@ -104,6 +104,15 @@ export default function AdminDashboard() {
   const [parsedItems, setParsedItems] = useState<{ name: string; price: string; category: string; type: string }[]>([]);
   const [bulkParsed, setBulkParsed] = useState(false);
   const [bulkSaving, setBulkSaving] = useState(false);
+
+  // Push Notification modal state
+  const [notifShop, setNotifShop] = useState<{ id: string; name: string } | null>(null);
+  const [notifMessage, setNotifMessage] = useState("");
+  const [notifSending, setNotifSending] = useState(false);
+  const [notifAudience, setNotifAudience] = useState<"all_users" | "previous_customers" | "manual">("all_users");
+  const [notifSelectedUsers, setNotifSelectedUsers] = useState<string[]>([]);
+  const [notifCouponId, setNotifCouponId] = useState("");
+  const [notifUserSearch, setNotifUserSearch] = useState("");
 
   useEffect(() => {
     if (!dialogOpen || activeTab !== "shops") return;
@@ -1124,6 +1133,16 @@ export default function AdminDashboard() {
                           Top Shop
                         </button>
                         <div className="ml-auto flex items-center gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="rounded-lg h-8 w-8 text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                            onClick={() => { setNotifShop({ id: shop.id, name: shop.name }); setNotifMessage(""); }}
+                            data-testid={`button-notify-shop-${shop.id}`}
+                            title="Send Push Notification"
+                          >
+                            <Bell className="w-3.5 h-3.5" />
+                          </Button>
                           <Button size="icon" variant="ghost" className="rounded-lg h-8 w-8" onClick={() => openEdit(shop)} data-testid={`button-edit-shop-${shop.id}`}>
                             <Edit className="w-3.5 h-3.5" />
                           </Button>
@@ -1144,6 +1163,155 @@ export default function AdminDashboard() {
                   <p className="text-xs mt-1">Try adjusting your search or filters</p>
                 </div>
               )}
+
+              {/* ── Advanced Push Notification Modal ── */}
+              <Dialog open={!!notifShop} onOpenChange={(open) => {
+                if (!open) { setNotifShop(null); setNotifMessage(""); setNotifCouponId(""); setNotifAudience("all_users"); setNotifSelectedUsers([]); setNotifUserSearch(""); }
+              }}>
+                <DialogContent className="rounded-2xl max-w-lg max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                      <Bell className="w-5 h-5 text-amber-500" />
+                      Push Notification
+                    </DialogTitle>
+                    {notifShop && (
+                      <p className="text-sm text-muted-foreground">Shop: <span className="font-semibold text-gray-800 dark:text-gray-200">{notifShop.name}</span></p>
+                    )}
+                  </DialogHeader>
+
+                  <div className="flex flex-col gap-5 py-1">
+
+                    {/* Coupon quick-attach */}
+                    <div>
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Attach Coupon <span className="font-normal normal-case">(optional)</span></Label>
+                      <NotifCouponSelector
+                        shopId={notifShop?.id ?? ""}
+                        value={notifCouponId}
+                        onSelect={(couponId, code, label) => {
+                          setNotifCouponId(couponId);
+                          if (couponId) {
+                            const snippet = `🎉 Special Offer! Use code ${code} for ${label}. Don't miss out!`;
+                            setNotifMessage(prev => prev ? `${prev}\n${snippet}` : snippet);
+                          }
+                        }}
+                      />
+                    </div>
+
+                    {/* ── Step 2: Message Template ── */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Message Template</Label>
+                        <span className="text-[10px] text-violet-500 font-medium bg-violet-50 dark:bg-violet-950/30 px-2 py-0.5 rounded-full">Use &#123;&#123;name&#125;&#125; for personalization</span>
+                      </div>
+                      <Textarea
+                        value={notifMessage}
+                        onChange={e => setNotifMessage(e.target.value)}
+                        placeholder={`Hi {{name}}, we have a special offer just for you at ${notifShop?.name ?? "our shop"}! 🎁`}
+                        className="rounded-xl resize-none min-h-[100px] text-sm"
+                        data-testid="input-notification-message"
+                      />
+                      <p className="text-[10px] text-muted-foreground mt-1">&#123;&#123;name&#125;&#125; will be replaced with each recipient's actual name before sending.</p>
+                    </div>
+
+                    {/* ── Step 3: Audience Filter ── */}
+                    <div>
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block mb-2">Target Audience</Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {([
+                          { value: "all_users", label: "All Users", icon: "👥", desc: "Everyone" },
+                          { value: "previous_customers", label: "Past Buyers", icon: "🛒", desc: "Ordered here" },
+                          { value: "manual", label: "Manual Pick", icon: "✏️", desc: "Choose users" },
+                        ] as const).map(opt => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => { setNotifAudience(opt.value); setNotifSelectedUsers([]); }}
+                            className={`flex flex-col items-center gap-0.5 p-2.5 rounded-xl border-2 text-center transition-all ${
+                              notifAudience === opt.value
+                                ? "border-amber-400 bg-amber-50 dark:bg-amber-950/30"
+                                : "border-gray-200 dark:border-gray-700 hover:border-amber-300"
+                            }`}
+                            data-testid={`notif-audience-${opt.value}`}
+                          >
+                            <span className="text-lg">{opt.icon}</span>
+                            <span className={`text-[11px] font-bold ${
+                              notifAudience === opt.value ? "text-amber-700 dark:text-amber-400" : "text-gray-700 dark:text-gray-300"
+                            }`}>{opt.label}</span>
+                            <span className="text-[10px] text-muted-foreground">{opt.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* ── Manual user picker ── */}
+                    {notifAudience === "manual" && notifShop && (
+                      <NotifManualPicker
+                        shopId={notifShop.id}
+                        selected={notifSelectedUsers}
+                        onToggle={(uid) => setNotifSelectedUsers(prev =>
+                          prev.includes(uid) ? prev.filter(x => x !== uid) : [...prev, uid]
+                        )}
+                        search={notifUserSearch}
+                        onSearch={setNotifUserSearch}
+                      />
+                    )}
+
+                    {/* ── Preview ── */}
+                    {notifMessage.trim() && (
+                      <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/20 p-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">Preview (as recipient)</p>
+                        <p className="text-xs text-gray-800 dark:text-gray-200 leading-relaxed">
+                          {notifMessage.replace(/\{\{name\}\}/g, "Priya")}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* ── Actions ── */}
+                    <div className="flex gap-2 justify-end pt-1">
+                      <Button
+                        variant="outline"
+                        className="rounded-xl"
+                        onClick={() => { setNotifShop(null); setNotifMessage(""); setNotifCouponId(""); setNotifAudience("all_users"); setNotifSelectedUsers([]); }}
+                        data-testid="button-notification-cancel"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        disabled={notifSending || !notifMessage.trim() || (notifAudience === "manual" && notifSelectedUsers.length === 0)}
+                        className="rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25 gap-2"
+                        onClick={async () => {
+                          if (!notifShop || !notifMessage.trim()) return;
+                          setNotifSending(true);
+                          try {
+                            const token = localStorage.getItem("coupons_hub_token");
+                            const res = await fetch(`/api/admin/shops/${notifShop.id}/notify`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                              body: JSON.stringify({
+                                message: notifMessage,
+                                audience: notifAudience,
+                                selectedUserIds: notifAudience === "manual" ? notifSelectedUsers : [],
+                              }),
+                            });
+                            const data = await res.json();
+                            if (!res.ok) throw new Error(data.error || "Send failed");
+                            toast({ title: `🔔 Sent to ${data.sent} recipient${data.sent !== 1 ? "s" : ""}!`, description: `Notification dispatched for ${notifShop.name}` });
+                            setNotifShop(null); setNotifMessage(""); setNotifCouponId(""); setNotifAudience("all_users"); setNotifSelectedUsers([]);
+                          } catch (e: any) {
+                            toast({ title: "Send failed", description: e.message, variant: "destructive" });
+                          } finally {
+                            setNotifSending(false);
+                          }
+                        }}
+                        data-testid="button-notification-send"
+                      >
+                        {notifSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bell className="w-4 h-4" />}
+                        {notifSending ? "Sending..." : "Send Notification"}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
 
               <Dialog open={dialogOpen && activeTab === "shops"} onOpenChange={setDialogOpen}>
                 <DialogContent className="rounded-2xl max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -1880,7 +2048,7 @@ export default function AdminDashboard() {
                       <SelectContent className="rounded-xl">
                         <SelectItem value="all_shops">All Shops</SelectItem>
                         {couponShops.map(shop => (
-                          <SelectItem key={shop.id} value={shop.id}>{shop.name}</SelectItem>
+                          <SelectItem key={shop.id} value={shop.id || ""}>{shop.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -4160,6 +4328,124 @@ function AdminContestsTab({ toast }: { toast: any }) {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Helper: Coupon selector for push notification modal ──────────────────────
+function NotifCouponSelector({
+  shopId, value, onSelect,
+}: {
+  shopId: string;
+  value: string;
+  onSelect: (couponId: string, code: string, label: string) => void;
+}) {
+  const { data: coupons = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/coupons", shopId, "notif"],
+    queryFn: () => fetch(`/api/coupons?shopId=${shopId}`).then(r => r.json()),
+    enabled: !!shopId,
+  });
+  const fmt = (c: any) =>
+    c.type === "percentage" ? `${c.value}% off` :
+    c.type === "flat" ? `₹${c.value} off` :
+    (c.type || "offer").replace(/_/g, " ");
+  if (isLoading) return <div className="h-9 mt-1.5 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />;
+  const active = (coupons as any[]).filter((c: any) => c.is_active);
+  if (!active.length) return <p className="text-xs text-muted-foreground mt-1.5 px-1">No active coupons for this shop.</p>;
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-1.5">
+      {value && (
+        <button type="button" onClick={() => onSelect("", "", "")}
+          className="text-[11px] px-2.5 py-1 rounded-full border border-red-300 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 font-semibold transition-all"
+          data-testid="notif-coupon-clear">✕ Clear</button>
+      )}
+      {active.map((c: any) => {
+        const label = fmt(c);
+        const sel = value === c.id;
+        return (
+          <button key={c.id} type="button" onClick={() => onSelect(sel ? "" : c.id, c.code, label)}
+            className={`text-[11px] px-2.5 py-1 rounded-full border-2 font-semibold transition-all ${
+              sel ? "border-amber-400 bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300"
+                  : "border-gray-200 dark:border-gray-700 text-muted-foreground hover:border-amber-300 hover:text-amber-600"
+            }`}
+            data-testid={`notif-coupon-${c.id}`}>
+            {sel ? "✓ " : ""}{c.code} · {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Helper: Manual user picker for push notification modal ───────────────────
+function NotifManualPicker({
+  shopId, selected, onToggle, search, onSearch,
+}: {
+  shopId: string;
+  selected: string[];
+  onToggle: (uid: string) => void;
+  search: string;
+  onSearch: (v: string) => void;
+}) {
+  const { data: allUsers = [], isLoading: loadingAll } = useQuery<any[]>({
+    queryKey: ["/api/admin/users", "notif-picker"],
+    queryFn: () => {
+      const t = localStorage.getItem("coupons_hub_token");
+      return fetch("/api/admin/users", { headers: { Authorization: `Bearer ${t}` } }).then(r => r.json());
+    },
+  });
+  const { data: customers = [] } = useQuery<any[]>({
+    queryKey: ["/api/admin/shops", shopId, "customers"],
+    queryFn: () => {
+      const t = localStorage.getItem("coupons_hub_token");
+      return fetch(`/api/admin/shops/${shopId}/customers`, { headers: { Authorization: `Bearer ${t}` } }).then(r => r.json());
+    },
+    enabled: !!shopId,
+  });
+  const pastIds = new Set((customers as any[]).map((c: any) => c.id));
+  const filtered = (allUsers as any[]).filter((u: any) =>
+    !search || u.name?.toLowerCase().includes(search.toLowerCase()) || u.email?.toLowerCase().includes(search.toLowerCase())
+  );
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pick Recipients</Label>
+        {selected.length > 0 && (
+          <span className="text-[10px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/30 px-2 py-0.5 rounded-full">{selected.length} selected</span>
+        )}
+      </div>
+      <input value={search} onChange={e => onSearch(e.target.value)}
+        placeholder="Search by name or email..."
+        className="w-full px-3 py-1.5 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 outline-none focus:ring-2 focus:ring-amber-400/40"
+        data-testid="notif-user-search" />
+      {loadingAll && <div className="h-24 rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />}
+      <div className="flex flex-col gap-1 max-h-44 overflow-y-auto pr-0.5">
+        {filtered.map((u: any) => {
+          const isPast = pastIds.has(u.id);
+          const isSel = selected.includes(u.id);
+          return (
+            <button key={u.id} type="button" onClick={() => onToggle(u.id)}
+              className={`flex items-center gap-2.5 p-2 rounded-xl border-2 text-left transition-all ${
+                isSel ? "border-amber-400 bg-amber-50 dark:bg-amber-950/30" : "border-gray-100 dark:border-gray-800 hover:border-amber-200"
+              }`}
+              data-testid={`notif-user-${u.id}`}>
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                isSel ? "bg-amber-400 text-white" : "bg-gray-100 dark:bg-gray-800 text-gray-500"
+              }`}>{isSel ? "✓" : (u.name?.[0] || "U").toUpperCase()}</div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-gray-900 dark:text-white truncate">{u.name}</p>
+                <p className="text-[10px] text-muted-foreground truncate">{u.email}</p>
+              </div>
+              {isPast && (
+                <span className="text-[9px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 px-1.5 py-0.5 rounded-full shrink-0">Past buyer</span>
+              )}
+            </button>
+          );
+        })}
+        {!loadingAll && filtered.length === 0 && (
+          <p className="text-xs text-center text-muted-foreground py-4">No users found</p>
+        )}
+      </div>
     </div>
   );
 }

@@ -261,7 +261,7 @@ export default function ShopPage() {
     setSavingCoupon(coupon.id);
     try {
       const result = await apiRequest("POST", "/api/user/save-coupon", { coupon_id: coupon.id });
-      setSavedCoupons(prev => new Set([...prev, coupon.id]));
+      setSavedCoupons(prev => { const next = new Set(prev); next.add(coupon.id); return next; });
       if (result?.alreadySaved) {
         toast({ title: "Already saved!", description: "This coupon is already in My Coupons" });
       } else {

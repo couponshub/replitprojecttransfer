@@ -423,7 +423,7 @@ export default function OrderConfirmPage() {
                         const itemLines = o.items.map((i: any) => i.isFreeItem ? `• ${i.name} ×${i.quantity} — FREE 🎁` : `• ${i.name} ×${i.quantity} — ₹${(i.price * i.quantity).toLocaleString()}`).join("\n");
                         const text = [`🛍️ *New Order from CouponsHub X*`, ``, `*Shop:* ${o.shopName}`, o.orderId ? `*Order ID:* #${o.orderId.slice(0,8).toUpperCase()}` : "", ``, `*Customer:*`, order.customerName ? `• Name: ${order.customerName}` : "", order.customerPhone ? `• Phone: +91${order.customerPhone}` : "", ``, `*Items:*`, itemLines, ``, o.discount > 0 ? `*Discount:* -₹${o.discount.toFixed(0)}` : "", `*Total:* ₹${o.finalAmount.toLocaleString()}`, ``, `Please confirm my order. Thank you! 🙏`].filter(Boolean).join("\n");
                         window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank");
-                        setSentShopIds(prev => new Set([...prev, o.shopId]));
+                        setSentShopIds(prev => { const next = new Set(prev); next.add(o.shopId); return next; });
                       }}
                       className={`mt-3 w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition-all ${sentShopIds.has(o.shopId) ? "bg-gray-800 dark:bg-gray-700 text-white" : "bg-[#25D366] text-white"}`}
                       data-testid={`button-whatsapp-shop-${o.shopId}`}

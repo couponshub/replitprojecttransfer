@@ -8,6 +8,46 @@ import path from "path";
 import fs from "fs";
 import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
+import admin from "firebase-admin";
+
+// ---------------------------------------------------------------------------
+// Firebase Admin SDK initialisation (server-side)
+// Set FIREBASE_SERVICE_ACCOUNT_JSON env var to the stringified service-account
+// JSON, OR set the individual vars below.
+// ---------------------------------------------------------------------------
+let firebaseAdminInitialised = false;
+try {
+  const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (serviceAccountJson && !admin.apps.length) {
+    admin.initializeApp({
+      credential: admin.credential.cert(JSON.parse(serviceAccountJson)),
+    });
+    firebaseAdminInitialised = true;
+    console.log("[Firebase Admin] Initialised from FIREBASE_SERVICE_ACCOUNT_JSON");
+  } else if (
+    process.env.FIREBASE_PROJECT_ID &&
+    process.env.FIREBASE_CLIENT_EMAIL &&
+    process.env.FIREBASE_PRIVATE_KEY
+  ) {
+    if (!admin.apps.length) {
+      admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId:   process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          // Private key stored in .env with literal \n — convert to real newlines
+          privateKey:  process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+        }),
+      });
+      firebaseAdminInitialised = true;
+      console.log("[Firebase Admin] Initialised from individual env vars");
+    }
+  } else {
+    console.warn("[Firebase Admin] No credentials found — push notifications will be unavailable. Set FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_PROJECT_ID/FIREBASE_CLIENT_EMAIL/FIREBASE_PRIVATE_KEY.");
+  }
+} catch (err: any) {
+  console.error("[Firebase Admin] Initialisation failed:", err.message);
+}
+
 
 async function drawAndNotify(contestId: string) {
   const pre = await storage.getContest(contestId);
@@ -1096,13 +1136,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.patch("/api/admin/categories/:id/toggle-top", adminMiddleware, async (req, res) => {
-    const updated = await storage.toggleTopCategory(req.params.id);
+    const updated = await storage.toggleTopCategory(req.params.id as string);
     if (!updated) return res.status(404).json({ error: "Not found" });
     res.json(updated);
   });
 
   app.patch("/api/admin/shops/:id/toggle-top", adminMiddleware, async (req, res) => {
-    const updated = await storage.toggleTopShop(req.params.id);
+    const updated = await storage.toggleTopShop(req.params.id as string);
     if (!updated) return res.status(404).json({ error: "Not found" });
     res.json(updated);
   });
@@ -1116,14 +1156,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.put("/api/categories/:id", adminMiddleware, async (req, res) => {
     try {
-      const updated = await storage.updateCategory(req.params.id, sanitizeBody(req.body));
+      const updated = await storage.updateCategory(req.params.id as string, sanitizeBody(req.body));
       if (!updated) return res.status(404).json({ error: "Not found" });
       res.json(updated);
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
 
   app.delete("/api/categories/:id", adminMiddleware, async (req, res) => {
-    await storage.deleteCategory(req.params.id);
+    await storage.deleteCategory(req.params.id as string);
     res.json({ success: true });
   });
 
@@ -1234,7 +1274,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.get("/api/shops/:id", async (req, res) => {
-    const shop = await storage.getShop(req.params.id);
+    const shop = await storage.getShop(req.params.id as string);
     if (!shop) return res.status(404).json({ error: "Shop not found" });
     res.json(shop);
   });
@@ -1253,7 +1293,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         const coords = extractCoordsFromMapLink(body.map_link);
         if (coords) { body.latitude = coords.latitude; body.longitude = coords.longitude; }
       }
-      const updated = await storage.updateShop(req.params.id, body);
+      const updated = await storage.updateShop(req.params.id as string, body);
       if (!updated) return res.status(404).json({ error: "Not found" });
       res.json(updated);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
@@ -1265,7 +1305,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!id) {
         return res.status(400).json({ error: "Shop ID is required" });
       }
-      await storage.deleteShop(id);
+      await storage.deleteShop(id as string);
       return res.json({ success: true });
     } catch (error) {
       console.error("Delete shop error:", error);
@@ -1280,7 +1320,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.get("/api/products/:id", async (req, res) => {
-    const product = await storage.getProduct(req.params.id);
+    const product = await storage.getProduct(req.params.id as string);
     if (!product) return res.status(404).json({ error: "Not found" });
     res.json(product);
   });
@@ -1317,14 +1357,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.put("/api/products/:id", adminMiddleware, async (req, res) => {
     try {
-      const updated = await storage.updateProduct(req.params.id, sanitizeBody(req.body));
+      const updated = await storage.updateProduct(req.params.id as string, sanitizeBody(req.body));
       if (!updated) return res.status(404).json({ error: "Not found" });
       res.json(updated);
     } catch (err: any) { res.status(500).json({ message: err.message }); }
   });
 
   app.delete("/api/products/:id", adminMiddleware, async (req, res) => {
-    await storage.deleteProduct(req.params.id);
+    await storage.deleteProduct(req.params.id as string);
     res.json({ success: true });
   });
 
@@ -1336,6 +1376,60 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/api/coupons/active", async (req, res) => {
     res.json(await storage.getActiveCoupons());
+  });
+
+  app.post("/api/coupons/claim", authMiddleware, async (req, res) => {
+    try {
+      const { couponId } = req.body;
+      if (!couponId) {
+        return res.status(400).json({ error: "Coupon ID is required" });
+      }
+      const userId = (req as any).user.id;
+      const existing = await storage.getClaimedCoupon(userId, couponId);
+      if (existing) {
+        return res.status(400).json({ error: "Coupon already claimed" });
+      }
+      const claimed = await storage.claimCoupon(userId, couponId);
+      return res.json(claimed);
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/coupons/claimed", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const list = await storage.getClaimedCoupons(userId);
+      return res.json(list.map(c => c.couponId));
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/coupons/claimed/details", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      const list = await storage.getClaimedCoupons(userId);
+      const results = [];
+      for (const claimed of list) {
+        let coupon = null;
+        if (claimed.couponId) {
+          const c = await db.select().from(coupons).where(eq(coupons.id, claimed.couponId)).limit(1);
+          if (c[0]) {
+            coupon = c[0];
+            if (coupon.shop_id) {
+              const s = await db.select().from(shops).where(eq(shops.id, coupon.shop_id)).limit(1);
+              coupon = { ...coupon, shop: s[0] || null };
+            }
+          }
+        }
+        results.push({ ...claimed, coupon });
+      }
+      console.log('Backend sent:', results);
+      return res.json(results);
+    } catch (error: any) {
+      return res.status(500).json({ error: error.message });
+    }
   });
 
   app.get("/api/search", async (req, res) => {
@@ -1375,7 +1469,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         }
       }
 
-      let items_to_add: { id: string; name: string; price: number; shop_id: string; shopName: string; isFreeItem?: boolean }[] = [];
+      let items_to_add: any[] = [];
       const shop = coupon.shop_id ? await storage.getShop(coupon.shop_id) : null;
       const shopName = shop?.name || "Shop";
 
@@ -1474,7 +1568,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.get("/api/coupons/:id/products", async (req, res) => {
-    res.json(await storage.getCouponProducts(req.params.id));
+    res.json(await storage.getCouponProducts(req.params.id as string));
   });
 
   app.post("/api/users", adminMiddleware, async (req, res) => {
@@ -1506,17 +1600,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const { coupon_products: cpItems } = req.body;
       const rest = sanitizeBody(req.body);
-      const updated = await storage.updateCoupon(req.params.id, rest);
+      const updated = await storage.updateCoupon(req.params.id as string, rest);
       if (!updated) return res.status(404).json({ error: "Not found" });
       if (cpItems !== undefined) {
-        await storage.setCouponProducts(req.params.id, Array.isArray(cpItems) ? cpItems : []);
+        await storage.setCouponProducts(req.params.id as string, Array.isArray(cpItems) ? cpItems : []);
       }
       res.json(updated);
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
 
   app.delete("/api/coupons/:id", adminMiddleware, async (req, res) => {
-    await storage.deleteCoupon(req.params.id);
+    await storage.deleteCoupon(req.params.id as string);
     res.json({ success: true });
   });
 
@@ -1530,7 +1624,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.get("/api/orders/:id", authMiddleware, async (req, res) => {
-    const order = await storage.getOrder(req.params.id);
+    const order = await storage.getOrder(req.params.id as string);
     if (!order) return res.status(404).json({ error: "Not found" });
     if ((req as any).user.role !== "admin" && order.user_id !== (req as any).user.id) {
       return res.status(403).json({ error: "Access denied" });
@@ -1539,7 +1633,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.get("/api/admin/orders/:id", adminMiddleware, async (req, res) => {
-    const order = await storage.getOrder(req.params.id);
+    const order = await storage.getOrder(req.params.id as string);
     if (!order) return res.status(404).json({ error: "Not found" });
     res.json(order);
   });
@@ -1555,10 +1649,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const { status } = req.body;
     const validStatuses = ["pending", "confirmed", "completed", "cancelled"];
     if (!validStatuses.includes(status)) return res.status(400).json({ error: "Invalid status" });
-    const order = await storage.getOrder(req.params.id);
+    const order = await storage.getOrder(req.params.id as string);
     if (!order) return res.status(404).json({ error: "Not found" });
     if (order.shop_id !== vendor.shop_id) return res.status(403).json({ error: "Access denied" });
-    const updated = await storage.updateOrderStatus(req.params.id, status);
+    const updated = await storage.updateOrderStatus(req.params.id as string, status);
     res.json(updated);
   });
 
@@ -1597,9 +1691,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.put("/api/orders/:id/status", adminMiddleware, async (req, res) => {
     const { status } = req.body;
-    const existingOrder = await storage.getOrder(req.params.id);
+    const existingOrder = await storage.getOrder(req.params.id as string);
     if (!existingOrder) return res.status(404).json({ error: "Not found" });
-    const order = await storage.updateOrderStatus(req.params.id, status);
+    const order = await storage.updateOrderStatus(req.params.id as string, status);
     if (!order) return res.status(404).json({ error: "Not found" });
     // When admin confirms a store redemption, deduct from usage_count
     if (status === "confirmed" && (existingOrder as any).redemption_type === "store" && existingOrder.coupon_code && existingOrder.shop_id) {
@@ -1659,6 +1753,75 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(allUsers.map(u => ({ id: u.id, name: u.name, email: u.email, phone: u.phone, role: u.role, created_at: u.created_at })));
   });
 
+  // ── Push Notifications ───────────────────────────────────────────────────────
+
+  // GET /api/admin/shops/:shopId/customers
+  // Returns distinct users who have placed an order at this shop (previous customers)
+  app.get("/api/admin/shops/:shopId/customers", adminMiddleware, async (req, res) => {
+    try {
+      const orders = await storage.getShopOrders(req.params.shopId as string);
+      const allUsers = await storage.getAllUsers();
+      const userMap = new Map(allUsers.map(u => [u.id, u]));
+      const seen = new Set<string>();
+      const customers: { id: string; name: string; email: string; phone: string | null }[] = [];
+      for (const order of orders) {
+        if (order.user_id && !seen.has(order.user_id)) {
+          seen.add(order.user_id);
+          const u = userMap.get(order.user_id);
+          if (u) customers.push({ id: u.id, name: u.name, email: u.email, phone: u.phone ?? null });
+        }
+      }
+      res.json(customers);
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+  // POST /api/admin/shops/:shopId/notify
+  // Sends personalized push notifications (currently logs; wire up FCM/email here later)
+  app.post("/api/admin/shops/:shopId/notify", adminMiddleware, async (req, res) => {
+    try {
+      const { message, audience, selectedUserIds } = req.body;
+      if (!message?.trim()) return res.status(400).json({ error: "message is required" });
+
+      let recipients: { id: string; name: string; email: string }[] = [];
+      const allUsers = await storage.getAllUsers();
+
+      if (audience === "previous_customers") {
+        const orders = await storage.getShopOrders(req.params.shopId as string);
+        const userMap = new Map(allUsers.map(u => [u.id, u]));
+        const seen = new Set<string>();
+        for (const order of orders) {
+          if (order.user_id && !seen.has(order.user_id)) {
+            seen.add(order.user_id);
+            const u = userMap.get(order.user_id);
+            if (u) recipients.push({ id: u.id, name: u.name, email: u.email });
+          }
+        }
+      } else if (audience === "manual" && Array.isArray(selectedUserIds)) {
+        const userMap = new Map(allUsers.map(u => [u.id, u]));
+        for (const uid of selectedUserIds) {
+          const u = userMap.get(uid);
+          if (u) recipients.push({ id: u.id, name: u.name, email: u.email });
+        }
+      } else {
+        // all_users
+        recipients = allUsers.map(u => ({ id: u.id, name: u.name, email: u.email }));
+      }
+
+      // Personalization: replace {{name}} with recipient's name
+      const personalized = recipients.map(r => ({
+        userId: r.id,
+        name: r.name,
+        email: r.email,
+        message: message.replace(/\{\{name\}\}/g, r.name || "Valued Customer"),
+      }));
+
+      // TODO: Integrate FCM / email gateway here
+      console.log("[PushNotification] Sending to", personalized.length, "recipients:", personalized);
+
+      res.json({ success: true, sent: personalized.length, recipients: personalized });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
   app.get("/api/admin/top-shops", adminMiddleware, async (req, res) => {
     res.json(await storage.getTopShops());
   });
@@ -1684,13 +1847,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.put("/api/admin/banners/:id", adminMiddleware, async (req, res) => {
-    const banner = await storage.updateBanner(req.params.id, req.body);
+    const banner = await storage.updateBanner(req.params.id as string, req.body);
     if (!banner) return res.status(404).json({ error: "Not found" });
     res.json(banner);
   });
 
   app.delete("/api/admin/banners/:id", adminMiddleware, async (req, res) => {
-    await storage.deleteBanner(req.params.id);
+    await storage.deleteBanner(req.params.id as string);
     res.json({ ok: true });
   });
 
@@ -1780,18 +1943,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.patch("/api/vendor/products/:id", vendorMiddleware, async (req, res) => {
     try {
       const shopId = (req as any).vendor.shop_id;
-      const product = await storage.getProduct(req.params.id);
+      const product = await storage.getProduct(req.params.id as string);
       if (!product || product.shop_id !== shopId) return res.status(403).json({ error: "Forbidden" });
-      const updated = await storage.updateProduct(req.params.id, sanitizeBody(req.body, ["shop_id"]));
+      const updated = await storage.updateProduct(req.params.id as string, sanitizeBody(req.body, ["shop_id"]));
       res.json(updated);
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
 
   app.delete("/api/vendor/products/:id", vendorMiddleware, async (req, res) => {
     const shopId = (req as any).vendor.shop_id;
-    const product = await storage.getProduct(req.params.id);
+    const product = await storage.getProduct(req.params.id as string);
     if (!product || product.shop_id !== shopId) return res.status(403).json({ error: "Forbidden" });
-    await storage.deleteProduct(req.params.id);
+    await storage.deleteProduct(req.params.id as string);
     res.json({ ok: true });
   });
 
@@ -1815,7 +1978,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const shopId = (req as any).vendor.shop_id;
       const { coupon_products: cpItems, ...rest } = req.body;
       const cleaned = Object.fromEntries(Object.entries(rest).map(([k, v]) => [k, v === "" ? null : v]));
-      const body = { ...cleaned, shop_id: shopId };
+      const body: any = { ...cleaned, shop_id: shopId };
       if (body.expiry_date) body.expiry_date = new Date(body.expiry_date);
       const coupon = await storage.createCoupon(body);
       if (cpItems && Array.isArray(cpItems) && cpItems.length > 0) {
@@ -1828,17 +1991,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.patch("/api/vendor/coupons/:id", vendorMiddleware, async (req, res) => {
     try {
       const { coupon_products: cpItems } = req.body;
-      const updated = await storage.updateCoupon(req.params.id, sanitizeBody(req.body, ["shop_id"]));
+      const updated = await storage.updateCoupon(req.params.id as string, sanitizeBody(req.body, ["shop_id"]));
       if (!updated) return res.status(404).json({ error: "Not found" });
       if (cpItems !== undefined) {
-        await storage.setCouponProducts(req.params.id, Array.isArray(cpItems) ? cpItems : []);
+        await storage.setCouponProducts(req.params.id as string, Array.isArray(cpItems) ? cpItems : []);
       }
       res.json(updated);
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
 
   app.delete("/api/vendor/coupons/:id", vendorMiddleware, async (req, res) => {
-    await storage.deleteCoupon(req.params.id);
+    await storage.deleteCoupon(req.params.id as string);
     res.json({ ok: true });
   });
 
@@ -1864,7 +2027,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.delete("/api/admin/vendors/:id", adminMiddleware, async (req, res) => {
-    await storage.deleteVendor(req.params.id);
+    await storage.deleteVendor(req.params.id as string);
     res.json({ ok: true });
   });
 
@@ -1916,26 +2079,26 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.patch("/api/offline-coupons/:id", adminMiddleware, async (req, res) => {
     try {
-      const updated = await storage.updateOfflineCoupon(req.params.id, sanitizeBody(req.body));
+      const updated = await storage.updateOfflineCoupon(req.params.id as string, sanitizeBody(req.body));
       res.json(updated);
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
 
   app.delete("/api/offline-coupons/:id", adminMiddleware, async (req, res) => {
-    await storage.deleteOfflineCoupon(req.params.id);
+    await storage.deleteOfflineCoupon(req.params.id as string);
     res.json({ ok: true });
   });
 
   app.get("/api/offline-coupons/:id/codes", adminMiddleware, async (req, res) => {
     try {
-      res.json(await storage.getOfflineCouponCodes(req.params.id));
+      res.json(await storage.getOfflineCouponCodes(req.params.id as string));
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
   app.post("/api/offline-coupons/:id/claim", authMiddleware, async (req, res) => {
     try {
       const userId = (req as any).user.id;
-      const result = await storage.claimOfflineCouponCode(req.params.id, userId);
+      const result = await storage.claimOfflineCouponCode(req.params.id as string, userId);
       if (!result) return res.status(410).json({ error: "No codes remaining for this coupon" });
       res.json(result);
     } catch (err: any) { res.status(400).json({ error: err.message }); }
@@ -1944,9 +2107,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/offline-coupons/:id/my-code", authMiddleware, async (req, res) => {
     try {
       const userId = (req as any).user.id;
-      const code = await storage.getUserClaimedCode(req.params.id, userId);
+      const code = await storage.getUserClaimedCode(req.params.id as string, userId);
       if (!code) return res.status(404).json({ error: "No code claimed" });
-      const all = await storage.getOfflineCouponCodes(req.params.id);
+      const all = await storage.getOfflineCouponCodes(req.params.id as string);
       const remaining = all.filter(c => !c.claimed_by_user_id).length;
       res.json({ code, remaining });
     } catch (err: any) { res.status(400).json({ error: err.message }); }
@@ -1962,7 +2125,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/offline-coupon-codes/:codeId/use", authMiddleware, async (req, res) => {
     try {
       const userId = (req as any).user.id;
-      const updated = await storage.markOfflineCouponCodeUsed(req.params.codeId, userId);
+      const updated = await storage.markOfflineCouponCodeUsed(req.params.codeId as string, userId);
       res.json(updated);
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
@@ -2009,9 +2172,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.patch("/api/vendor/offline-coupons/:id", vendorMiddleware, async (req, res) => {
     try {
       const shopId = (req as any).vendor.shop_id;
-      const oc = await storage.getOfflineCoupon(req.params.id);
+      const oc = await storage.getOfflineCoupon(req.params.id as string);
       if (!oc || oc.shop_id !== shopId) return res.status(403).json({ error: "Forbidden" });
-      const updated = await storage.updateOfflineCoupon(req.params.id, sanitizeBody(req.body, ["shop_id"]));
+      const updated = await storage.updateOfflineCoupon(req.params.id as string, sanitizeBody(req.body, ["shop_id"]));
       res.json(updated);
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
@@ -2019,9 +2182,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.delete("/api/vendor/offline-coupons/:id", vendorMiddleware, async (req, res) => {
     try {
       const shopId = (req as any).vendor.shop_id;
-      const oc = await storage.getOfflineCoupon(req.params.id);
+      const oc = await storage.getOfflineCoupon(req.params.id as string);
       if (!oc || oc.shop_id !== shopId) return res.status(403).json({ error: "Forbidden" });
-      await storage.deleteOfflineCoupon(req.params.id);
+      await storage.deleteOfflineCoupon(req.params.id as string);
       res.json({ ok: true });
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
@@ -2029,9 +2192,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/vendor/offline-coupons/:id/codes", vendorMiddleware, async (req, res) => {
     try {
       const shopId = (req as any).vendor.shop_id;
-      const oc = await storage.getOfflineCoupon(req.params.id);
+      const oc = await storage.getOfflineCoupon(req.params.id as string);
       if (!oc || oc.shop_id !== shopId) return res.status(403).json({ error: "Forbidden" });
-      res.json(await storage.getOfflineCouponCodes(req.params.id));
+      res.json(await storage.getOfflineCouponCodes(req.params.id as string));
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
 
@@ -2043,7 +2206,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/api/contests/:id", async (req, res) => {
     try {
-      const c = await storage.getContest(req.params.id);
+      const c = await storage.getContest(req.params.id as string);
       if (!c) return res.status(404).json({ error: "Not found" });
       res.json(c);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -2056,12 +2219,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (!fullUser) return res.status(401).json({ error: "User not found" });
       const { slot_number } = req.body;
       if (!slot_number) return res.status(400).json({ error: "slot_number required" });
-      const contest = await storage.getContest(req.params.id);
+      const contest = await storage.getContest(req.params.id as string);
       if (!contest) return res.status(404).json({ error: "Contest not found" });
       if (contest.status !== "open") return res.status(400).json({ error: "Contest is not open" });
       if (slot_number < 1 || slot_number > contest.total_slots) return res.status(400).json({ error: "Invalid slot" });
       const userName = fullUser.name || fullUser.email?.split("@")[0] || "User";
-      const slot = await storage.joinContest(req.params.id, slot_number, fullUser.id, userName, fullUser.email || "");
+      const slot = await storage.joinContest(req.params.id as string, slot_number, fullUser.id, userName, fullUser.email || "");
       res.json(slot);
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
@@ -2069,7 +2232,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/contests/:id/my-slot", authMiddleware, async (req, res) => {
     try {
       const user = (req as any).user;
-      const slot = await storage.getUserContestSlot(req.params.id, user.id);
+      const slot = await storage.getUserContestSlot(req.params.id as string, user.id);
       res.json(slot || null);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
@@ -2105,13 +2268,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.patch("/api/vendor/contests/:id", vendorMiddleware, async (req, res) => {
     try {
       const vendor = (req as any).vendor;
-      const c = await storage.getContest(req.params.id);
+      const c = await storage.getContest(req.params.id as string);
       if (!c || c.shop_id !== vendor.shop_id) return res.status(403).json({ error: "Forbidden" });
       const body = { ...req.body };
       if (body.end_time) body.end_time = new Date(body.end_time);
       else if (body.end_time === "" || body.end_time === null) body.end_time = null;
       if (body.attached_coupon_id === "") body.attached_coupon_id = null;
-      const updated = await storage.updateContest(req.params.id, body);
+      const updated = await storage.updateContest(req.params.id as string, body);
       res.json(updated);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
@@ -2119,10 +2282,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/vendor/contests/:id/draw", vendorMiddleware, async (req, res) => {
     try {
       const vendor = (req as any).vendor;
-      const c = await storage.getContest(req.params.id);
+      const c = await storage.getContest(req.params.id as string);
       if (!c || c.shop_id !== vendor.shop_id) return res.status(403).json({ error: "Forbidden" });
       if (c.status === "completed") return res.status(400).json({ error: "Already drawn" });
-      const updated = await drawAndNotify(req.params.id);
+      const updated = await drawAndNotify(req.params.id as string);
       res.json(updated);
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
@@ -2138,7 +2301,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (body.end_time) body.end_time = new Date(body.end_time);
       else if (body.end_time === "" || body.end_time === null) body.end_time = null;
       if (body.attached_coupon_id === "") body.attached_coupon_id = null;
-      const updated = await storage.updateContest(req.params.id, body);
+      const updated = await storage.updateContest(req.params.id as string, body);
       if (!updated) return res.status(404).json({ error: "Not found" });
       res.json(updated);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
@@ -2146,7 +2309,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.get("/api/admin/shops/:shopId/contest-coupons", adminMiddleware, async (req, res) => {
     try {
-      const all = await storage.getCouponsByShop(req.params.shopId);
+      const all = await storage.getCouponsByShop(req.params.shopId as string);
       res.json(all.filter((c: any) => c.is_contest_coupon));
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
@@ -2172,17 +2335,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.delete("/api/admin/contests/:id", adminMiddleware, async (req, res) => {
     try {
-      await storage.deleteContest(req.params.id);
+      await storage.deleteContest(req.params.id as string);
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
   app.post("/api/admin/contests/:id/draw", adminMiddleware, async (req, res) => {
     try {
-      const c = await storage.getContest(req.params.id);
+      const c = await storage.getContest(req.params.id as string);
       if (!c) return res.status(404).json({ error: "Not found" });
       if (c.status === "completed") return res.status(400).json({ error: "Already drawn" });
-      const updated = await drawAndNotify(req.params.id);
+      const updated = await drawAndNotify(req.params.id as string);
       res.json(updated);
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
@@ -2205,7 +2368,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.patch("/api/notifications/:id/read", authMiddleware, async (req, res) => {
     try {
       const userId = (req as any).user.id;
-      await storage.markNotificationRead(req.params.id, userId);
+      await storage.markNotificationRead(req.params.id as string, userId);
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
@@ -2233,9 +2396,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/user/coupons/:id/claim", authMiddleware, async (req, res) => {
     try {
       const userId = (req as any).user.id;
-      const uc = await storage.getUserCoupon(req.params.id);
+      const uc = await storage.getUserCoupon(req.params.id as string);
       if (!uc || uc.user_id !== userId) return res.status(403).json({ error: "Forbidden" });
-      const updated = await storage.claimUserCoupon(req.params.id, userId);
+      const updated = await storage.claimUserCoupon(req.params.id as string, userId);
       if (!updated) return res.status(404).json({ error: "Not found" });
       
       // Fetch full coupon details for auto-download
@@ -2302,7 +2465,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/coupons/:id/redeem-store", authMiddleware, async (req, res) => {
     try {
       const userId = (req as any).user.id;
-      const couponId = req.params.id;
+      const couponId = req.params.id as string;
       const coupon = await storage.getCoupon(couponId);
       if (!coupon) return res.status(404).json({ error: "Coupon not found" });
       if (!coupon.is_active) return res.status(400).json({ error: "Coupon is not active" });
@@ -2327,10 +2490,130 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // ── Get coupon public info (for redeem page) ───────────────────────────────
   app.get("/api/coupons/:id/public", async (req, res) => {
     try {
-      const coupon = await storage.getCoupon(req.params.id);
+      const coupon = await storage.getCoupon(req.params.id as string);
       if (!coupon) return res.status(404).json({ error: "Not found" });
       const shop = await storage.getShop(coupon.shop_id!);
       res.json({ ...coupon, shop });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ── Save / update FCM token for the authenticated user ────────────────────
+  app.patch("/api/user/fcm-token", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      const { fcm_token } = req.body as { fcm_token: string };
+      if (!fcm_token) return res.status(400).json({ error: "fcm_token is required" });
+
+      await db
+        .update(users)
+        .set({ fcm_token })
+        .where(eq(users.id, userId));
+
+      res.json({ success: true, message: "FCM token saved" });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ── Admin: Send push notification via FCM ────────────────────────────────
+  // Body:
+  //   title        – notification title (required)
+  //   message      – notification body  (required)
+  //   audience     – "all" | "customers" | "tokens" (default: "all")
+  //   tokens       – string[] of specific FCM tokens (only when audience="tokens")
+  //   shop_id      – string  (only when audience="customers" – previous customers of this shop)
+  //   data         – Record<string,string> extra key-value pairs (optional)
+  app.post("/api/admin/send-push", adminMiddleware, async (req: Request, res: Response) => {
+    try {
+      if (!firebaseAdminInitialised) {
+        return res.status(503).json({ error: "Firebase Admin is not initialised. Check server env vars." });
+      }
+
+      const { title, message, audience = "all", tokens: manualTokens, shop_id, data } = req.body as {
+        title: string;
+        message: string;
+        audience?: "all" | "customers" | "tokens";
+        tokens?: string[];
+        shop_id?: string;
+        data?: Record<string, string>;
+      };
+
+      if (!title || !message) {
+        return res.status(400).json({ error: "title and message are required" });
+      }
+
+      // --- Resolve target tokens ---
+      let targetTokens: string[] = [];
+
+      if (audience === "tokens") {
+        // Manual list provided by caller
+        if (!manualTokens || manualTokens.length === 0) {
+          return res.status(400).json({ error: "tokens array is required when audience='tokens'" });
+        }
+        targetTokens = manualTokens.filter(Boolean);
+
+      } else if (audience === "customers" && shop_id) {
+        // Users who placed at least one order at this shop
+        const customerRows = await db
+          .selectDistinct({ fcm_token: users.fcm_token })
+          .from(users)
+          .innerJoin(orders, eq(orders.user_id, users.id))
+          .where(eq(orders.shop_id, shop_id));
+
+        targetTokens = customerRows
+          .map((r: { fcm_token: string | null }) => r.fcm_token)
+          .filter((t): t is string => !!t);
+
+      } else {
+        // "all" – everyone who has registered an FCM token
+        const allRows = await db
+          .select({ fcm_token: users.fcm_token })
+          .from(users);
+
+        targetTokens = allRows
+          .map((r: { fcm_token: string | null }) => r.fcm_token)
+          .filter((t): t is string => !!t);
+      }
+
+      if (targetTokens.length === 0) {
+        return res.json({ success: true, sent: 0, message: "No FCM tokens found for the selected audience" });
+      }
+
+      // --- Build FCM multicast message ---
+      const fcmMessage: admin.messaging.MulticastMessage = {
+        tokens: targetTokens,
+        notification: { title, body: message },
+        data: data || {},
+        android: { priority: "high" },
+        apns: { payload: { aps: { contentAvailable: true } } },
+      };
+
+      // sendEachForMulticast handles up to 500 tokens per call
+      // Chunk into batches of 500 to comply with FCM limits
+      const BATCH_SIZE = 500;
+      let totalSuccess = 0;
+      let totalFailure = 0;
+      const errors: any[] = [];
+
+      for (let i = 0; i < targetTokens.length; i += BATCH_SIZE) {
+        const chunk = targetTokens.slice(i, i + BATCH_SIZE);
+        const batchMessage = { ...fcmMessage, tokens: chunk };
+        const response = await admin.messaging().sendEachForMulticast(batchMessage);
+        totalSuccess += response.successCount;
+        totalFailure += response.failureCount;
+
+        response.responses.forEach((r, idx) => {
+          if (!r.success) {
+            errors.push({ token: chunk[idx], error: r.error?.message });
+          }
+        });
+      }
+
+      res.json({
+        success: true,
+        sent: totalSuccess,
+        failed: totalFailure,
+        total: targetTokens.length,
+        errors: errors.slice(0, 20), // cap error list to avoid huge response
+      });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 

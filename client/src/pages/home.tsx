@@ -312,7 +312,7 @@ function SearchBar({ placeholder }: { placeholder?: string }) {
                       {results!.products.map(product => (
                         <button
                           key={product.id}
-                          onClick={() => { localStorage.setItem("lastShopId", product.shop_id); navigate(`/shop/${product.shop_id}`); setOpen(false); setQuery(""); }}
+                          onClick={() => { localStorage.setItem("lastShopId", product.shop_id || ""); navigate(`/shop/${product.shop_id}`); setOpen(false); setQuery(""); }}
                           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors text-left group"
                           data-testid={`search-result-product-${product.id}`}
                         >
@@ -841,7 +841,7 @@ function MyDownloadsPanel({ myDownloads, isLoading, refetch, token }: { myDownlo
       return res.json();
     },
     onSuccess: (_data, codeId) => {
-      setUsedIds(prev => new Set([...prev, codeId]));
+      setUsedIds(prev => { const next = new Set(prev); next.add(codeId); return next; });
       queryClient.invalidateQueries({ queryKey: ["/api/user/my-downloads"] });
       toast({ title: "Marked as Used!", description: "Coupon moved to used list." });
     },
@@ -1146,13 +1146,18 @@ function NearbyMapPanel({
   onClose,
   shops,
   coupons = [],
+  claimedCouponIds = [],
+  onClaimCoupon,
 }: {
   isOpen: boolean;
   onClose: () => void;
   shops: (Shop & { category?: Category })[];
   coupons?: (Coupon & { shop?: Shop })[];
+  claimedCouponIds?: string[];
+  onClaimCoupon: (couponId: string) => Promise<void>;
 }) {
   const [, navigate] = useLocation();
+  const { toast } = useToast();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const userMarkerRef = useRef<any>(null);
@@ -1453,28 +1458,54 @@ function NearbyMapPanel({
                   <div>
                     <p className="text-white/60 text-xs uppercase tracking-wider mb-2">Active Coupons</p>
                     <div className="space-y-2">
-                      {coupons.filter(c => c.shop_id === selectedMapShop.id).map(c => (
-                        <div key={c.id} className="bg-white/5 border border-amber-500/30 rounded-lg p-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <div>
-                              <p className="text-amber-400 text-sm font-bold">{c.code}</p>
-                              <p className="text-white/70 text-xs mt-0.5">
-                                {c.type === "percentage" ? `${c.value}% OFF` : c.type === "flat" ? `₹${c.value} OFF` : "FREE ITEM"}
-                              </p>
-                              {c.description && <p className="text-white/50 text-xs mt-1">{c.description}</p>}
+                      {coupons.filter(c => c.shop_id === selectedMapShop.id).map(c => {
+                        const isClaimed = claimedCouponIds.includes(c.id);
+                        return (
+                          <div key={c.id} className="bg-white/5 border border-amber-500/30 rounded-lg p-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <div>
+                                <p className="text-amber-400 text-sm font-bold">{c.code}</p>
+                                <p className="text-white/70 text-xs mt-0.5">
+                                  {c.type === "percentage" ? `${c.value}% OFF` : c.type === "flat" ? `₹${c.value} OFF` : "FREE ITEM"}
+                                </p>
+                                {c.description && <p className="text-white/50 text-xs mt-1">{c.description}</p>}
+                              </div>
+                              {isClaimed ? (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled
+                                  className="shrink-0 text-white/40 cursor-not-allowed border border-white/10"
+                                >
+                                  Claimed ✅
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="shrink-0 border-amber-500/50 hover:bg-amber-500/10 hover:text-amber-400 text-amber-400"
+                                  onClick={async () => {
+                                    console.log("Claimed coupon ID:", c.id);
+                                    await onClaimCoupon(c.id);
+                                  }}
+                                >
+                                  Claim
+                                </Button>
+                              )}
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
                 <button
                   onClick={() => { localStorage.setItem("lastShopId", selectedMapShop.id); navigate(`/shop/${selectedMapShop.id}`); setSelectedMapShop(null); onClose(); }}
-                  className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-bold text-sm transition-all hover:shadow-lg active:scale-95"
+                  className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-bold text-sm transition-all hover:shadow-lg active:scale-95 flex items-center justify-center gap-2"
                   data-testid="button-map-shop-detail-go"
                 >
-                  GO THERE NOW
+                  <Navigation className="w-4 h-4" />
+                  Get Directions
                 </button>
               </div>
             </div>
@@ -1758,6 +1789,8 @@ function MagicAIButton({ active, loading, onClick }: { active: boolean; loading:
 
 export default function Home() {
   const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const { isAuthenticated, token } = useAuth();
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; address: string } | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
   const [nearbyMode, setNearbyMode] = useState(false);
@@ -1823,6 +1856,34 @@ export default function Home() {
     refetchOnMount: "always",
   });
 
+  const { data: claimedCouponIds = [] } = useQuery<string[]>({
+    queryKey: ["/api/coupons/claimed"],
+    enabled: isAuthenticated,
+  });
+
+  const claimMutation = useMutation({
+    mutationFn: (couponId: string) =>
+      apiRequest("POST", "/api/coupons/claim", { couponId }),
+    onSuccess: (_, couponId) => {
+      queryClient.setQueryData<string[]>(["/api/coupons/claimed"], (prev = []) => {
+        if (prev.includes(couponId)) return prev;
+        return [...prev, couponId];
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/coupons/claimed/details"] });
+      toast({
+        title: "Coupon Claimed Successfully!",
+        variant: "default",
+      });
+    },
+    onError: (err: any) => {
+      toast({
+        title: "❌ Error claiming coupon",
+        description: err.message || "Something went wrong.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const { data: allNearbyShops = [] } = useQuery<(Shop & { category?: Category })[]>({
     queryKey: ["/api/shops", "nearby"],
     queryFn: () => fetch("/api/shops").then(r => r.json()),
@@ -1874,7 +1935,6 @@ export default function Home() {
   };
 
   const [couponTab, setCouponTab] = useState<"top" | "offline" | "downloads">("top");
-  const { isAuthenticated, token } = useAuth();
 
   // Category strip auto-scroll
   const catScrollRef = useRef<HTMLDivElement>(null);
@@ -1942,13 +2002,14 @@ export default function Home() {
     ? [...sourceShops].sort((a, b) => shopDist(a) - shopDist(b))
     : featuredShops;
 
+  const categoriesArray = Array.isArray(categories) ? categories : [];
   const displayCategories = nearbyMode && nearbyPos && allNearbyShops.length > 0
-    ? [...(categories || [])].sort((a, b) => {
+    ? [...categoriesArray].sort((a, b) => {
         const aNearby = allNearbyShops.filter(s => s.category_id === a.id && shopDist(s) < 10000).length;
         const bNearby = allNearbyShops.filter(s => s.category_id === b.id && shopDist(s) < 10000).length;
         return bNearby - aNearby;
       })
-    : (categories || []);
+    : categoriesArray;
 
   const displayActiveCoupons = nearbyMode && nearbyPos
     ? [...activeCoupons].sort((a, b) => shopDist((a as any).shop) - shopDist((b as any).shop))
@@ -1958,6 +2019,8 @@ export default function Home() {
     ? [...offlineCouponsList].sort((a, b) => shopDist((a as any).shop) - shopDist((b as any).shop))
     : offlineCouponsList;
 
+  console.log("Categories Data:", displayCategories);
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <NearbyMapPanel
@@ -1965,6 +2028,19 @@ export default function Home() {
         onClose={() => setMapOpen(false)}
         shops={mapOpen && allMapShops.length > 0 ? allMapShops : featuredShops}
         coupons={mapOpen && mapCoupons.length > 0 ? mapCoupons : activeCoupons}
+        claimedCouponIds={claimedCouponIds}
+        onClaimCoupon={async (couponId) => {
+          if (!isAuthenticated) {
+            toast({
+              title: "🔒 Authentication Required",
+              description: "Please log in to claim coupons.",
+              variant: "destructive",
+            });
+            navigate("/login");
+            return;
+          }
+          await claimMutation.mutateAsync(couponId);
+        }}
       />
       <Navbar />
 
@@ -2097,7 +2173,7 @@ export default function Home() {
                     <Skeleton className="w-14 h-3 rounded" />
                   </div>
                 ))
-              : displayCategories.map((cat, i) => <CategoryCard key={cat.id} category={cat} index={i} />)
+              : (Array.isArray(displayCategories) ? displayCategories : []).map((cat, i) => <CategoryCard key={cat.id} category={cat} index={i} />)
             }
           </div>
         ) : topCategories.length > 0 ? (
@@ -2171,7 +2247,7 @@ export default function Home() {
                       <Skeleton className="w-12 h-2 rounded" />
                     </div>
                   ))
-                : displayCategories.map((cat, i) => {
+                : (Array.isArray(displayCategories) ? displayCategories : []).map((cat, i) => {
                     const IconComp = getCategoryIconComponent(cat.name);
                     const bgCls = getCategoryBg(cat.name);
                     return (

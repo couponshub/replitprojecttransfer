@@ -16,6 +16,7 @@ export const users = pgTable("users", {
   address: text("address"),
   password: text("password").notNull(),
   role: roleEnum("role").notNull().default("user"),
+  fcm_token: text("fcm_token"),
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -220,6 +221,18 @@ export const userCoupons = pgTable("user_coupons", {
   claimed_at: timestamp("claimed_at"),
   created_at: timestamp("created_at").notNull().default(sql`now()`),
 });
+
+export const claimedCoupons = pgTable("claimed_coupons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  couponId: varchar("coupon_id").references(() => coupons.id).notNull(),
+  isUsed: boolean("is_used").notNull().default(false),
+  claimedAt: timestamp("claimed_at").notNull().default(sql`now()`),
+});
+
+export const insertClaimedCouponSchema = createInsertSchema(claimedCoupons).omit({ id: true, claimedAt: true });
+export type InsertClaimedCoupon = z.infer<typeof insertClaimedCouponSchema>;
+export type ClaimedCoupon = typeof claimedCoupons.$inferSelect;
 
 export const contestSlots = pgTable("contest_slots", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

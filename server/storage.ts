@@ -15,10 +15,10 @@ import {
   type Banner, type InsertBanner,
   type OfflineCoupon, type InsertOfflineCoupon, type OfflineCouponCode,
   type Contest, type InsertContest, type ContestSlot,
-  type Notification, type UserCoupon,
+  type Notification, type UserCoupon, type ClaimedCoupon,
   users, categories, shops, products, coupons, couponProducts, orders, orderItems, vendors, banners,
   offlineCoupons, offlineCouponCodes, contests, contestSlots, notifications, userCoupons,
-  homePageBanner
+  homePageBanner, claimedCoupons
 } from "@shared/schema";
 
 const rawSupabaseUrl = process.env.SUPABASE_DATABASE_URL;
@@ -174,6 +174,11 @@ export interface IStorage {
 
   // Auto contest check
   getExpiredOpenContests(): Promise<Contest[]>;
+
+  // Claimed Coupons
+  getClaimedCoupons(userId: string): Promise<ClaimedCoupon[]>;
+  getClaimedCoupon(userId: string, couponId: string): Promise<ClaimedCoupon | undefined>;
+  claimCoupon(userId: string, couponId: string): Promise<ClaimedCoupon>;
 }
 
 export class PgStorage implements IStorage {
@@ -972,6 +977,22 @@ export class PgStorage implements IStorage {
         sql`${contests.end_time} IS NOT NULL AND ${contests.end_time} <= NOW()`
       )
     );
+  }
+
+  async getClaimedCoupons(userId: string): Promise<ClaimedCoupon[]> {
+    return db.select().from(claimedCoupons).where(eq(claimedCoupons.userId, userId));
+  }
+
+  async getClaimedCoupon(userId: string, couponId: string): Promise<ClaimedCoupon | undefined> {
+    const result = await db.select().from(claimedCoupons)
+      .where(and(eq(claimedCoupons.userId, userId), eq(claimedCoupons.couponId, couponId)))
+      .limit(1);
+    return result[0];
+  }
+
+  async claimCoupon(userId: string, couponId: string): Promise<ClaimedCoupon> {
+    const result = await db.insert(claimedCoupons).values({ userId, couponId }).returning();
+    return result[0];
   }
 }
 

@@ -26,15 +26,29 @@ export default function MyCouponsPage() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<"saved" | "offline">("saved");
+  const [activeTab, setActiveTab] = useState<"saved" | "claimed" | "offline">("saved");
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [savedSearch, setSavedSearch] = useState("");
+  const [claimedSearch, setClaimedSearch] = useState("");
   const [offlineSearch, setOfflineSearch] = useState("");
 
   const { data: userCoupons = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/user/coupons"],
     enabled: !!user,
   });
+
+  const { data: claimedCouponsRaw = [], isLoading: claimedLoading } = useQuery<any[]>({
+    queryKey: ["/api/coupons/claimed/details"],
+    enabled: !!user,
+  });
+
+  console.log('Frontend received:', claimedCouponsRaw);
+
+  const claimedCoupons = Array.isArray(claimedCouponsRaw)
+    ? claimedCouponsRaw
+    : (claimedCouponsRaw && typeof claimedCouponsRaw === "object" && Array.isArray((claimedCouponsRaw as any).data))
+      ? (claimedCouponsRaw as any).data
+      : [];
 
   const { data: offlineDownloads = [], isLoading: offlineLoading } = useQuery<any[]>({
     queryKey: ["/api/user/my-downloads"],
@@ -61,6 +75,18 @@ export default function MyCouponsPage() {
     if (!savedSearch.trim()) return true;
     const q = savedSearch.trim().toLowerCase();
     const coupon = uc.coupon;
+    const shop = coupon?.shop;
+    return (
+      (coupon?.description || "").toLowerCase().includes(q) ||
+      (coupon?.code || "").toLowerCase().includes(q) ||
+      (shop?.name || "").toLowerCase().includes(q)
+    );
+  });
+
+  const filteredClaimedCoupons = claimedCoupons.filter((cc: any) => {
+    if (!claimedSearch.trim()) return true;
+    const q = claimedSearch.trim().toLowerCase();
+    const coupon = cc.coupon;
     const shop = coupon?.shop;
     return (
       (coupon?.description || "").toLowerCase().includes(q) ||
@@ -106,27 +132,38 @@ export default function MyCouponsPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-5 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+        <div className="flex gap-1.5 mb-5 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
           <button
             onClick={() => setActiveTab("saved")}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold transition-all ${activeTab === "saved" ? "bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm" : "text-muted-foreground"}`}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-lg text-[11px] sm:text-xs md:text-sm font-semibold transition-all ${activeTab === "saved" ? "bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm animate-fade-in" : "text-muted-foreground hover:text-foreground"}`}
             data-testid="tab-my-coupons"
           >
-            <Bookmark className="w-4 h-4" />
-            My Coupons
+            <Bookmark className="w-3.5 h-3.5" />
+            Saved
             {userCoupons.length > 0 && (
-              <span className="bg-violet-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{userCoupons.length}</span>
+              <span className="bg-violet-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{userCoupons.length}</span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab("claimed")}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-lg text-[11px] sm:text-xs md:text-sm font-semibold transition-all ${activeTab === "claimed" ? "bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm animate-fade-in" : "text-muted-foreground hover:text-foreground"}`}
+            data-testid="tab-claimed-coupons"
+          >
+            <Gift className="w-3.5 h-3.5" />
+            Claimed
+            {claimedCoupons.length > 0 && (
+              <span className="bg-amber-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{claimedCoupons.length}</span>
             )}
           </button>
           <button
             onClick={() => setActiveTab("offline")}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold transition-all ${activeTab === "offline" ? "bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm" : "text-muted-foreground"}`}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-1.5 rounded-lg text-[11px] sm:text-xs md:text-sm font-semibold transition-all ${activeTab === "offline" ? "bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm animate-fade-in" : "text-muted-foreground hover:text-foreground"}`}
             data-testid="tab-offline-coupons"
           >
-            <Ticket className="w-4 h-4" />
-            Offline Coupons
+            <Ticket className="w-3.5 h-3.5" />
+            Offline
             {offlineDownloads.length > 0 && (
-              <span className="bg-emerald-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">{offlineDownloads.length}</span>
+              <span className="bg-emerald-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">{offlineDownloads.length}</span>
             )}
           </button>
         </div>
@@ -242,6 +279,133 @@ export default function MyCouponsPage() {
                             }}
                             className="w-full mt-3 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 border-0 text-white gap-2 h-9"
                             data-testid={`button-use-coupon-${uc.id}`}
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            Use at {shop.name}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Tab: Claimed Coupons */}
+        {activeTab === "claimed" && (
+          <>
+            {/* Section Title */}
+            <div className="mb-4 px-1">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">My Claimed Offers</h2>
+            </div>
+
+            {/* Search Box */}
+            <div className="relative mb-5">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={claimedSearch}
+                onChange={e => setClaimedSearch(e.target.value)}
+                placeholder="Search claimed offers..."
+                className="pl-9 pr-9 rounded-xl h-11 bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700"
+                data-testid="input-claimed-coupons-search"
+              />
+              {claimedSearch && (
+                <button onClick={() => setClaimedSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" data-testid="button-clear-claimed-search">
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {claimedLoading ? (
+              <div className="space-y-3">
+                {[1, 2].map(i => <Skeleton key={i} className="h-28 w-full rounded-xl" />)}
+              </div>
+            ) : claimedCoupons.length === 0 ? (
+              <div className="text-center py-16" data-testid="text-no-claimed-coupons">
+                <Gift className="w-14 h-14 mx-auto text-muted-foreground/30 mb-4" />
+                <p className="text-muted-foreground text-lg font-semibold">You haven't claimed any offers yet.</p>
+                <p className="text-sm text-muted-foreground mt-1">Claim special discount coupons from the Radar view to see them here</p>
+                <Button variant="outline" className="mt-4 rounded-xl" onClick={() => navigate("/")} data-testid="button-browse-claimed">
+                  Open Radar Map
+                </Button>
+              </div>
+            ) : filteredClaimedCoupons.length === 0 ? (
+              <div className="text-center py-8" data-testid="text-no-filtered-claimed">
+                <Search className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
+                <p className="text-muted-foreground text-sm">No coupons match your search</p>
+              </div>
+            ) : (
+              <div className="space-y-3 animate-fade-in">
+                {filteredClaimedCoupons.map((cc: any) => {
+                  const coupon = cc.coupon;
+                  const shop = coupon?.shop;
+                  const label = getCouponLabel(coupon);
+                  return (
+                    <div key={cc.id} className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden shadow-sm" data-testid={`card-claimed-coupon-${cc.id}`}>
+                      {coupon?.banner_image && (
+                        <img src={coupon.banner_image} alt="Banner" className="w-full h-24 object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                      )}
+                      <div className="p-4">
+                        <div className="flex items-start gap-3">
+                          {shop?.logo && (
+                            <img src={shop.logo} alt={shop.name} className="w-10 h-10 rounded-xl object-cover shrink-0 border border-gray-100 dark:border-gray-700" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300 text-xs font-bold border-0" data-testid={`badge-claimed-label-${cc.id}`}>
+                                {label}
+                              </Badge>
+                              <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-600 dark:text-emerald-400 bg-emerald-500/5">
+                                Claimed ✅
+                              </Badge>
+                            </div>
+                            {shop && (
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white truncate flex items-center gap-1" data-testid={`text-claimed-shop-name-${cc.id}`}>
+                                <Store className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                                {shop.name}
+                              </p>
+                            )}
+                            {coupon?.description && (
+                              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{coupon.description}</p>
+                            )}
+                            {coupon?.expiry_date && (
+                              <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                Valid till {new Date(coupon.expiry_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Coupon Code */}
+                        {coupon?.code && (
+                          <div className="mt-3 flex items-center gap-2">
+                            <div className="flex-1 flex items-center gap-2 bg-gray-50 dark:bg-gray-800 rounded-xl px-3 py-2 border border-dashed border-gray-300 dark:border-gray-600">
+                              <Tag className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                              <span className="font-mono text-sm font-bold tracking-widest text-gray-900 dark:text-white" data-testid={`text-claimed-code-${cc.id}`}>{coupon.code}</span>
+                            </div>
+                            <button
+                              onClick={() => copyCode(coupon.code)}
+                              className="shrink-0 p-2 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-amber-100 dark:hover:bg-amber-900/60 transition-colors"
+                              data-testid={`button-copy-claimed-code-${cc.id}`}
+                            >
+                              {copiedCode === coupon.code ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4 text-gray-500" />}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Use button */}
+                        {shop?.id && (
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              if (coupon?.code) copyCode(coupon.code);
+                              navigate(`/shop/${shop.id}`);
+                            }}
+                            className="w-full mt-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 border-0 text-white gap-2 h-9"
+                            data-testid={`button-use-claimed-${cc.id}`}
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
                             Use at {shop.name}

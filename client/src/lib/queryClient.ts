@@ -38,8 +38,9 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     const token = getToken();
-    const url = queryKey[0] as string;
-    const params = queryKey.length > 1 ? `?${new URLSearchParams(queryKey.slice(1).reduce((acc, v, i) => {
+    const key = queryKey as any[];
+    const url = key[0] as string;
+    const params = key.length > 1 ? `?${new URLSearchParams(key.slice(1).reduce((acc, v, i) => {
       if (typeof v === "object" && v !== null) Object.assign(acc, v);
       return acc;
     }, {} as any)).toString()}` : "";
