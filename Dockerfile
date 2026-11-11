@@ -19,6 +19,7 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV PORT=8080
 
 # Install only production dependencies
 COPY package*.json ./
@@ -27,8 +28,8 @@ RUN npm ci --omit=dev
 # Copy compiled assets from builder
 COPY --from=builder /app/dist ./dist
 
-# Expose the server port
-EXPOSE 5000
+# Expose the server port (8080 for Cloud Run)
+EXPOSE 8080
 
-# Start server
-CMD ["npm", "run", "start"]
+# Start server directly with Node for fast signal handling & zero overhead
+CMD ["node", "dist/index.cjs"]
