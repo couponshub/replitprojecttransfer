@@ -55,7 +55,10 @@ async function drawAndNotify(contestId: string) {
   const updated = await storage.drawWinner(contestId);
   if (!updated || !updated.winner_user_id) return updated;
   const contest = await storage.getContest(contestId);
-  if (contest?.attached_coupon_id && updated.winner_user_id) {
+  if (!contest) return updated;
+
+  // 1. If contest has attached prize coupon, allocate to winner
+  if (contest.attached_coupon_id && updated.winner_user_id) {
     const existing = (await storage.getUserCoupons(updated.winner_user_id))
       .find(uc => uc.contest_id === contestId);
     if (!existing) {
@@ -64,15 +67,54 @@ async function drawAndNotify(contestId: string) {
         coupon_id: contest.attached_coupon_id,
         contest_id: contestId,
       });
-      await storage.createNotification({
-        user_id: updated.winner_user_id,
-        type: "contest_win",
-        title: "You won a contest!",
-        message: `Congratulations! You won "${contest.title}". Claim your prize coupon now!`,
-        data: JSON.stringify({ contest_id: contestId, coupon_id: contest.attached_coupon_id }),
-      });
     }
   }
+
+  // 2. Notify the WINNER (always, whether prize coupon attached or not)
+  if (updated.winner_user_id) {
+    await storage.createNotification({
+      user_id: updated.winner_user_id,
+      type: "contest_win",
+      title: "🎉 You won the contest!",
+      message: `Congratulations! You won "${contest.title}" with Slot #${updated.winner_slot_number}! ${contest.attached_coupon_id ? "Claim your prize coupon now in My Coupons!" : "Check the contest page for details."}`,
+      data: JSON.stringify({
+        contest_id: contestId,
+        coupon_id: contest.attached_coupon_id || null,
+        slot_number: updated.winner_slot_number,
+      }),
+    });
+  }
+
+  // 3. Notify all other PARTICIPANTS who joined this contest
+  const slots = contest.slots || [];
+  const otherParticipantIds = Array.from(
+    new Set(
+      slots
+        .map(s => s.user_id)
+        .filter((uid): uid is string => !!uid && uid !== updated.winner_user_id)
+    )
+  );
+
+  for (const uid of otherParticipantIds) {
+    try {
+      await storage.createNotification({
+        user_id: uid,
+        type: "contest_result",
+        title: `Contest Results: ${contest.title}`,
+        message: `The lucky draw for "${contest.title}" is complete! Winning Slot was #${updated.winner_slot_number} (${updated.winner_user_name}). Thank you for participating!`,
+        data: JSON.stringify({
+          contest_id: contestId,
+          winner_name: updated.winner_user_name,
+          winner_slot: updated.winner_slot_number,
+        }),
+      });
+    } catch (err: any) {
+      console.warn(`[drawAndNotify] Failed to notify participant ${uid}:`, err.message);
+    }
+  }
+
+  console.log(`[drawAndNotify] Contest "${contest.title}" drawn! Winner: ${updated.winner_user_name} (Slot #${updated.winner_slot_number}). Notified winner + ${otherParticipantIds.length} participants.`);
+
   return updated;
 }
 
