@@ -67,6 +67,7 @@ export default function OrderConfirmPage() {
   if (!order) return null;
 
   const hasQrPayment = !!(order.shopPaymentId || order.shopPaymentQr);
+  const isOptionCompleted = adminSent || shopSent || paymentAdminSent || sentShopIds.size > 0 || paymentSuccess;
 
   const buildWhatsAppMessage = () => {
     const lines = [
@@ -125,6 +126,7 @@ export default function OrderConfirmPage() {
     if (!phone) return;
     window.open(`https://wa.me/${phone}?text=${buildWhatsAppMessage()}`, "_blank");
     setShopSent(true);
+    toast({ title: "🎉 Order Placed!", description: "Order details sent to Shop via WhatsApp." });
   };
 
   const handleWhatsAppAdmin = () => {
@@ -136,6 +138,7 @@ export default function OrderConfirmPage() {
       order.orders?.forEach((o: any) => next.add(o.shopId));
       return next;
     });
+    toast({ title: "🎉 Order Placed!", description: "Order details sent to Admin via WhatsApp." });
   };
 
   const handleWhatsApp = handleWhatsAppShop;
@@ -381,14 +384,55 @@ export default function OrderConfirmPage() {
         )}
 
         <div className="text-center mb-8">
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 via-indigo-600 to-violet-600 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-blue-500/25">
-            <Package className="w-10 h-10 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {(order.orders?.length ?? 1) > 1 ? `${order.orders!.length} Orders Placed!` : "Order Placed Successfully!"}
-          </h1>
-          <p className="text-muted-foreground mt-1">Order placed · Complete payment or track below</p>
+          {!isOptionCompleted ? (
+            <>
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 via-purple-600 to-violet-600 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-indigo-500/25">
+                <ShoppingBag className="w-10 h-10 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Choose How to Place Your Order
+              </h1>
+              <p className="text-muted-foreground mt-1 text-sm">
+                Select an option below to complete your order with the store
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-emerald-400/30 animate-pulse">
+                <CheckCircle className="w-10 h-10 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Order Placed Successfully! 🎉
+              </h1>
+              <p className="text-emerald-600 dark:text-emerald-400 font-medium mt-1 text-sm">
+                Your order has been shared with the store/admin
+              </p>
+            </>
+          )}
         </div>
+
+        {/* Success Banner when an option is completed */}
+        {isOptionCompleted && (
+          <div className="mb-6 p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between gap-3 shadow-sm animate-in fade-in duration-300">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
+                <Check className="w-4 h-4 font-bold" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-emerald-950 dark:text-emerald-200">Order Placed Successfully!</p>
+                <p className="text-xs text-emerald-700 dark:text-emerald-400">Order details shared. Track status anytime in My Orders.</p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => { sessionStorage.removeItem("pendingOrder"); navigate("/my-orders"); }}
+              className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 px-3 shrink-0"
+              data-testid="button-view-my-orders-banner"
+            >
+              My Orders
+            </Button>
+          </div>
+        )}
 
         {/* Multi-store breakdown */}
         {order.orders && order.orders.length > 1 && (
@@ -653,7 +697,12 @@ export default function OrderConfirmPage() {
           </Card>
         )}
 
-        {/* Action Buttons */}
+        {/* Action Options */}
+        <div className="mb-1">
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
+            {isOptionCompleted ? "Other Ways to Complete / Pay:" : "Choose An Option to Place Your Order:"}
+          </p>
+        </div>
         <div className="flex flex-col gap-3">
           {/* Razorpay — Primary */}
           <button
