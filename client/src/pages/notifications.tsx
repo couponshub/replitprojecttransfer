@@ -57,6 +57,16 @@ export default function NotificationsPage() {
     },
   });
 
+  const markAllRead = useMutation({
+    mutationFn: () => apiRequest("PATCH", "/api/notifications/mark-all-read"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+    },
+  });
+
+  const hasUnread = notifications?.some((n) => !n.is_read);
+
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center" data-testid="notifications-login-prompt">
@@ -77,6 +87,19 @@ export default function NotificationsPage() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <h1 className="text-2xl font-bold" data-testid="text-notifications-title">Notifications</h1>
+          {hasUnread && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-auto text-xs"
+              onClick={() => markAllRead.mutate()}
+              disabled={markAllRead.isPending}
+              data-testid="button-mark-all-read"
+            >
+              <Check className="w-3 h-3 mr-1" />
+              Mark all read
+            </Button>
+          )}
         </div>
 
         {isLoading ? (

@@ -3018,6 +3018,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  app.patch("/api/notifications/mark-all-read", authMiddleware, async (req, res) => {
+    try {
+      const userId = (req as any).user.id;
+      await storage.markAllNotificationsRead(userId);
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   app.patch("/api/notifications/:id/read", authMiddleware, async (req, res) => {
     try {
       const userId = (req as any).user.id;

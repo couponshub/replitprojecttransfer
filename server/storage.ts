@@ -164,6 +164,7 @@ export interface IStorage {
   getNotifications(userId: string): Promise<Notification[]>;
   createNotification(data: { user_id: string; type: string; title: string; message?: string; data?: string }): Promise<Notification>;
   markNotificationRead(id: string, userId: string): Promise<void>;
+  markAllNotificationsRead(userId: string): Promise<void>;
   getUnreadCount(userId: string): Promise<number>;
 
   // User Coupons
@@ -916,6 +917,10 @@ export class PgStorage implements IStorage {
 
   async markNotificationRead(id: string, userId: string): Promise<void> {
     await db.update(notifications).set({ is_read: true }).where(and(eq(notifications.id, id), eq(notifications.user_id, userId)));
+  }
+
+  async markAllNotificationsRead(userId: string): Promise<void> {
+    await db.update(notifications).set({ is_read: true }).where(and(eq(notifications.user_id, userId), eq(notifications.is_read, false)));
   }
 
   async getUnreadCount(userId: string): Promise<number> {
