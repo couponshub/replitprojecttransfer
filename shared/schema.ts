@@ -276,6 +276,16 @@ export const homePageBanner = pgTable("home_page_banner", {
   updated_at: timestamp("updated_at").notNull().default(sql`now()`),
 });
 
+export const uploadedImages = pgTable("uploaded_images", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  filename: text("filename").notNull(),
+  mime_type: text("mime_type").notNull().default("image/jpeg"),
+  data: text("data").notNull(),
+  size: integer("size"),
+  created_at: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export type UploadedImage = typeof uploadedImages.$inferSelect;
 export const insertHomePageBannerSchema = createInsertSchema(homePageBanner).omit({ id: true, created_at: true, updated_at: true });
 export type HomePageBanner = typeof homePageBanner.$inferSelect;
 export type InsertHomePageBanner = z.infer<typeof insertHomePageBannerSchema>;

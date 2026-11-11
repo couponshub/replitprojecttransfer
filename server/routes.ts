@@ -1013,11 +1013,96 @@ async function migrateShopMapLinks() {
   }
 }
 
+async function initNeonImageStorage() {
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS uploaded_images (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        filename TEXT NOT NULL,
+        mime_type TEXT NOT NULL DEFAULT 'image/jpeg',
+        data TEXT NOT NULL,
+        size INTEGER,
+        created_at TIMESTAMP NOT NULL DEFAULT now()
+      )
+    `);
+
+    // Migrate any existing files in uploadsDir to Neon DB
+    if (fs.existsSync(uploadsDir)) {
+      const files = fs.readdirSync(uploadsDir);
+      for (const file of files) {
+        const filePath = path.join(uploadsDir, file);
+        const stat = fs.statSync(filePath);
+        if (stat.isFile() && stat.size > 0 && stat.size < 15 * 1024 * 1024) {
+          const existing = await db.execute(sql`SELECT id FROM uploaded_images WHERE filename = ${file} LIMIT 1`);
+          if (!existing.rows || existing.rows.length === 0) {
+            const ext = file.split(".").pop()?.toLowerCase();
+            const mime = ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+            const fileBuf = fs.readFileSync(filePath);
+            await db.execute(sql`
+              INSERT INTO uploaded_images (filename, mime_type, data, size)
+              VALUES (${file}, ${mime}, ${fileBuf.toString("base64")}, ${stat.size})
+            `);
+            console.log(`[Neon Image Storage] Migrated ${file} (${Math.round(stat.size / 1024)} KB) to Neon Database`);
+          }
+        }
+      }
+    }
+  } catch (err: any) {
+    console.error("[Neon Image Storage] Init error:", err.message);
+  }
+}
+
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   const cookieParser = (await import("cookie-parser")).default;
   app.use(cookieParser());
   const express = (await import("express")).default;
+
+  // Initialize Neon image storage table & migrate existing files
+  await initNeonImageStorage();
+
+  // Static uploads directory with Neon Database persistent fallback
   app.use("/uploads", express.static(uploadsDir));
+  app.get("/uploads/:filename", async (req, res, next) => {
+    try {
+      const filename = path.basename(req.params.filename);
+      const idMatch = filename.match(/^([a-f0-9-]+)/);
+      const searchId = idMatch ? idMatch[1] : filename;
+      const result = await db.execute(sql`
+        SELECT mime_type, data FROM uploaded_images 
+        WHERE id = ${searchId} OR filename = ${filename} 
+        LIMIT 1
+      `);
+      if (result.rows && result.rows.length > 0) {
+        const row = result.rows[0] as any;
+        const buf = Buffer.from(row.data, "base64");
+        res.setHeader("Content-Type", row.mime_type || "image/jpeg");
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        return res.send(buf);
+      }
+    } catch {}
+    next();
+  });
+
+  // Dedicated endpoint to serve images directly from Neon Database
+  app.get("/api/images/:id", async (req, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT mime_type, data FROM uploaded_images 
+        WHERE id = ${req.params.id} OR filename = ${req.params.id}
+        LIMIT 1
+      `);
+      if (result.rows && result.rows.length > 0) {
+        const row = result.rows[0] as any;
+        const buf = Buffer.from(row.data, "base64");
+        res.setHeader("Content-Type", row.mime_type || "image/jpeg");
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        return res.send(buf);
+      }
+      return res.status(404).send("Image not found");
+    } catch (err: any) {
+      return res.status(500).send("Error loading image from Neon Database");
+    }
+  });
 
   await seedDatabase();
   await seedElurubusinesses();
@@ -1209,37 +1294,41 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json({ success: true });
   });
 
-  // File upload → Supabase Storage
-  app.post("/api/upload", adminMiddleware, memUpload.single("file"), async (req: any, res) => {
+  // File upload → Neon PostgreSQL Database (permanently stored in Neon)
+  app.post("/api/upload", memUpload.single("file"), async (req: any, res) => {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
     try {
-      if (supabase) {
-        const ext = req.file.originalname.split(".").pop()?.toLowerCase() || "jpg";
-        const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-        const { error } = await supabase.storage
-          .from(SUPABASE_BUCKET)
-          .upload(fileName, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
-        if (error) {
-          console.error("[Supabase Upload Error]", JSON.stringify(error));
-          const msg = (error.message || "").toLowerCase();
-          if (msg.includes("bucket") || msg.includes("not found") || msg.includes("does not exist") || msg.includes("no such")) {
-            return res.status(400).json({ error: "supabase_bucket_missing", message: "Please create a public bucket named 'images' in your Supabase Storage dashboard.", detail: error.message });
-          }
-          throw new Error(error.message);
-        }
-        const { data: urlData } = supabase.storage.from(SUPABASE_BUCKET).getPublicUrl(fileName);
-        return res.json({ url: urlData.publicUrl, provider: "supabase" });
-      } else {
-        const localName = `${Date.now()}-${req.file.originalname.replace(/[^a-zA-Z0-9.]/g, "_")}`;
+      const base64Data = req.file.buffer.toString("base64");
+      const mimeType = req.file.mimetype || "image/jpeg";
+      const originalName = req.file.originalname || "image.jpg";
+      const cleanName = originalName.replace(/[^a-zA-Z0-9.]/g, "_");
+
+      // Save directly into Neon Database!
+      const insertResult = await db.execute(sql`
+        INSERT INTO uploaded_images (filename, mime_type, data, size)
+        VALUES (${cleanName}, ${mimeType}, ${base64Data}, ${req.file.size || req.file.buffer.length})
+        RETURNING id
+      `);
+      const imageId = (insertResult.rows[0] as any).id;
+      const localName = `${imageId}-${cleanName}`;
+
+      try {
         fs.writeFileSync(path.join(uploadsDir, localName), req.file.buffer);
-        return res.json({ url: `/uploads/${localName}`, provider: "local" });
-      }
+      } catch {}
+
+      return res.json({
+        url: `/api/images/${imageId}`,
+        id: imageId,
+        provider: "neon",
+        localUrl: `/uploads/${localName}`,
+      });
     } catch (err: any) {
+      console.error("[Neon Upload Error]", err);
       return res.status(500).json({ error: err.message || "Upload failed" });
     }
   });
 
-  // ─── AI Banner Generation (Pollinations.ai — free, no API key) ───────────
+  // ─── AI Banner Generation (Pollinations.ai — saved into Neon Database) ───────────
   app.post("/api/ai/generate-banner", authMiddleware, async (req, res) => {
     const { userPrompt, couponType, couponValue, couponCode, couponDescription, shopName, shopCategory, shopDescription } = req.body;
 
@@ -1283,18 +1372,26 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
       const imageBuffer = Buffer.from(await imgRes.arrayBuffer());
       const fileName = `ai-banner-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+      const base64Data = imageBuffer.toString("base64");
 
-      if (supabase) {
-        const { error } = await supabase.storage
-          .from(SUPABASE_BUCKET)
-          .upload(fileName, imageBuffer, { contentType: "image/jpeg", upsert: false });
-        if (error) throw new Error(error.message);
-        const { data: urlData } = supabase.storage.from(SUPABASE_BUCKET).getPublicUrl(fileName);
-        return res.json({ url: urlData.publicUrl });
-      } else {
+      // Save AI banner directly into Neon Database!
+      const insertResult = await db.execute(sql`
+        INSERT INTO uploaded_images (filename, mime_type, data, size)
+        VALUES (${fileName}, 'image/jpeg', ${base64Data}, ${imageBuffer.length})
+        RETURNING id
+      `);
+      const imageId = (insertResult.rows[0] as any).id;
+
+      try {
         fs.writeFileSync(path.join(uploadsDir, fileName), imageBuffer);
-        return res.json({ url: `/uploads/${fileName}` });
-      }
+      } catch {}
+
+      return res.json({
+        url: `/api/images/${imageId}`,
+        id: imageId,
+        provider: "neon",
+        localUrl: `/uploads/${fileName}`,
+      });
     } catch (err: any) {
       console.error("[AI Banner Generation]", err.message);
       return res.status(500).json({ error: err.message || "Failed to generate banner" });
@@ -2110,7 +2207,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const { shop_id, title, description, total_codes } = req.body;
       if (!title) return res.status(400).json({ error: "title is required" });
       let banner_image = req.body.banner_image || "";
-      if (req.file) banner_image = `/uploads/${req.file.filename}`;
+      if (req.file) {
+        try {
+          const buf = fs.readFileSync(path.join(uploadsDir, req.file.filename));
+          await db.execute(sql`
+            INSERT INTO uploaded_images (filename, mime_type, data, size)
+            VALUES (${req.file.filename}, ${req.file.mimetype || 'image/jpeg'}, ${buf.toString('base64')}, ${req.file.size})
+          `);
+        } catch {}
+        banner_image = `/uploads/${req.file.filename}`;
+      }
       if (!banner_image) return res.status(400).json({ error: "banner image is required" });
 
       const oc = await storage.createOfflineCoupon({
@@ -2204,7 +2310,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const { title, description, total_codes } = req.body;
       if (!title) return res.status(400).json({ error: "title is required" });
       let banner_image = req.body.banner_image || "";
-      if (req.file) banner_image = `/uploads/${req.file.filename}`;
+      if (req.file) {
+        try {
+          const buf = fs.readFileSync(path.join(uploadsDir, req.file.filename));
+          await db.execute(sql`
+            INSERT INTO uploaded_images (filename, mime_type, data, size)
+            VALUES (${req.file.filename}, ${req.file.mimetype || 'image/jpeg'}, ${buf.toString('base64')}, ${req.file.size})
+          `);
+        } catch {}
+        banner_image = `/uploads/${req.file.filename}`;
+      }
       if (!banner_image) return res.status(400).json({ error: "banner image is required" });
       const oc = await storage.createOfflineCoupon({
         shop_id: shopId,
