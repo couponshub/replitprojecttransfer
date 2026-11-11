@@ -1776,17 +1776,21 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // POST /api/admin/shops/:shopId/notify
-  // Sends personalized push notifications (currently logs; wire up FCM/email here later)
+  // Sends in-app notifications to selected audience (all users, previous buyers, or manual pick)
   app.post("/api/admin/shops/:shopId/notify", adminMiddleware, async (req, res) => {
     try {
-      const { message, audience, selectedUserIds } = req.body;
+      const { message, audience, selectedUserIds, couponId } = req.body;
       if (!message?.trim()) return res.status(400).json({ error: "message is required" });
+
+      const shopId = req.params.shopId as string;
+      const shop = await storage.getShop(shopId);
+      const shopName = shop?.name || "Local Shop";
 
       let recipients: { id: string; name: string; email: string }[] = [];
       const allUsers = await storage.getAllUsers();
 
       if (audience === "previous_customers") {
-        const orders = await storage.getShopOrders(req.params.shopId as string);
+        const orders = await storage.getShopOrders(shopId);
         const userMap = new Map(allUsers.map(u => [u.id, u]));
         const seen = new Set<string>();
         for (const order of orders) {
@@ -1815,8 +1819,22 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         message: message.replace(/\{\{name\}\}/g, r.name || "Valued Customer"),
       }));
 
-      // TODO: Integrate FCM / email gateway here
-      console.log("[PushNotification] Sending to", personalized.length, "recipients:", personalized);
+      // Create in-app notifications in database for each recipient
+      for (const item of personalized) {
+        await storage.createNotification({
+          user_id: item.userId,
+          type: "shop_offer",
+          title: `Special Offer from ${shopName}`,
+          message: item.message,
+          data: JSON.stringify({
+            shop_id: shopId,
+            shop_name: shopName,
+            coupon_id: couponId || null,
+          }),
+        });
+      }
+
+      console.log(`[PushNotification] Created in-app notifications for ${personalized.length} recipients for shop ${shopName}`);
 
       res.json({ success: true, sent: personalized.length, recipients: personalized });
     } catch (err: any) { res.status(500).json({ error: err.message }); }

@@ -2,7 +2,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
-import { Bell, Check, Gift, Trophy, Info, ArrowLeft } from "lucide-react";
+import { Bell, Check, Gift, Trophy, Info, ArrowLeft, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,7 @@ type Notification = {
 function getIcon(type: string) {
   if (type === "contest_win") return <Trophy className="w-5 h-5 text-yellow-500" />;
   if (type === "coupon") return <Gift className="w-5 h-5 text-green-500" />;
+  if (type === "shop_offer") return <Store className="w-5 h-5 text-amber-500" />;
   return <Info className="w-5 h-5 text-blue-500" />;
 }
 
@@ -94,6 +95,12 @@ export default function NotificationsPage() {
                 onClick={() => {
                   if (!n.is_read) markRead.mutate(n.id);
                   if (n.type === "contest_win") navigate("/my-coupons");
+                  if (n.type === "shop_offer" && n.data) {
+                    try {
+                      const parsed = JSON.parse(n.data);
+                      if (parsed.shop_id) navigate(`/shop/${parsed.shop_id}`);
+                    } catch {}
+                  }
                 }}
                 data-testid={`card-notification-${n.id}`}
               >

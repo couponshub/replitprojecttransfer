@@ -1291,6 +1291,7 @@ export default function AdminDashboard() {
                                 message: notifMessage,
                                 audience: notifAudience,
                                 selectedUserIds: notifAudience === "manual" ? notifSelectedUsers : [],
+                                couponId: notifCouponId || null,
                               }),
                             });
                             const data = await res.json();

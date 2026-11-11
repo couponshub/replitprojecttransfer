@@ -39,7 +39,10 @@ function resolveConnectionString(): string {
 const connectionString = resolveConnectionString();
 const pool = new Pool({ 
   connectionString,
-  ssl: rawSupabaseUrl ? { rejectUnauthorized: false } : false,
+  ssl: (rawSupabaseUrl || (connectionString && connectionString.includes('sslmode=require'))) ? { rejectUnauthorized: false } : false,
+});
+pool.on('error', (err) => {
+  console.error('[pg pool] Unexpected error on idle client:', err.message);
 });
 export const db = drizzle(pool, { schema });
 
