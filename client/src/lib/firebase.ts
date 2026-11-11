@@ -70,9 +70,9 @@ export async function requestFcmToken(): Promise<string | null> {
       console.warn("[Firebase] Service Worker register warning:", swErr);
     }
 
-    const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+    const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || "BKXNjFbf26cfyl1Q32bsYoZLOvzFdKKW6aA7BzaKA9_iYkEogXWB_cdUZPCmwj9ZOC3CssNCJaHTjQhcerofxRQ";
     const token = await getToken(messaging, {
-      ...(vapidKey && vapidKey !== "YOUR_VAPID_KEY" ? { vapidKey } : {}),
+      ...(vapidKey ? { vapidKey } : {}),
       ...(registration ? { serviceWorkerRegistration: registration } : {}),
     });
 
