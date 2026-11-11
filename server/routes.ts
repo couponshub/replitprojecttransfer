@@ -1354,6 +1354,114 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ── Firebase Phone Authentication Endpoints ──────────────────────────────
+  app.post("/api/auth/firebase-login", async (req, res) => {
+    try {
+      const { idToken, phone } = req.body;
+      if (!idToken) return res.status(400).json({ error: "Firebase idToken is required" });
+
+      if (!firebaseAdminInitialised) {
+        return res.status(500).json({ error: "Firebase Admin is not initialised on the server" });
+      }
+
+      // Verify the cryptographically signed Firebase ID token with Google
+      const decoded = await admin.auth().verifyIdToken(idToken);
+      const verifiedPhone = decoded.phone_number ? decoded.phone_number.replace(/\D/g, "").slice(-10) : null;
+      if (!verifiedPhone) {
+        return res.status(400).json({ error: "Verified phone number not found in token" });
+      }
+
+      if (phone) {
+        const cleanRequested = phone.replace(/\D/g, "").slice(-10);
+        if (cleanRequested && cleanRequested !== verifiedPhone) {
+          return res.status(400).json({ error: "Phone number mismatch" });
+        }
+      }
+
+      let user = await storage.getUserByPhone(verifiedPhone);
+      // Auto-create account if first-time Firebase login
+      if (!user) {
+        const generatedEmail = `${verifiedPhone}@couponshub.local`;
+        const displayName = `User-${verifiedPhone.slice(-4)}`;
+        const dummyPassword = await bcrypt.hash(`firebase-${Date.now()}-${Math.random()}`, 10);
+        user = await storage.createUser({
+          name: displayName,
+          email: generatedEmail,
+          phone: verifiedPhone,
+          password: dummyPassword,
+          role: "user",
+        });
+        console.log(`[Firebase Auth] Auto-created user ${user.id} for phone +91 ${verifiedPhone}`);
+      }
+
+      const token = generateToken({ id: user.id, email: user.email, role: user.role });
+      res.cookie("token", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
+      return res.json({
+        token,
+        user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone },
+      });
+    } catch (err: any) {
+      console.error("[Firebase Login Error]:", err.message);
+      return res.status(401).json({ error: err.message || "Firebase phone authentication failed" });
+    }
+  });
+
+  app.post("/api/auth/firebase-register", async (req, res) => {
+    try {
+      const { idToken, name, phone, password } = req.body;
+      if (!idToken || !name || !password) {
+        return res.status(400).json({ error: "Full name, password, and verified token are required" });
+      }
+
+      if (!firebaseAdminInitialised) {
+        return res.status(500).json({ error: "Firebase Admin is not initialised on the server" });
+      }
+
+      const decoded = await admin.auth().verifyIdToken(idToken);
+      const verifiedPhone = decoded.phone_number ? decoded.phone_number.replace(/\D/g, "").slice(-10) : null;
+      if (!verifiedPhone) {
+        return res.status(400).json({ error: "Verified phone number not found in token" });
+      }
+
+      if (phone) {
+        const cleanRequested = phone.replace(/\D/g, "").slice(-10);
+        if (cleanRequested && cleanRequested !== verifiedPhone) {
+          return res.status(400).json({ error: "Phone number mismatch" });
+        }
+      }
+
+      const existingPhone = await storage.getUserByPhone(verifiedPhone);
+      if (existingPhone) {
+        return res.status(400).json({ error: "Mobile number already registered. Please sign in instead." });
+      }
+
+      const cleanEmail = `${verifiedPhone}@couponshub.local`;
+      const existingEmail = await storage.getUserByEmail(cleanEmail);
+      if (existingEmail) {
+        return res.status(400).json({ error: "An account already exists for this mobile number." });
+      }
+
+      const hashed = await bcrypt.hash(password, 10);
+      const user = await storage.createUser({
+        name: name.trim(),
+        email: cleanEmail,
+        phone: verifiedPhone,
+        password: hashed,
+        role: "user",
+      });
+
+      const token = generateToken({ id: user.id, email: user.email, role: user.role });
+      res.cookie("token", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
+      return res.json({
+        token,
+        user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone },
+      });
+    } catch (err: any) {
+      console.error("[Firebase Register Error]:", err.message);
+      return res.status(401).json({ error: err.message || "Firebase phone registration failed" });
+    }
+  });
+
   app.post("/api/auth/logout", (req, res) => {
     res.clearCookie("token");
     res.json({ success: true });

@@ -19,6 +19,8 @@ interface AuthContextType {
   sendOtp: (params: { email?: string; phone?: string }) => Promise<{ success: boolean; message: string; otp?: string }>;
   verifyOtp: (params: { email?: string; phone?: string; otp: string; name?: string }) => Promise<AuthUser>;
   register: (data: { name: string; email?: string; phone?: string; password: string; otp?: string }) => Promise<AuthUser>;
+  firebaseLogin: (params: { idToken: string; phone: string }) => Promise<AuthUser>;
+  firebaseRegister: (params: { idToken: string; name: string; phone: string; password: string }) => Promise<AuthUser>;
   logout: () => Promise<void>;
   updateProfile: (data: { name?: string; phone?: string; address?: string }) => Promise<AuthUser>;
   isAdmin: boolean;
@@ -118,6 +120,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data.user;
   };
 
+  const firebaseLogin = async (params: { idToken: string; phone: string }): Promise<AuthUser> => {
+    const res = await fetch("/api/auth/firebase-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Firebase authentication failed");
+    }
+    const data = await res.json();
+    setToken(data.token);
+    setUser(data.user);
+    localStorage.setItem("coupons_hub_token", data.token);
+    queryClient.clear();
+    return data.user;
+  };
+
+  const firebaseRegister = async (params: { idToken: string; name: string; phone: string; password: string }): Promise<AuthUser> => {
+    const res = await fetch("/api/auth/firebase-register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Firebase registration failed");
+    }
+    const data = await res.json();
+    setToken(data.token);
+    setUser(data.user);
+    localStorage.setItem("coupons_hub_token", data.token);
+    queryClient.clear();
+    return data.user;
+  };
+
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     setUser(null);
@@ -145,7 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user, token, loading,
-      login, sendOtp, verifyOtp, register, logout, updateProfile,
+      login, sendOtp, verifyOtp, register, firebaseLogin, firebaseRegister, logout, updateProfile,
       isAdmin: user?.role === "admin",
       isAuthenticated: !!user,
     }}>

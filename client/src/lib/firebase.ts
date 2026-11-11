@@ -6,6 +6,13 @@
 
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getMessaging, getToken, onMessage, type Messaging } from "firebase/messaging";
+import {
+  getAuth,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  type ConfirmationResult,
+  type Auth,
+} from "firebase/auth";
 
 // ---------------------------------------------------------------------------
 // Firebase config – replace placeholder values or set VITE_FIREBASE_* env vars
@@ -91,4 +98,68 @@ export function onForegroundMessage(callback: (payload: any) => void) {
   return onMessage(messaging, callback);
 }
 
-export { app, messaging };
+// ---------------------------------------------------------------------------
+// Firebase Auth & Invisible reCAPTCHA Phone OTP
+// ---------------------------------------------------------------------------
+let auth: Auth | null = null;
+if (typeof window !== "undefined") {
+  try {
+    auth = getAuth(app);
+  } catch (err) {
+    console.warn("[Firebase] Auth init warning:", err);
+  }
+}
+
+let activeRecaptchaVerifier: RecaptchaVerifier | null = null;
+
+export function getOrCreateRecaptchaVerifier(containerId = "recaptcha-container"): RecaptchaVerifier | null {
+  if (typeof window === "undefined" || !auth) return null;
+  try {
+    if (activeRecaptchaVerifier) {
+      try { activeRecaptchaVerifier.clear(); } catch {}
+      activeRecaptchaVerifier = null;
+    }
+
+    // Ensure the container element exists in DOM
+    let container = document.getElementById(containerId);
+    if (!container) {
+      container = document.createElement("div");
+      container.id = containerId;
+      document.body.appendChild(container);
+    }
+
+    activeRecaptchaVerifier = new RecaptchaVerifier(auth, containerId, {
+      size: "invisible",
+      callback: () => {
+        console.log("[Firebase Auth] Invisible reCAPTCHA verified");
+      },
+      "expired-callback": () => {
+        console.warn("[Firebase Auth] Invisible reCAPTCHA expired, resetting...");
+        if (activeRecaptchaVerifier) {
+          try { activeRecaptchaVerifier.clear(); } catch {}
+          activeRecaptchaVerifier = null;
+        }
+      },
+    });
+
+    return activeRecaptchaVerifier;
+  } catch (err) {
+    console.error("[Firebase Auth] Failed to initialize RecaptchaVerifier:", err);
+    return null;
+  }
+}
+
+export async function sendFirebasePhoneOtp(phone: string, containerId = "recaptcha-container"): Promise<ConfirmationResult> {
+  if (!auth) throw new Error("Firebase Auth is not available");
+  const cleanPhone = phone.replace(/\D/g, "").slice(-10);
+  if (cleanPhone.length !== 10) throw new Error("Please enter a valid 10-digit mobile number");
+
+  const verifier = getOrCreateRecaptchaVerifier(containerId);
+  if (!verifier) throw new Error("Could not initialize invisible reCAPTCHA");
+
+  const formatted = `+91${cleanPhone}`;
+  console.log(`[Firebase Phone Auth] Requesting real SMS OTP for ${formatted}...`);
+  return await signInWithPhoneNumber(auth, formatted, verifier);
+}
+
+export { app, messaging, auth, type ConfirmationResult };

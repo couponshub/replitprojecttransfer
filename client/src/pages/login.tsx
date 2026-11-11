@@ -11,10 +11,11 @@ import { SiGoogle } from "react-icons/si";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import CouponsHubLogo from "@assets/Screenshot_2026-03-10_232807_1773165569077.png";
+import { sendFirebasePhoneOtp, type ConfirmationResult } from "@/lib/firebase";
 
 export default function Login() {
   const [location, navigate] = useLocation();
-  const { login, register, sendOtp } = useAuth();
+  const { login, register, sendOtp, firebaseLogin, firebaseRegister } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -26,6 +27,8 @@ export default function Login() {
   const [otpCode, setOtpCode] = useState("");
   const [otpCountdown, setOtpCountdown] = useState(0);
   const [sendingOtp, setSendingOtp] = useState(false);
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [regConfirmationResult, setRegConfirmationResult] = useState<ConfirmationResult | null>(null);
 
   useEffect(() => {
     if (otpCountdown > 0) {
@@ -45,15 +48,28 @@ export default function Login() {
 
     setSendingOtp(true);
     try {
-      await sendOtp({ phone: loginForm.phone });
+      // 1. Primary: Firebase Phone Auth (Google SMS with Invisible reCAPTCHA)
+      const confirmation = await sendFirebasePhoneOtp(loginForm.phone, "recaptcha-container");
+      setConfirmationResult(confirmation);
       setOtpSent(true);
-      setOtpCountdown(30);
+      setOtpCountdown(60);
       toast({
-        title: "📲 OTP Sent via SMS!",
+        title: "📲 OTP Sent via Google SMS!",
         description: `Verification code sent to +91 ${loginForm.phone}. Please enter the code received on your phone.`,
       });
     } catch (err: any) {
-      toast({ title: err.message || "Failed to send OTP", variant: "destructive" });
+      console.warn("[Firebase Phone Auth] Fallback to backend OTP due to:", err.message);
+      try {
+        await sendOtp({ phone: loginForm.phone });
+        setOtpSent(true);
+        setOtpCountdown(60);
+        toast({
+          title: "📲 OTP Sent via SMS!",
+          description: `Verification code sent to +91 ${loginForm.phone}. Please check your phone messages.`,
+        });
+      } catch (fallbackErr: any) {
+        toast({ title: err.message || fallbackErr.message || "Failed to send OTP", variant: "destructive" });
+      }
     } finally {
       setSendingOtp(false);
     }
@@ -100,15 +116,28 @@ export default function Login() {
 
     setRegSendingOtp(true);
     try {
-      await sendOtp({ phone: registerForm.phone });
+      // 1. Primary: Firebase Phone Auth (Google SMS with Invisible reCAPTCHA)
+      const confirmation = await sendFirebasePhoneOtp(registerForm.phone, "recaptcha-container");
+      setRegConfirmationResult(confirmation);
       setRegOtpSent(true);
-      setRegOtpCountdown(30);
+      setRegOtpCountdown(60);
       toast({
-        title: "📲 Registration OTP Sent!",
-        description: `Verification code sent to +91 ${registerForm.phone}. Please check your phone.`,
+        title: "📲 OTP Sent via Google SMS!",
+        description: `Verification code sent to +91 ${registerForm.phone}. Please enter the code received on your phone.`,
       });
     } catch (err: any) {
-      toast({ title: err.message || "Failed to send OTP", variant: "destructive" });
+      console.warn("[Firebase Phone Auth] Fallback to backend OTP due to:", err.message);
+      try {
+        await sendOtp({ phone: registerForm.phone });
+        setRegOtpSent(true);
+        setRegOtpCountdown(60);
+        toast({
+          title: "📲 Registration OTP Sent!",
+          description: `Verification code sent to +91 ${registerForm.phone}. Please check your phone.`,
+        });
+      } catch (fallbackErr: any) {
+        toast({ title: err.message || fallbackErr.message || "Failed to send OTP", variant: "destructive" });
+      }
     } finally {
       setRegSendingOtp(false);
     }
@@ -124,28 +153,42 @@ export default function Login() {
         return;
       }
 
-      let credentials: any;
       if (authMode === "otp") {
         if (!otpCode || otpCode.length < 6) {
           toast({ title: "Please enter the 6-digit OTP received via SMS", variant: "destructive" });
           setLoading(false);
           return;
         }
-        credentials = { phone: loginForm.phone, otp: otpCode };
-      } else {
-        if (!loginForm.password) {
-          toast({ title: "Password is required", variant: "destructive" });
-          setLoading(false);
-          return;
+
+        let user: any;
+        if (confirmationResult) {
+          // Verify with Google Firebase Phone Auth
+          const userCredential = await confirmationResult.confirm(otpCode);
+          const idToken = await userCredential.user.getIdToken();
+          user = await firebaseLogin({ idToken, phone: loginForm.phone });
+        } else {
+          // Fallback verification
+          user = await login({ phone: loginForm.phone, otp: otpCode });
         }
-        credentials = { phone: loginForm.phone, password: loginForm.password };
+
+        toast({ title: `Welcome back, ${user.name}!` });
+        if (user.role === "admin") navigate("/admin-dashboard");
+        else navigate("/home");
+        return;
       }
-      const user = await login(credentials);
+
+      // Password Login
+      if (!loginForm.password) {
+        toast({ title: "Password is required", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+      const user = await login({ phone: loginForm.phone, password: loginForm.password });
       toast({ title: `Welcome back, ${user.name}!` });
       if (user.role === "admin") navigate("/admin-dashboard");
       else navigate("/home");
     } catch (err: any) {
-      toast({ title: err.message, variant: "destructive" });
+      toast({ title: err.message || "Login failed", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -180,16 +223,29 @@ export default function Login() {
 
     setLoading(true);
     try {
-      const user = await register({
-        name: registerForm.name.trim(),
-        phone: registerForm.phone,
-        password: registerForm.password,
-        otp: regOtpCode,
-      });
+      let user: any;
+      if (regConfirmationResult) {
+        // Verify with Google Firebase Phone Auth
+        const userCredential = await regConfirmationResult.confirm(regOtpCode);
+        const idToken = await userCredential.user.getIdToken();
+        user = await firebaseRegister({
+          idToken,
+          name: registerForm.name.trim(),
+          phone: registerForm.phone,
+          password: registerForm.password,
+        });
+      } else {
+        user = await register({
+          name: registerForm.name.trim(),
+          phone: registerForm.phone,
+          password: registerForm.password,
+          otp: regOtpCode,
+        });
+      }
       toast({ title: `Welcome to CouponsHub X, ${user.name}!` });
       navigate("/home");
     } catch (err: any) {
-      toast({ title: err.message, variant: "destructive" });
+      toast({ title: err.message || "Registration failed", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -317,6 +373,9 @@ export default function Login() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
+
+            {/* Invisible reCAPTCHA Anchor for Firebase Phone Auth */}
+            <div id="recaptcha-container"></div>
 
             <TabsContent value="login">
               <Card className="border-0 shadow-xl rounded-3xl bg-white dark:bg-gray-900">
