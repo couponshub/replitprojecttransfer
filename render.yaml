@@ -29,3 +29,7 @@ services:
         sync: false
       - key: VITE_FIREBASE_VAPID_KEY
         sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false

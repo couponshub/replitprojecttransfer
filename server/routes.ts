@@ -1328,9 +1328,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  // ─── AI Banner Generation (Pollinations.ai — saved into Neon Database) ───────────
+  // ─── AI Banner Generation (Gemini Imagen 3 / OpenAI / Flux — saved into Neon DB) ─────
   app.post("/api/ai/generate-banner", authMiddleware, async (req, res) => {
-    const { userPrompt, couponType, couponValue, couponCode, couponDescription, shopName, shopCategory, shopDescription } = req.body;
+    const { userPrompt, couponType, couponValue, couponCode, couponDescription, shopName, shopCategory, shopDescription, provider } = req.body;
 
     try {
       let prompt: string;
@@ -1340,7 +1340,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         prompt = [
           userPrompt.trim(),
           shopName ? `for ${shopName}` : "",
-          "Professional wide banner format, high quality commercial advertisement, vibrant colors, no watermark.",
+          "Professional wide 16:9 banner format, high quality commercial advertisement, vibrant colors, photorealistic, sharp focus, no watermark.",
         ].filter(Boolean).join(". ");
       } else {
         // Auto-build prompt from coupon fields
@@ -1354,23 +1354,100 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         else if (couponType === "category_offer") benefitText = "CATEGORY OFFER";
 
         prompt = [
-          `Professional promotional coupon banner for ${shopName || "a local shop"}`,
+          `Professional promotional coupon advertisement banner for ${shopName || "a local retail store"}`,
           shopCategory ? `in the ${shopCategory} category` : "",
           `in Eluru Andhra Pradesh India.`,
-          `Big bold text showing ${benefitText}${couponCode ? ` code ${couponCode}` : ""}.`,
+          `Big bold vibrant promotional typography showing ${benefitText}${couponCode ? ` code ${couponCode}` : ""}.`,
           shopDescription ? shopDescription.slice(0, 60) : "",
           couponDescription ? couponDescription.slice(0, 60) : "",
-          "Modern vibrant marketing design, eye-catching colors, clean wide banner layout, high quality commercial advertisement, no watermark.",
+          "Modern vibrant marketing design, eye-catching festive colors, clean wide 16:9 banner layout, high quality commercial photography, no watermark.",
         ].filter(Boolean).join(" ");
       }
 
-      const encodedPrompt = encodeURIComponent(prompt);
-      const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1344&height=768&nologo=true&model=flux&seed=${Date.now()}`;
+      let imageBuffer: Buffer | null = null;
+      let usedProvider = "flux";
 
-      const imgRes = await fetch(pollinationsUrl);
-      if (!imgRes.ok) throw new Error(`Pollinations API error: ${imgRes.status}`);
+      const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+      const openaiApiKey = process.env.OPENAI_API_KEY;
 
-      const imageBuffer = Buffer.from(await imgRes.arrayBuffer());
+      // 1. Try Google Gemini (Imagen 3) if key is provided
+      if (geminiApiKey && provider !== "flux" && provider !== "openai") {
+        try {
+          console.log("[AI Banner] Attempting generation with Google Gemini Imagen 3...");
+          const imagenUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${geminiApiKey}`;
+          const geminiRes = await fetch(imagenUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              instances: [{ prompt }],
+              parameters: {
+                sampleCount: 1,
+                aspectRatio: "16:9",
+                outputMimeType: "image/jpeg",
+              },
+            }),
+          });
+
+          if (geminiRes.ok) {
+            const data = await geminiRes.json();
+            const b64 = data.predictions?.[0]?.bytesBase64Encoded;
+            if (b64) {
+              imageBuffer = Buffer.from(b64, "base64");
+              usedProvider = "gemini-imagen";
+              console.log("[AI Banner] Successfully generated via Gemini Imagen 3!");
+            }
+          } else {
+            console.warn("[AI Banner] Gemini Imagen response error:", geminiRes.status, await geminiRes.text());
+          }
+        } catch (err: any) {
+          console.warn("[AI Banner] Gemini Imagen failed:", err.message);
+        }
+      }
+
+      // 2. Try OpenAI DALL-E 3 if key is provided and Gemini wasn't used
+      if (!imageBuffer && openaiApiKey && provider !== "flux" && provider !== "gemini") {
+        try {
+          console.log("[AI Banner] Attempting generation with OpenAI DALL-E 3...");
+          const oaiRes = await fetch("https://api.openai.com/v1/images/generations", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${openaiApiKey}`,
+            },
+            body: JSON.stringify({
+              model: "dall-e-3",
+              prompt: prompt.slice(0, 1000),
+              n: 1,
+              size: "1792x1024",
+              response_format: "b64_json",
+            }),
+          });
+
+          if (oaiRes.ok) {
+            const data = await oaiRes.json();
+            const b64 = data.data?.[0]?.b64_json;
+            if (b64) {
+              imageBuffer = Buffer.from(b64, "base64");
+              usedProvider = "openai-dalle3";
+              console.log("[AI Banner] Successfully generated via OpenAI DALL-E 3!");
+            }
+          }
+        } catch (err: any) {
+          console.warn("[AI Banner] OpenAI generation failed:", err.message);
+        }
+      }
+
+      // 3. Fallback: Free Flux model via Pollinations (Zero API key needed, never fails)
+      if (!imageBuffer) {
+        console.log("[AI Banner] Generating via Flux engine...");
+        const encodedPrompt = encodeURIComponent(prompt);
+        const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1344&height=768&nologo=true&model=flux&seed=${Date.now()}`;
+        const imgRes = await fetch(pollinationsUrl);
+        if (!imgRes.ok) throw new Error(`Image API error: ${imgRes.status}`);
+        imageBuffer = Buffer.from(await imgRes.arrayBuffer());
+        usedProvider = "flux";
+      }
+
       const fileName = `ai-banner-${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
       const base64Data = imageBuffer.toString("base64");
 
@@ -1389,7 +1466,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.json({
         url: `/api/images/${imageId}`,
         id: imageId,
-        provider: "neon",
+        provider: usedProvider,
+        storage: "neon",
         localUrl: `/uploads/${fileName}`,
       });
     } catch (err: any) {
