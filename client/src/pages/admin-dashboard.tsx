@@ -18,7 +18,7 @@ import {
   Plus, Edit, Trash2, Crown, LogOut, ChevronRight, Users, TrendingUp,
   Zap, Star, Check, CheckCircle, X, Menu, Award, Flame, UserCheck, Phone, Mail,
   Globe, MapPin, Wifi, WifiOff, Search, Image, Link, ExternalLink, Upload, Loader2, Eye, EyeOff,
-  Download, RefreshCw, ArrowUpAZ, ArrowDownAZ, Settings, MessageCircle, Save, Trophy, Gift, Layout, Bell
+  Download, RefreshCw, ArrowUpAZ, ArrowDownAZ, Settings, MessageCircle, Save, Trophy, Gift, Layout, Bell, Sparkles
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import type { Category, Shop, Product, Coupon, Order, User, OrderItem } from "@shared/schema";
@@ -113,6 +113,8 @@ export default function AdminDashboard() {
   const [notifSelectedUsers, setNotifSelectedUsers] = useState<string[]>([]);
   const [notifCouponId, setNotifCouponId] = useState("");
   const [notifUserSearch, setNotifUserSearch] = useState("");
+  const [adminAiPrompt, setAdminAiPrompt] = useState("");
+  const [adminAiGenerating, setAdminAiGenerating] = useState(false);
 
   useEffect(() => {
     if (!dialogOpen || activeTab !== "shops") return;
@@ -208,9 +210,34 @@ export default function AdminDashboard() {
     onError: (err: any) => toast({ title: err.message, variant: "destructive" }),
   });
 
-  const openCreate = (defaults: any = {}) => { setEditItem(null); setFormData(defaults); setDialogOpen(true); setFreeItemShopId(""); setFreeItemShopSearch(""); setFreeItemCatFilter([]); };
-  const openEdit = (item: any) => { setEditItem(item); setFormData({ ...item }); setDialogOpen(true); setFreeItemShopId(""); setFreeItemShopSearch(""); setFreeItemCatFilter([]); };
+  const openCreate = (defaults: any = {}) => { setEditItem(null); setFormData(defaults); setDialogOpen(true); setFreeItemShopId(""); setFreeItemShopSearch(""); setFreeItemCatFilter([]); setAdminAiPrompt(""); };
+  const openEdit = (item: any) => { setEditItem(item); setFormData({ ...item }); setDialogOpen(true); setFreeItemShopId(""); setFreeItemShopSearch(""); setFreeItemCatFilter([]); setAdminAiPrompt(""); };
   const setForm = (key: string, value: any) => setFormData((f: any) => ({ ...f, [key]: value }));
+
+  const handleAdminGenerateCouponBanner = async () => {
+    setAdminAiGenerating(true);
+    try {
+      const shopObj = shops.find(s => s.id === formData.shop_id);
+      const payload = {
+        userPrompt: adminAiPrompt.trim(),
+        couponType: formData.type || "percentage",
+        couponValue: formData.value || "",
+        couponCode: formData.code || "",
+        couponDescription: formData.description || "",
+        shopName: shopObj?.name || "",
+        shopCategory: "",
+      };
+      const res = await apiRequest("POST", "/api/ai/generate-banner", payload);
+      if (res?.url) {
+        setForm("banner_image", res.url);
+        toast({ title: `AI Banner generated (${res.provider || "AI"}) & saved to Neon DB!` });
+      }
+    } catch (e: any) {
+      toast({ title: "Failed to generate AI banner: " + (e.message || "Unknown error"), variant: "destructive" });
+    } finally {
+      setAdminAiGenerating(false);
+    }
+  };
 
   const parseMenuText = (text: string) => {
     const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
@@ -2789,8 +2816,37 @@ export default function AdminDashboard() {
                     <div>
                       <Label className="text-xs font-semibold">Banner Image (optional)</Label>
                       <p className="text-[11px] text-muted-foreground mb-1.5">Shown at top of coupon card. Use a wide image (e.g. 800×320px).</p>
+
+                      {/* AI Banner Box for Admin Coupon */}
+                      <div className="mb-2.5 rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50/60 dark:bg-violet-950/20 p-3">
+                        <p className="text-[11px] font-semibold text-violet-700 dark:text-violet-300 flex items-center gap-1.5 mb-1.5">
+                          <Sparkles className="w-3.5 h-3.5" /> AI Banner Generator <span className="font-normal text-violet-500">(Gemini / AI — Free)</span>
+                        </p>
+                        <div className="flex gap-2">
+                          <Input
+                            value={adminAiPrompt}
+                            onChange={e => setAdminAiPrompt(e.target.value)}
+                            className="rounded-xl text-xs h-8 bg-white dark:bg-gray-900 flex-1"
+                            placeholder="Describe banner (or leave blank to auto-create from code & shop)..."
+                            data-testid="input-admin-coupon-ai-prompt"
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            disabled={adminAiGenerating}
+                            onClick={handleAdminGenerateCouponBanner}
+                            className="h-8 text-[11px] font-medium bg-violet-600 hover:bg-violet-700 text-white rounded-xl shrink-0 px-3"
+                            data-testid="button-admin-generate-coupon-ai-banner"
+                          >
+                            {adminAiGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Sparkles className="w-3.5 h-3.5 mr-1" />}
+                            Generate AI Banner
+                          </Button>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1.5">Generates an ad banner with Gemini / AI and saves directly to Neon Database.</p>
+                      </div>
+
                       <div className="flex gap-2 items-center mt-1.5">
-                        <div className="mt-1.5">
+                        <div className="mt-1.5 w-full">
                           <DragDropImageUpload fieldKey="coupon-banner" onUrl={url => setForm("banner_image", url)} label="Drag & drop banner or click to upload" preview={formData.banner_image} />
                         </div>
                       </div>
@@ -3141,6 +3197,8 @@ function HomePageEditorTab({ toast }: { toast: any }) {
   const [image, setImage] = useState("");
   const [urlInput, setUrlInput] = useState("");
   const [saving, setSaving] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiGenerating, setAiGenerating] = useState(false);
 
   useEffect(() => {
     if (banner?.image) {
@@ -3161,6 +3219,26 @@ function HomePageEditorTab({ toast }: { toast: any }) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleGenerateHomeHeroAI = async () => {
+    setAiGenerating(true);
+    try {
+      const payload = {
+        userPrompt: aiPrompt.trim() || "Ultra modern shopping marketplace hero banner with celebratory lighting, festival discounts, neon accents, panoramic 16:9 commercial advertisement format",
+        shopName: "CouponsHub Marketplace",
+        shopCategory: "Shopping & Coupons",
+      };
+      const res = await apiRequest("POST", "/api/ai/generate-banner", payload);
+      if (res?.url) {
+        await saveBanner(res.url);
+        toast({ title: `Home Hero Banner generated with ${res.provider || "AI"} & saved to Neon DB!` });
+      }
+    } catch (e: any) {
+      toast({ title: "Failed to generate banner: " + (e.message || "Unknown error"), variant: "destructive" });
+    } finally {
+      setAiGenerating(false);
     }
   };
 
@@ -3213,6 +3291,37 @@ function HomePageEditorTab({ toast }: { toast: any }) {
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               </Button>
             </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+            <span className="text-xs text-muted-foreground font-medium">OR</span>
+            <div className="flex-1 h-px bg-gray-200 dark:bg-gray-700" />
+          </div>
+
+          <div className="rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50/60 dark:bg-violet-950/20 p-4">
+            <p className="text-xs font-semibold text-violet-700 dark:text-violet-300 flex items-center gap-1.5 mb-2">
+              <Sparkles className="w-4 h-4 text-violet-500" /> Option 3 — Generate Home Hero Banner with AI <span className="font-normal text-violet-500">(Gemini / AI)</span>
+            </p>
+            <div className="flex gap-2">
+              <Input
+                value={aiPrompt}
+                onChange={e => setAiPrompt(e.target.value)}
+                placeholder="e.g. Vibrant festive shopping festival banner with modern lights & neon colors..."
+                className="rounded-xl text-xs h-9 bg-white dark:bg-gray-900 flex-1"
+                data-testid="input-home-hero-ai-prompt"
+              />
+              <Button
+                onClick={handleGenerateHomeHeroAI}
+                disabled={aiGenerating}
+                className="rounded-xl bg-violet-600 hover:bg-violet-700 text-white border-0 text-xs shrink-0 h-9 px-3 gap-1.5 font-semibold"
+                data-testid="button-home-hero-generate-ai"
+              >
+                {aiGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                {aiGenerating ? "Generating..." : "Generate & Set"}
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-2">Automatically generates a wide 16:9 banner via Gemini / AI and updates your live homepage hero background.</p>
           </div>
 
           <p className="text-xs text-muted-foreground">Recommended: 1200×400px wide banner. Shows behind the search bar and radars on home page.</p>
@@ -3329,8 +3438,10 @@ function BannersTab({ toast, allCoupons }: { toast: any; allCoupons: any[] }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editBanner, setEditBanner] = useState<any>(null);
   const [form, setForm] = useState({ title: "", image_url: "", coupon_id: "", sort_order: "0", is_active: true });
-  const [imageMode, setImageMode] = useState<"url" | "file">("url");
+  const [imageMode, setImageMode] = useState<"url" | "file" | "ai">("url");
   const [uploading, setUploading] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiGenerating, setAiGenerating] = useState(false);
 
   const { data: banners = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/admin/banners"] });
 
@@ -3357,10 +3468,35 @@ function BannersTab({ toast, allCoupons }: { toast: any; allCoupons: any[] }) {
     },
   });
 
+  const handleGenerateAIBanner = async () => {
+    setAiGenerating(true);
+    try {
+      const selectedCoupon = allCoupons.find((c: any) => c.id === form.coupon_id);
+      const payload = {
+        userPrompt: aiPrompt.trim() || form.title.trim(),
+        shopName: selectedCoupon?.shop?.name || "",
+        couponCode: selectedCoupon?.code || "",
+        couponType: selectedCoupon?.type || "",
+        couponValue: selectedCoupon?.value || "",
+        couponDescription: form.title || "",
+      };
+      const res = await apiRequest("POST", "/api/ai/generate-banner", payload);
+      if (res?.url) {
+        setForm(f => ({ ...f, image_url: res.url }));
+        toast({ title: `AI Banner generated (${res.provider || "AI"}) & saved to Neon DB!` });
+      }
+    } catch (e: any) {
+      toast({ title: "Failed to generate AI banner: " + (e.message || "Unknown error"), variant: "destructive" });
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
   const openAdd = () => {
     setEditBanner(null);
     setForm({ title: "", image_url: "", coupon_id: "", sort_order: "0", is_active: true });
     setImageMode("url");
+    setAiPrompt("");
     setDialogOpen(true);
   };
 
@@ -3368,6 +3504,7 @@ function BannersTab({ toast, allCoupons }: { toast: any; allCoupons: any[] }) {
     setEditBanner(b);
     setForm({ title: b.title, image_url: b.image_url, coupon_id: b.coupon_id || "", sort_order: String(b.sort_order), is_active: b.is_active });
     setImageMode("url");
+    setAiPrompt("");
     setDialogOpen(true);
   };
 
@@ -3478,16 +3615,22 @@ function BannersTab({ toast, allCoupons }: { toast: any; allCoupons: any[] }) {
             <div className="flex flex-col gap-1.5">
               <Label>Banner Image</Label>
               <div className="flex rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-                <button onClick={() => setImageMode("url")} className={`flex-1 py-2 text-sm font-medium transition-colors ${imageMode === "url" ? "bg-blue-500 text-white" : "text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-800"}`} data-testid="button-image-mode-url">
+                <button type="button" onClick={() => setImageMode("url")} className={`flex-1 py-2 text-xs font-semibold transition-colors ${imageMode === "url" ? "bg-blue-500 text-white" : "text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-800"}`} data-testid="button-image-mode-url">
                   URL
                 </button>
-                <button onClick={() => setImageMode("file")} className={`flex-1 py-2 text-sm font-medium transition-colors ${imageMode === "file" ? "bg-blue-500 text-white" : "text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-800"}`} data-testid="button-image-mode-file">
+                <button type="button" onClick={() => setImageMode("file")} className={`flex-1 py-2 text-xs font-semibold transition-colors ${imageMode === "file" ? "bg-blue-500 text-white" : "text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-800"}`} data-testid="button-image-mode-file">
                   Upload File
                 </button>
+                <button type="button" onClick={() => setImageMode("ai")} className={`flex-1 py-2 text-xs font-semibold transition-colors ${imageMode === "ai" ? "bg-violet-600 text-white" : "text-muted-foreground hover:bg-gray-50 dark:hover:bg-gray-800"}`} data-testid="button-image-mode-ai">
+                  ✨ AI Create
+                </button>
               </div>
-              {imageMode === "url" ? (
+
+              {imageMode === "url" && (
                 <Input value={form.image_url} onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))} placeholder="https://..." className="rounded-xl" data-testid="input-banner-image-url" />
-              ) : (
+              )}
+
+              {imageMode === "file" && (
                 <div className="flex flex-col gap-2">
                   <label className={`flex items-center gap-3 cursor-pointer border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:border-blue-400 transition-colors ${uploading ? "opacity-60 pointer-events-none" : ""}`} data-testid="input-banner-file">
                     {uploading ? <Loader2 className="w-5 h-5 animate-spin text-blue-500" /> : <Upload className="w-5 h-5 text-muted-foreground" />}
@@ -3497,9 +3640,38 @@ function BannersTab({ toast, allCoupons }: { toast: any; allCoupons: any[] }) {
                   {form.image_url && <p className="text-xs text-emerald-600 truncate">Uploaded: {form.image_url}</p>}
                 </div>
               )}
+
+              {imageMode === "ai" && (
+                <div className="rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50/60 dark:bg-violet-950/20 p-3 flex flex-col gap-2.5">
+                  <p className="text-[11px] font-semibold text-violet-700 dark:text-violet-300 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" /> AI Banner Generator <span className="font-normal text-violet-500">(Gemini / AI — Free)</span>
+                  </p>
+                  <Input
+                    value={aiPrompt}
+                    onChange={e => setAiPrompt(e.target.value)}
+                    placeholder="Describe banner (e.g. Festival mega sale with vibrant lights & discounts)..."
+                    className="rounded-xl text-xs h-8 bg-white dark:bg-gray-900"
+                    data-testid="input-banner-tab-ai-prompt"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={aiGenerating}
+                    onClick={handleGenerateAIBanner}
+                    className="h-8 text-xs font-semibold bg-violet-600 hover:bg-violet-700 text-white rounded-xl gap-1.5"
+                    data-testid="button-banner-tab-ai-generate"
+                  >
+                    {aiGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                    {aiGenerating ? "Generating with Gemini / AI..." : "Generate AI Banner Now"}
+                  </Button>
+                  <p className="text-[10px] text-muted-foreground">Banner will be created via Gemini / AI and saved directly into Neon Database.</p>
+                </div>
+              )}
+
               {form.image_url && (
-                <div className="rounded-xl overflow-hidden aspect-video bg-gray-100 dark:bg-gray-800">
+                <div className="rounded-xl overflow-hidden aspect-video bg-gray-100 dark:bg-gray-800 relative">
                   <img src={form.image_url} alt="Preview" className="w-full h-full object-cover" />
+                  <button type="button" onClick={() => setForm(f => ({ ...f, image_url: "" }))} className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center text-xs">✕</button>
                 </div>
               )}
             </div>
@@ -3564,12 +3736,37 @@ function OfflineCouponsTab({ toast }: { toast: any }) {
   });
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [ocAiPrompt, setOcAiPrompt] = useState("");
+  const [ocAiGenerating, setOcAiGenerating] = useState(false);
 
   const { data: offlineCoupons = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/admin/offline-coupons"],
   });
 
   const { data: shops = [] } = useQuery<any[]>({ queryKey: ["/api/shops"] });
+
+  const handleGenerateOfflineCouponBanner = async () => {
+    setOcAiGenerating(true);
+    try {
+      const selectedShop = shops.find((s: any) => s.id === form.shop_id);
+      const payload = {
+        userPrompt: ocAiPrompt.trim() || form.title.trim(),
+        shopName: selectedShop?.name || "",
+        couponDescription: form.description || form.title || "",
+      };
+      const res = await apiRequest("POST", "/api/ai/generate-banner", payload);
+      if (res?.url) {
+        setForm(f => ({ ...f, banner_image: res.url }));
+        setBannerFile(null);
+        setBannerPreview(null);
+        toast({ title: `AI Banner generated (${res.provider || "AI"}) & saved to Neon DB!` });
+      }
+    } catch (e: any) {
+      toast({ title: "Failed to generate AI banner: " + (e.message || "Unknown error"), variant: "destructive" });
+    } finally {
+      setOcAiGenerating(false);
+    }
+  };
 
   const { data: selectedCodes = [], isLoading: codesLoading } = useQuery<any[]>({
     queryKey: ["/api/offline-coupons", selectedCouponId, "codes"],
@@ -3782,6 +3979,34 @@ function OfflineCouponsTab({ toast }: { toast: any }) {
 
             <div>
               <Label>Banner Image *</Label>
+
+              {/* AI Banner Box for Offline Coupons */}
+              <div className="mt-1.5 mb-2 rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50/60 dark:bg-violet-950/20 p-3">
+                <p className="text-[11px] font-semibold text-violet-700 dark:text-violet-300 flex items-center gap-1.5 mb-1.5">
+                  <Sparkles className="w-3.5 h-3.5" /> AI Banner Generator <span className="font-normal text-violet-500">(Gemini / AI — Free)</span>
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    value={ocAiPrompt}
+                    onChange={e => setOcAiPrompt(e.target.value)}
+                    className="rounded-xl text-xs h-8 bg-white dark:bg-gray-900 flex-1"
+                    placeholder="Describe banner (or leave blank to use title & shop)..."
+                    data-testid="input-offline-coupon-ai-prompt"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={ocAiGenerating}
+                    onClick={handleGenerateOfflineCouponBanner}
+                    className="h-8 text-[11px] font-medium bg-violet-600 hover:bg-violet-700 text-white rounded-xl shrink-0 px-3"
+                    data-testid="button-offline-coupon-ai-banner"
+                  >
+                    {ocAiGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Sparkles className="w-3.5 h-3.5 mr-1" />}
+                    Generate AI Banner
+                  </Button>
+                </div>
+              </div>
+
               <div className="mt-1 flex flex-col gap-2">
                 {bannerPreview ? (
                   <div className="relative rounded-xl overflow-hidden aspect-video bg-gray-100">
