@@ -11,13 +11,13 @@ import { getMessaging, getToken, onMessage, type Messaging } from "firebase/mess
 // Firebase config – replace placeholder values or set VITE_FIREBASE_* env vars
 // ---------------------------------------------------------------------------
 const firebaseConfig = {
-  apiKey:            import.meta.env.VITE_FIREBASE_API_KEY            || "YOUR_API_KEY",
-  authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN        || "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID         || "YOUR_PROJECT_ID",
-  storageBucket:     import.meta.env.VITE_FIREBASE_STORAGE_BUCKET     || "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "YOUR_SENDER_ID",
-  appId:             import.meta.env.VITE_FIREBASE_APP_ID             || "YOUR_APP_ID",
-  measurementId:     import.meta.env.VITE_FIREBASE_MEASUREMENT_ID     || "G-28K8QK4ZN8",
+  apiKey:            import.meta.env.VITE_FIREBASE_API_KEY            || "AIzaSyAQz24IjokglVy4vd8zJX1df7xSnKnx6k0",
+  authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN        || "couponshub-a613d.firebaseapp.com",
+  projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID         || "couponshub-a613d",
+  storageBucket:     import.meta.env.VITE_FIREBASE_STORAGE_BUCKET     || "couponshub-a613d.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "1093165632446",
+  appId:             import.meta.env.VITE_FIREBASE_APP_ID             || "1:1093165632446:web:49f7f2aa8261f8a48ec7ef",
+  measurementId:     import.meta.env.VITE_FIREBASE_MEASUREMENT_ID     || "",
 };
 
 // ---------------------------------------------------------------------------
@@ -70,9 +70,9 @@ export async function requestFcmToken(): Promise<string | null> {
       console.warn("[Firebase] Service Worker register warning:", swErr);
     }
 
-    const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || "YOUR_VAPID_KEY";
+    const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
     const token = await getToken(messaging, {
-      vapidKey,
+      ...(vapidKey && vapidKey !== "YOUR_VAPID_KEY" ? { vapidKey } : {}),
       ...(registration ? { serviceWorkerRegistration: registration } : {}),
     });
 

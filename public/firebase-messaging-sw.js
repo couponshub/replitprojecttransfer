@@ -5,12 +5,12 @@ importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js'
 importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js');
 
 firebase.initializeApp({
-  apiKey: "AIzaSyAU_tuZsnAS-1aBeZXWAkElRDv7gD1NUNQ",
-  authDomain: "couponshubx.firebaseapp.com",
-  projectId: "couponshubx",
-  storageBucket: "couponshubx.firebasestorage.app",
-  messagingSenderId: "459645511614",
-  appId: "1:459645511614:web:ba1de9b92fd20c794bbbef"
+  apiKey: "AIzaSyAQz24IjokglVy4vd8zJX1df7xSnKnx6k0",
+  authDomain: "couponshub-a613d.firebaseapp.com",
+  projectId: "couponshub-a613d",
+  storageBucket: "couponshub-a613d.firebasestorage.app",
+  messagingSenderId: "1093165632446",
+  appId: "1:1093165632446:web:49f7f2aa8261f8a48ec7ef"
 });
 
 const messaging = firebase.messaging();

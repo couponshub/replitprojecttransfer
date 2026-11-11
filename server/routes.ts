@@ -2231,11 +2231,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (firebaseAdminInitialised) {
         const targetUser = await storage.getUser(order.user_id);
         if (targetUser?.fcm_token) {
-          await admin.messaging().send({
+          const resp = await admin.messaging().send({
             token: targetUser.fcm_token,
             notification: { title, body: message },
             data: { orderId: order.id, status: newStatus },
           });
+          console.log(`[FCM] Push notification sent to user ${order.user_id}:`, resp);
         }
       }
     } catch (err: any) {
