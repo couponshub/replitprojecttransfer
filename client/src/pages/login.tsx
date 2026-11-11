@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Zap, Eye, EyeOff, ArrowRight, Sparkles, Phone, Mail, Shield, Store, ChevronDown } from "lucide-react";
+import { Zap, Eye, EyeOff, ArrowRight, Sparkles, Phone, Mail, Shield, Store, ChevronDown, KeyRound, Smartphone, Send, CheckCircle2, RotateCw } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -14,7 +14,7 @@ import CouponsHubLogo from "@assets/Screenshot_2026-03-10_232807_1773165569077.p
 
 export default function Login() {
   const [location, navigate] = useLocation();
-  const { login, register } = useAuth();
+  const { login, register, sendOtp } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -22,6 +22,48 @@ export default function Login() {
     location === "/vendor-login" ? "vendor" : location === "/admin-login" ? "admin" : "login"
   );
   const [loginMethod, setLoginMethod] = useState<"email" | "phone">("email");
+  const [authMode, setAuthMode] = useState<"password" | "otp">("password");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpCountdown, setOtpCountdown] = useState(0);
+  const [sendingOtp, setSendingOtp] = useState(false);
+
+  useEffect(() => {
+    if (otpCountdown > 0) {
+      const timer = setTimeout(() => setOtpCountdown(c => c - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [otpCountdown]);
+
+  const handleSendOtp = async () => {
+    const identifier = loginMethod === "phone" ? loginForm.phone : loginForm.email;
+    if (!identifier || (loginMethod === "phone" && identifier.length < 10)) {
+      toast({
+        title: loginMethod === "phone" ? "Enter a valid 10-digit mobile number" : "Enter a valid email address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSendingOtp(true);
+    try {
+      const payload = loginMethod === "phone" ? { phone: loginForm.phone } : { email: loginForm.email };
+      const res = await sendOtp(payload);
+      setOtpSent(true);
+      setOtpCountdown(30);
+      toast({
+        title: "🎉 OTP Sent!",
+        description: res.otp ? `Verification Code: ${res.otp}` : res.message,
+      });
+      if (res.otp) {
+        setOtpCode(res.otp);
+      }
+    } catch (err: any) {
+      toast({ title: err.message || "Failed to send OTP", variant: "destructive" });
+    } finally {
+      setSendingOtp(false);
+    }
+  };
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -45,9 +87,21 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     try {
-      const credentials = loginMethod === "phone"
-        ? { phone: loginForm.phone, password: loginForm.password }
-        : { email: loginForm.email, password: loginForm.password };
+      let credentials: any;
+      if (authMode === "otp") {
+        if (!otpCode || otpCode.length < 6) {
+          toast({ title: "Please enter the 6-digit OTP", variant: "destructive" });
+          setLoading(false);
+          return;
+        }
+        credentials = loginMethod === "phone"
+          ? { phone: loginForm.phone, otp: otpCode }
+          : { email: loginForm.email, otp: otpCode };
+      } else {
+        credentials = loginMethod === "phone"
+          ? { phone: loginForm.phone, password: loginForm.password }
+          : { email: loginForm.email, password: loginForm.password };
+      }
       const user = await login(credentials);
       toast({ title: `Welcome back, ${user.name}!` });
       if (user.role === "admin") navigate("/admin-dashboard");
@@ -211,10 +265,10 @@ export default function Login() {
                   <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Welcome back</h2>
                   <p className="text-muted-foreground mb-6">Sign in to access your account</p>
 
-                  <div className="flex gap-2 mb-6">
+                  <div className="flex gap-2 mb-3">
                     <button
                       type="button"
-                      onClick={() => setLoginMethod("email")}
+                      onClick={() => { setLoginMethod("email"); setOtpSent(false); setOtpCode(""); }}
                       className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                         loginMethod === "email"
                           ? "bg-primary/10 text-primary border border-primary/20"
@@ -226,7 +280,7 @@ export default function Login() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setLoginMethod("phone")}
+                      onClick={() => { setLoginMethod("phone"); setOtpSent(false); setOtpCode(""); }}
                       className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                         loginMethod === "phone"
                           ? "bg-primary/10 text-primary border border-primary/20"
@@ -234,7 +288,35 @@ export default function Login() {
                       }`}
                       data-testid="button-login-phone"
                     >
-                      <Phone className="w-4 h-4" /> Mobile
+                      <Phone className="w-4 h-4" /> Mobile Number
+                    </button>
+                  </div>
+
+                  {/* Auth Mode Toggle: Password or OTP */}
+                  <div className="grid grid-cols-2 p-1 bg-gray-100 dark:bg-gray-800/80 rounded-xl mb-6">
+                    <button
+                      type="button"
+                      onClick={() => setAuthMode("password")}
+                      className={`py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                        authMode === "password"
+                          ? "bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-400 shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      data-testid="tab-login-password"
+                    >
+                      <KeyRound className="w-3.5 h-3.5" /> Password
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAuthMode("otp")}
+                      className={`py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                        authMode === "otp"
+                          ? "bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-400 shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                      data-testid="tab-login-otp"
+                    >
+                      <Smartphone className="w-3.5 h-3.5" /> OTP Login
                     </button>
                   </div>
 
@@ -257,7 +339,7 @@ export default function Login() {
                       <div className="flex flex-col gap-2">
                         <Label htmlFor="login-phone">Mobile Number</Label>
                         <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">+91</span>
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">+91</span>
                           <Input
                             id="login-phone"
                             type="tel"
@@ -271,29 +353,103 @@ export default function Login() {
                         </div>
                       </div>
                     )}
-                    <div className="flex flex-col gap-2">
-                      <Label htmlFor="login-password">Password</Label>
-                      <div className="relative">
-                        <Input
-                          id="login-password"
-                          type={showPassword ? "text" : "password"}
-                          placeholder="Enter your password"
-                          value={loginForm.password}
-                          onChange={e => setLoginForm(f => ({ ...f, password: e.target.value }))}
-                          className="h-12 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 pr-12"
-                          required
-                          data-testid="input-login-password"
-                        />
-                        <PasswordToggle />
+
+                    {authMode === "password" ? (
+                      <div className="flex flex-col gap-2">
+                        <Label htmlFor="login-password">Password</Label>
+                        <div className="relative">
+                          <Input
+                            id="login-password"
+                            type={showPassword ? "text" : "password"}
+                            placeholder="Enter your password"
+                            value={loginForm.password}
+                            onChange={e => setLoginForm(f => ({ ...f, password: e.target.value }))}
+                            className="h-12 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 pr-12"
+                            required
+                            data-testid="input-login-password"
+                          />
+                          <PasswordToggle />
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="login-otp">One-Time Password (OTP)</Label>
+                          <button
+                            type="button"
+                            onClick={handleSendOtp}
+                            disabled={sendingOtp || otpCountdown > 0}
+                            className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50 disabled:no-underline flex items-center gap-1"
+                            data-testid="button-send-otp"
+                          >
+                            {sendingOtp ? (
+                              <>
+                                <RotateCw className="w-3 h-3 animate-spin" />
+                                <span>Sending...</span>
+                              </>
+                            ) : otpCountdown > 0 ? (
+                              <span>Resend in {otpCountdown}s</span>
+                            ) : (
+                              <>
+                                <Send className="w-3 h-3" />
+                                <span>{otpSent ? "Resend OTP" : "Get OTP"}</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+
+                        {!otpSent ? (
+                          <div className="p-3.5 rounded-xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 flex items-center justify-between gap-2">
+                            <span className="text-xs text-blue-700 dark:text-blue-300">
+                              Click <strong>Get OTP</strong> to receive a 6-digit login code.
+                            </span>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={handleSendOtp}
+                              disabled={sendingOtp}
+                              className="h-8 px-3 text-xs font-medium rounded-lg bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+                            >
+                              {sendingOtp ? "Sending..." : "Send OTP"}
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <div className="relative">
+                              <Input
+                                id="login-otp"
+                                type="text"
+                                maxLength={6}
+                                placeholder="• • • • • •"
+                                value={otpCode}
+                                onChange={e => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                className="h-12 rounded-xl text-center text-xl tracking-widest font-mono font-bold bg-gray-50 dark:bg-gray-800 border-blue-400 focus:border-blue-600 focus:ring-blue-500"
+                                required
+                                data-testid="input-login-otp"
+                              />
+                              {otpCode.length === 6 && (
+                                <CheckCircle2 className="w-5 h-5 text-emerald-500 absolute right-3 top-1/2 -translate-y-1/2" />
+                              )}
+                            </div>
+                            <p className="text-[11px] text-muted-foreground text-center">
+                              Enter the 6-digit verification code sent to your {loginMethod === "phone" ? "mobile" : "email"}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <Button
                       type="submit"
-                      disabled={loading}
-                      className="h-12 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-violet-600 border-0 mt-2"
+                      disabled={loading || (authMode === "otp" && (!otpSent || otpCode.length < 6))}
+                      className="h-12 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-violet-600 border-0 mt-2 shadow-md shadow-blue-500/20"
                       data-testid="button-submit-login"
                     >
-                      {loading ? "Signing in..." : (
+                      {loading ? (
+                        authMode === "otp" ? "Verifying..." : "Signing in..."
+                      ) : authMode === "otp" ? (
+                        <><span>Verify & Sign In</span><ArrowRight className="w-4 h-4 ml-2" /></>
+                      ) : (
                         <><span>Sign In</span><ArrowRight className="w-4 h-4 ml-2" /></>
                       )}
                     </Button>

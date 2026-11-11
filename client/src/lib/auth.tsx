@@ -15,7 +15,9 @@ interface AuthContextType {
   user: AuthUser | null;
   token: string | null;
   loading: boolean;
-  login: (credentials: { email?: string; phone?: string; password: string }) => Promise<AuthUser>;
+  login: (credentials: { email?: string; phone?: string; password?: string; otp?: string }) => Promise<AuthUser>;
+  sendOtp: (params: { email?: string; phone?: string }) => Promise<{ success: boolean; message: string; otp?: string }>;
+  verifyOtp: (params: { email?: string; phone?: string; otp: string; name?: string }) => Promise<AuthUser>;
   register: (data: { name: string; email: string; phone?: string; password: string }) => Promise<AuthUser>;
   logout: () => Promise<void>;
   updateProfile: (data: { name?: string; phone?: string; address?: string }) => Promise<AuthUser>;
@@ -51,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = async (credentials: { email?: string; phone?: string; password: string }): Promise<AuthUser> => {
+  const login = async (credentials: { email?: string; phone?: string; password?: string; otp?: string }): Promise<AuthUser> => {
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -62,6 +64,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(err.error || "Login failed");
     }
     const data = await res.json();
+    setToken(data.token);
+    setUser(data.user);
+    localStorage.setItem("coupons_hub_token", data.token);
+    queryClient.clear();
+    return data.user;
+  };
+
+  const sendOtp = async (params: { email?: string; phone?: string }): Promise<{ success: boolean; message: string; otp?: string }> => {
+    const res = await fetch("/api/auth/send-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Failed to send OTP");
+    }
+    return data;
+  };
+
+  const verifyOtp = async (params: { email?: string; phone?: string; otp: string; name?: string }): Promise<AuthUser> => {
+    const res = await fetch("/api/auth/verify-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "OTP verification failed");
+    }
     setToken(data.token);
     setUser(data.user);
     localStorage.setItem("coupons_hub_token", data.token);
@@ -113,7 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user, token, loading,
-      login, register, logout, updateProfile,
+      login, sendOtp, verifyOtp, register, logout, updateProfile,
       isAdmin: user?.role === "admin",
       isAuthenticated: !!user,
     }}>

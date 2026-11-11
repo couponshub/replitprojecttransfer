@@ -196,7 +196,16 @@ export class PgStorage implements IStorage {
   }
 
   async getUserByPhone(phone: string): Promise<User | undefined> {
-    const result = await db.select().from(users).where(eq(users.phone, phone)).limit(1);
+    const raw = phone.trim();
+    const digits = raw.replace(/\D/g, "").slice(-10);
+    const conditions = [eq(users.phone, raw)];
+    if (digits) {
+      conditions.push(eq(users.phone, digits));
+      conditions.push(eq(users.phone, `+91${digits}`));
+      conditions.push(eq(users.phone, `+91 ${digits}`));
+      conditions.push(ilike(users.phone, `%${digits}`));
+    }
+    const result = await db.select().from(users).where(or(...conditions)).limit(1);
     return result[0];
   }
 

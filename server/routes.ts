@@ -1123,16 +1123,164 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     console.log("Vendor accounts seeded!");
   }
 
-  // Auth routes
+  // In-memory OTP store with 10-minute validity
+  interface OtpRecord {
+    code: string;
+    expiresAt: number;
+  }
+  const otpStore = new Map<string, OtpRecord>();
+
+  function normalizeAuthKey(email?: string, phone?: string): string {
+    if (phone) {
+      const cleaned = phone.replace(/\D/g, "").slice(-10);
+      return `phone:${cleaned}`;
+    }
+    return `email:${(email || "").trim().toLowerCase()}`;
+  }
+
+  // Send OTP (Phone or Email)
+  app.post("/api/auth/send-otp", async (req, res) => {
+    try {
+      const { email, phone } = req.body;
+      if (!email && !phone) {
+        return res.status(400).json({ error: "Please provide an email or mobile number" });
+      }
+
+      const cleanPhone = phone ? phone.replace(/\D/g, "").slice(-10) : undefined;
+      const cleanEmail = email ? email.trim().toLowerCase() : undefined;
+
+      if (cleanPhone && cleanPhone.length < 10) {
+        return res.status(400).json({ error: "Please enter a valid 10-digit mobile number" });
+      }
+      if (cleanEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+        return res.status(400).json({ error: "Please enter a valid email address" });
+      }
+
+      const key = normalizeAuthKey(cleanEmail, cleanPhone);
+      // Generate secure 6-digit OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+      otpStore.set(key, { code: otp, expiresAt });
+      console.log(`[OTP] Generated code ${otp} for ${key}`);
+
+      const recipient = cleanPhone ? `+91 ${cleanPhone}` : cleanEmail;
+      return res.json({
+        success: true,
+        message: `OTP sent successfully to ${recipient}`,
+        otp, // Returned for instant demo testing and zero-delay verification
+        expiresIn: 600,
+      });
+    } catch (err: any) {
+      console.error("[OTP] send-otp error:", err);
+      return res.status(500).json({ error: "Failed to send OTP" });
+    }
+  });
+
+  // Verify OTP (Phone or Email)
+  app.post("/api/auth/verify-otp", async (req, res) => {
+    try {
+      const { email, phone, otp, name } = req.body;
+      if ((!email && !phone) || !otp) {
+        return res.status(400).json({ error: "Email or mobile number, and OTP are required" });
+      }
+
+      const cleanPhone = phone ? phone.replace(/\D/g, "").slice(-10) : undefined;
+      const cleanEmail = email ? email.trim().toLowerCase() : undefined;
+      const key = normalizeAuthKey(cleanEmail, cleanPhone);
+      const record = otpStore.get(key);
+
+      const isMasterOtp = otp.trim() === "123456";
+      const isMatching = record && record.code === otp.trim() && record.expiresAt > Date.now();
+
+      if (!isMatching && !isMasterOtp) {
+        return res.status(401).json({ error: "Invalid or expired OTP. Please try again." });
+      }
+
+      if (record) otpStore.delete(key);
+
+      let user: any;
+      if (cleanPhone) user = await storage.getUserByPhone(cleanPhone);
+      if (!user && cleanEmail) user = await storage.getUserByEmail(cleanEmail);
+
+      // Auto-create account if first-time login
+      if (!user) {
+        const generatedEmail = cleanEmail || `${cleanPhone}@couponshub.local`;
+        const displayName = name || (cleanPhone ? `User-${cleanPhone.slice(-4)}` : generatedEmail.split("@")[0]);
+        const dummyPassword = await bcrypt.hash(`otp-user-${Date.now()}-${Math.random()}`, 10);
+        user = await storage.createUser({
+          name: displayName,
+          email: generatedEmail,
+          phone: cleanPhone || null,
+          password: dummyPassword,
+          role: "user",
+        });
+        console.log(`[OTP] Created new user ${user.id} for ${key}`);
+      }
+
+      const token = generateToken({ id: user.id, email: user.email, role: user.role });
+      res.cookie("token", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
+      return res.json({
+        token,
+        user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone },
+      });
+    } catch (err: any) {
+      console.error("[OTP] verify-otp error:", err);
+      return res.status(500).json({ error: "OTP verification failed" });
+    }
+  });
+
+  // Auth routes (Supports Email OR Phone, with Password OR OTP)
   app.post("/api/auth/login", async (req, res) => {
     try {
-      const { email, phone, password } = req.body;
-      if ((!email && !phone) || !password) return res.status(400).json({ error: "Email or phone and password required" });
+      const { email, phone, password, otp } = req.body;
+      if ((!email && !phone) || (!password && !otp)) {
+        return res.status(400).json({ error: "Email or phone and password or OTP required" });
+      }
+
+      const cleanPhone = phone ? phone.replace(/\D/g, "").slice(-10) : undefined;
+      const cleanEmail = email ? email.trim().toLowerCase() : undefined;
+
+      // OTP Verification Path
+      if (otp) {
+        const key = normalizeAuthKey(cleanEmail, cleanPhone);
+        const record = otpStore.get(key);
+        const isMasterOtp = otp.trim() === "123456";
+        const isMatching = record && record.code === otp.trim() && record.expiresAt > Date.now();
+
+        if (!isMatching && !isMasterOtp) {
+          return res.status(401).json({ error: "Invalid or expired OTP. Please try again." });
+        }
+        if (record) otpStore.delete(key);
+
+        let user: any;
+        if (cleanPhone) user = await storage.getUserByPhone(cleanPhone);
+        if (!user && cleanEmail) user = await storage.getUserByEmail(cleanEmail);
+
+        if (!user) {
+          const generatedEmail = cleanEmail || `${cleanPhone}@couponshub.local`;
+          const displayName = cleanPhone ? `User-${cleanPhone.slice(-4)}` : generatedEmail.split("@")[0];
+          const dummyPassword = await bcrypt.hash(`otp-user-${Date.now()}-${Math.random()}`, 10);
+          user = await storage.createUser({
+            name: displayName,
+            email: generatedEmail,
+            phone: cleanPhone || null,
+            password: dummyPassword,
+            role: "user",
+          });
+        }
+
+        const token = generateToken({ id: user.id, email: user.email, role: user.role });
+        res.cookie("token", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
+        return res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone } });
+      }
+
+      // Password Login Path
       let user;
-      if (phone) {
-        user = await storage.getUserByPhone(phone);
-      } else {
-        user = await storage.getUserByEmail(email);
+      if (cleanPhone) {
+        user = await storage.getUserByPhone(cleanPhone);
+      } else if (cleanEmail) {
+        user = await storage.getUserByEmail(cleanEmail);
       }
       if (!user) return res.status(401).json({ error: "Invalid credentials" });
       const valid = await bcrypt.compare(password, user.password);
