@@ -2168,16 +2168,33 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(await storage.getShopOrders(vendor.shop_id));
   });
 
-  async function sendOrderStatusNotification(order: any, newStatus: string, actor: "admin" | "vendor" | "system") {
+  async function sendOrderStatusNotification(orderOrId: any, newStatus: string, actor: "admin" | "vendor" | "system") {
+    let order = orderOrId;
+    if (typeof orderOrId === "string") {
+      order = await storage.getOrder(orderOrId);
+    } else if (order && !order.user_id && order.id) {
+      const full = await storage.getOrder(order.id);
+      order = { ...(full || {}), ...order };
+    }
     if (!order || !order.user_id) return;
 
     const shortId = (order.id || "").slice(-8).toUpperCase();
-    const shopName = order.shop_name || "the store";
+    let shopName = order.shop_name;
+    if (!shopName && order.shop_id) {
+      try {
+        const shop = await storage.getShop(order.shop_id);
+        if (shop?.name) shopName = shop.name;
+      } catch {}
+    }
+    shopName = shopName || "the store";
 
     let title = `📦 Order #${shortId} Status Updated`;
     let message = `Your order #${shortId} from ${shopName} is now ${newStatus}.`;
 
-    if (newStatus === "confirmed") {
+    if (order.redemption_type === "store" && newStatus === "confirmed") {
+      title = `🎟️ Store Coupon Redeemed!`;
+      message = `Your coupon #${order.coupon_code || shortId} at ${shopName} has been verified and confirmed!`;
+    } else if (newStatus === "confirmed") {
       title = `🛍️ Order #${shortId} Confirmed!`;
       message = `Great news! Your order #${shortId} from ${shopName} has been confirmed and is being processed.`;
     } else if (newStatus === "completed") {
@@ -2200,7 +2217,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         data: JSON.stringify({
           order_id: order.id,
           status: newStatus,
-          shop_name: order.shop_name,
+          shop_name: shopName,
           updated_by: actor,
         }),
       });
@@ -2236,7 +2253,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (order.shop_id !== vendor.shop_id) return res.status(403).json({ error: "Access denied" });
     const updated = await storage.updateOrderStatus(req.params.id as string, status);
     if (updated) {
-      await sendOrderStatusNotification(updated, status, "vendor");
+      await sendOrderStatusNotification({ ...order, ...updated }, status, "vendor");
     }
     res.json(updated);
   });
@@ -2290,7 +2307,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!existingOrder) return res.status(404).json({ error: "Not found" });
     const order = await storage.updateOrderStatus(req.params.id as string, status);
     if (!order) return res.status(404).json({ error: "Not found" });
-    await sendOrderStatusNotification(order, status, "admin");
+    await sendOrderStatusNotification({ ...existingOrder, ...order }, status, "admin");
     // When admin confirms a store redemption, deduct from usage_count
     if (status === "confirmed" && (existingOrder as any).redemption_type === "store" && existingOrder.coupon_code && existingOrder.shop_id) {
       try { await storage.incrementCouponUsage(existingOrder.coupon_code, existingOrder.shop_id); } catch {}
@@ -2330,9 +2347,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (expectedSignature !== razorpay_signature) {
         return res.status(400).json({ error: "Payment verification failed. Please contact support." });
       }
+      const existing = await storage.getOrder(orderId);
       const order = await storage.updateOrderPayment(orderId, "paid", razorpay_order_id);
       if (order) {
-        await sendOrderStatusNotification(order, "confirmed", "system");
+        await sendOrderStatusNotification({ ...(existing || {}), ...order }, "confirmed", "system");
       }
       res.json({ success: true, order });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
@@ -3118,6 +3136,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         coupon_code: coupon.code,
         redemption_type: "store",
       } as any, []);
+      try {
+        await storage.createNotification({
+          user_id: userId,
+          type: "order_update",
+          title: `🎟️ Store Coupon Submitted! #${order.id.slice(-8).toUpperCase()}`,
+          message: `Your coupon redemption for "${coupon.code}" at ${shop.name} is submitted and pending confirmation.`,
+          data: JSON.stringify({ order_id: order.id, status: "pending", coupon_code: coupon.code, shop_name: shop.name }),
+        });
+      } catch {}
       res.json({ success: true, order });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });

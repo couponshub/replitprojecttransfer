@@ -54,6 +54,7 @@ export default function MyOrdersPage() {
   const { data: orders = [], isLoading } = useQuery<Order[]>({
     queryKey: ["/api/orders/my"],
     enabled: isAuthenticated,
+    refetchInterval: 5000,
   });
 
   if (!loading && !isAuthenticated) {

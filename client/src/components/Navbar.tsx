@@ -274,7 +274,7 @@ function UnreadBadge() {
   const { data } = useQuery<{ count: number }>({
     queryKey: ["/api/notifications/unread-count"],
     enabled: !!user,
-    refetchInterval: 30_000,
+    refetchInterval: 5_000,
   });
   if (!data?.count) return null;
   return (

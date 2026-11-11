@@ -386,7 +386,7 @@ async function main() {
         return { ordersFound: data.length, verifiedOrderId: found.id };
       });
 
-      await runTest("Business Logic", "Order Status Update Triggers User Notification", async () => {
+      await runTest("Business Logic", "Order Status Update Triggers User Notification (Confirmed)", async () => {
         const updateRes = await fetch(`${baseUrl}/api/orders/${createdOrderId}/status`, {
           method: "PUT",
           headers: {
@@ -401,9 +401,39 @@ async function main() {
           headers: { Authorization: `Bearer ${testUserToken}` },
         });
         const notifs = await notifRes.json();
-        const found = notifs.find((n: any) => n.type === "order_update");
-        if (!found) throw new Error("Order update notification was not found in user inbox");
+        const found = notifs.find((n: any) => n.type === "order_update" && n.title.includes("Confirmed"));
+        if (!found) throw new Error("Order 'confirmed' notification was not found in user inbox");
         return { notificationId: found.id, title: found.title, message: found.message };
+      });
+
+      await runTest("Business Logic", "Order Status Update Triggers User Notification (Completed)", async () => {
+        const updateRes = await fetch(`${baseUrl}/api/orders/${createdOrderId}/status`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${adminToken}`,
+          },
+          body: JSON.stringify({ status: "completed" }),
+        });
+        if (!updateRes.ok) throw new Error(`Status update failed: ${updateRes.status}`);
+
+        const notifRes = await fetch(`${baseUrl}/api/notifications`, {
+          headers: { Authorization: `Bearer ${testUserToken}` },
+        });
+        const notifs = await notifRes.json();
+        const found = notifs.find((n: any) => n.type === "order_update" && n.title.includes("Completed"));
+        if (!found) throw new Error("Order 'completed' notification was not found in user inbox");
+
+        // Verify unread count is at least 1
+        const unreadRes = await fetch(`${baseUrl}/api/notifications/unread-count`, {
+          headers: { Authorization: `Bearer ${testUserToken}` },
+        });
+        const unreadData = await unreadRes.json();
+        if (typeof unreadData.count !== "number" || unreadData.count < 1) {
+          throw new Error(`Expected positive unread count, got ${unreadData.count}`);
+        }
+
+        return { notificationId: found.id, title: found.title, unreadCount: unreadData.count };
       });
     }
 

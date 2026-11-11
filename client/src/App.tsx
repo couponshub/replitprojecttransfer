@@ -67,6 +67,8 @@ function Router() {
   );
 }
 
+import { NotificationListener } from "@/components/NotificationListener";
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -74,6 +76,7 @@ function App() {
         <AuthProvider>
           <CartProvider>
             <Toaster />
+            <NotificationListener />
             <Router />
           </CartProvider>
         </AuthProvider>

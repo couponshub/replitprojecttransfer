@@ -47,20 +47,33 @@ if (typeof window !== "undefined" && "serviceWorker" in navigator) {
 // `vapidKey` comes from: Firebase Console → Project Settings → Cloud Messaging → Web Push Certificates
 // ---------------------------------------------------------------------------
 export async function requestFcmToken(): Promise<string | null> {
-  if (!messaging) {
-    console.warn("[Firebase] Messaging is not available.");
+  if (typeof window === "undefined" || !("Notification" in window)) {
     return null;
   }
 
   try {
     const permission = await Notification.requestPermission();
     if (permission !== "granted") {
-      console.warn("[Firebase] Notification permission denied.");
+      console.warn("[Firebase] Notification permission denied or dismissed.");
       return null;
     }
 
+    if (!messaging || !("serviceWorker" in navigator)) {
+      console.warn("[Firebase] Messaging or Service Worker not available, browser notifications enabled.");
+      return null;
+    }
+
+    let registration: ServiceWorkerRegistration | undefined;
+    try {
+      registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+    } catch (swErr) {
+      console.warn("[Firebase] Service Worker register warning:", swErr);
+    }
+
+    const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || "YOUR_VAPID_KEY";
     const token = await getToken(messaging, {
-      vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY || "YOUR_VAPID_KEY",
+      vapidKey,
+      ...(registration ? { serviceWorkerRegistration: registration } : {}),
     });
 
     return token || null;
