@@ -6,4 +6,4 @@ automatic_scaling:
 
 env_variables:
   NODE_ENV: "production"
-  DATABASE_URL: "postgresql://neondb_owner:npg_gY0lZ8uTzUvx@ep-young-leaf-aojgg4wi-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
+  DATABASE_URL: "postgresql://neondb_owner:npg_5aGCTWcyb7lh@ep-young-leaf-aojgg4wi-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
