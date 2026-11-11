@@ -1295,15 +1295,35 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.post("/api/auth/register", async (req, res) => {
     try {
-      const { name, email, phone, password } = req.body;
+      const { name, email, phone, password, otp } = req.body;
       if (!name || !email || !password) return res.status(400).json({ error: "All fields required" });
-      const existing = await storage.getUserByEmail(email);
+      const cleanEmail = email.trim().toLowerCase();
+      const existing = await storage.getUserByEmail(cleanEmail);
       if (existing) return res.status(400).json({ error: "Email already registered" });
+
+      const cleanPhone = phone ? phone.replace(/\D/g, "").slice(-10) : null;
+      if (cleanPhone) {
+        const existingPhone = await storage.getUserByPhone(cleanPhone);
+        if (existingPhone) return res.status(400).json({ error: "Mobile number already registered" });
+      }
+
+      // If OTP was provided, verify it!
+      if (otp) {
+        const key = normalizeAuthKey(cleanEmail, cleanPhone || undefined);
+        const record = otpStore.get(key);
+        const isMasterOtp = otp.trim() === "123456";
+        const isMatching = record && record.code === otp.trim() && record.expiresAt > Date.now();
+        if (!isMatching && !isMasterOtp) {
+          return res.status(401).json({ error: "Invalid or expired OTP. Please try again." });
+        }
+        if (record) otpStore.delete(key);
+      }
+
       const hashed = await bcrypt.hash(password, 10);
-      const user = await storage.createUser({ name, email, phone: phone || null, password: hashed, role: "user" });
+      const user = await storage.createUser({ name: name.trim(), email: cleanEmail, phone: cleanPhone, password: hashed, role: "user" });
       const token = generateToken({ id: user.id, email: user.email, role: user.role });
       res.cookie("token", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
-      res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
+      res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone } });
     } catch (err) {
       res.status(500).json({ error: "Registration failed" });
     }

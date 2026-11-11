@@ -83,6 +83,46 @@ export default function Login() {
   const [adminForm, setAdminForm] = useState({ email: "", password: "" });
   const [vendorForm, setVendorForm] = useState({ email: "", password: "" });
 
+  const [regOtpSent, setRegOtpSent] = useState(false);
+  const [regOtpCode, setRegOtpCode] = useState("");
+  const [regOtpCountdown, setRegOtpCountdown] = useState(0);
+  const [regSendingOtp, setRegSendingOtp] = useState(false);
+
+  useEffect(() => {
+    if (regOtpCountdown > 0) {
+      const timer = setTimeout(() => setRegOtpCountdown(c => c - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [regOtpCountdown]);
+
+  const handleSendRegOtp = async () => {
+    if (!registerForm.phone || registerForm.phone.length < 10) {
+      toast({
+        title: "Please enter a valid 10-digit mobile number to get OTP",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setRegSendingOtp(true);
+    try {
+      const res = await sendOtp({ phone: registerForm.phone, email: registerForm.email || undefined });
+      setRegOtpSent(true);
+      setRegOtpCountdown(30);
+      toast({
+        title: "🎉 Registration OTP Sent!",
+        description: res.otp ? `Verification Code: ${res.otp}` : res.message,
+      });
+      if (res.otp) {
+        setRegOtpCode(res.otp);
+      }
+    } catch (err: any) {
+      toast({ title: err.message || "Failed to send OTP", variant: "destructive" });
+    } finally {
+      setRegSendingOtp(false);
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -115,10 +155,31 @@ export default function Login() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!registerForm.name.trim()) {
+      toast({ title: "Full name is required", variant: "destructive" });
+      return;
+    }
+    if (!registerForm.email.trim()) {
+      toast({ title: "Email is required", variant: "destructive" });
+      return;
+    }
     if (registerForm.password.length < 6) {
       toast({ title: "Password must be at least 6 characters", variant: "destructive" });
       return;
     }
+    if (registerForm.phone && registerForm.phone.length >= 10 && !regOtpSent) {
+      toast({
+        title: "Mobile Verification Required",
+        description: "Please click 'Get OTP' to verify your mobile number before registering.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (regOtpSent && (!regOtpCode || regOtpCode.length < 6)) {
+      toast({ title: "Please enter the 6-digit OTP code", variant: "destructive" });
+      return;
+    }
+
     setLoading(true);
     try {
       const user = await register({
@@ -126,6 +187,7 @@ export default function Login() {
         email: registerForm.email,
         phone: registerForm.phone || undefined,
         password: registerForm.password,
+        otp: regOtpSent ? regOtpCode : undefined,
       });
       toast({ title: `Welcome to CouponsHub X, ${user.name}!` });
       navigate("/home");
@@ -490,20 +552,102 @@ export default function Login() {
                       />
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Label htmlFor="reg-phone">Mobile Number <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="reg-phone">Mobile Number</Label>
+                        {registerForm.phone && registerForm.phone.length >= 10 && (
+                          <button
+                            type="button"
+                            onClick={handleSendRegOtp}
+                            disabled={regSendingOtp || regOtpCountdown > 0}
+                            className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline disabled:opacity-50 disabled:no-underline flex items-center gap-1"
+                            data-testid="button-reg-send-otp"
+                          >
+                            {regSendingOtp ? (
+                              <>
+                                <RotateCw className="w-3 h-3 animate-spin" />
+                                <span>Sending...</span>
+                              </>
+                            ) : regOtpCountdown > 0 ? (
+                              <span>Resend in {regOtpCountdown}s</span>
+                            ) : (
+                              <>
+                                <Send className="w-3 h-3" />
+                                <span>{regOtpSent ? "Resend OTP" : "Send OTP"}</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
                       <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">+91</span>
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">+91</span>
                         <Input
                           id="reg-phone"
                           type="tel"
                           placeholder="9876543210"
                           value={registerForm.phone}
-                          onChange={e => setRegisterForm(f => ({ ...f, phone: e.target.value.replace(/\D/g, "").slice(0, 10) }))}
+                          onChange={e => {
+                            setRegisterForm(f => ({ ...f, phone: e.target.value.replace(/\D/g, "").slice(0, 10) }));
+                            if (regOtpSent) {
+                              setRegOtpSent(false);
+                              setRegOtpCode("");
+                            }
+                          }}
                           className="h-12 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 pl-12"
                           data-testid="input-register-phone"
                         />
                       </div>
+                      {registerForm.phone && registerForm.phone.length >= 10 && !regOtpSent && (
+                        <div className="flex items-center justify-between p-2.5 rounded-xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50">
+                          <span className="text-xs text-blue-700 dark:text-blue-300">
+                            Verify this mobile with OTP
+                          </span>
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={handleSendRegOtp}
+                            disabled={regSendingOtp}
+                            className="h-7 px-3 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shrink-0"
+                            data-testid="button-get-reg-otp"
+                          >
+                            {regSendingOtp ? "Sending..." : "Get OTP"}
+                          </Button>
+                        </div>
+                      )}
                     </div>
+
+                    {/* Registration OTP Input */}
+                    {regOtpSent && (
+                      <div className="p-3.5 rounded-2xl bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/50 space-y-2 animate-in fade-in duration-300">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="reg-otp" className="text-xs font-bold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+                            <Smartphone className="w-3.5 h-3.5" /> Enter 6-Digit OTP Code
+                          </Label>
+                          <span className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">
+                            Sent to +91 {registerForm.phone}
+                          </span>
+                        </div>
+                        <div className="relative">
+                          <Input
+                            id="reg-otp"
+                            type="text"
+                            maxLength={6}
+                            placeholder="• • • • • •"
+                            value={regOtpCode}
+                            onChange={e => setRegOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                            className="h-11 rounded-xl text-center text-lg tracking-widest font-mono font-bold bg-white dark:bg-gray-900 border-blue-400 focus:border-blue-600"
+                            required
+                            data-testid="input-register-otp"
+                          />
+                          {regOtpCode.length === 6 && (
+                            <CheckCircle2 className="w-5 h-5 text-emerald-500 absolute right-3 top-1/2 -translate-y-1/2" />
+                          )}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground text-center">
+                          Check toast message or enter the 6-digit code to verify your account
+                        </p>
+                      </div>
+                    )}
+
                     <div className="flex flex-col gap-2">
                       <Label htmlFor="reg-password">Password</Label>
                       <div className="relative">
@@ -522,8 +666,8 @@ export default function Login() {
                     </div>
                     <Button
                       type="submit"
-                      disabled={loading}
-                      className="h-12 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-violet-600 border-0 mt-2"
+                      disabled={loading || (registerForm.phone.length >= 10 && regOtpSent && regOtpCode.length < 6)}
+                      className="h-12 rounded-xl text-base font-semibold bg-gradient-to-r from-blue-500 to-violet-600 border-0 mt-2 shadow-md shadow-blue-500/20"
                       data-testid="button-submit-register"
                     >
                       {loading ? "Creating account..." : (
