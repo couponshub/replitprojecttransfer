@@ -18,7 +18,7 @@ interface AuthContextType {
   login: (credentials: { email?: string; phone?: string; password?: string; otp?: string }) => Promise<AuthUser>;
   sendOtp: (params: { email?: string; phone?: string }) => Promise<{ success: boolean; message: string; otp?: string }>;
   verifyOtp: (params: { email?: string; phone?: string; otp: string; name?: string }) => Promise<AuthUser>;
-  register: (data: { name: string; email: string; phone?: string; password: string; otp?: string }) => Promise<AuthUser>;
+  register: (data: { name: string; email?: string; phone?: string; password: string; otp?: string }) => Promise<AuthUser>;
   logout: () => Promise<void>;
   updateProfile: (data: { name?: string; phone?: string; address?: string }) => Promise<AuthUser>;
   isAdmin: boolean;
@@ -101,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data.user;
   };
 
-  const register = async (regData: { name: string; email: string; phone?: string; password: string; otp?: string }): Promise<AuthUser> => {
+  const register = async (regData: { name: string; email?: string; phone?: string; password: string; otp?: string }): Promise<AuthUser> => {
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

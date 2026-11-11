@@ -21,7 +21,6 @@ export default function Login() {
   const [tab, setTab] = useState<"login" | "register" | "admin" | "vendor">(
     location === "/vendor-login" ? "vendor" : location === "/admin-login" ? "admin" : "login"
   );
-  const [loginMethod, setLoginMethod] = useState<"email" | "phone">("email");
   const [authMode, setAuthMode] = useState<"password" | "otp">("password");
   const [otpSent, setOtpSent] = useState(false);
   const [otpCode, setOtpCode] = useState("");
@@ -36,10 +35,9 @@ export default function Login() {
   }, [otpCountdown]);
 
   const handleSendOtp = async () => {
-    const identifier = loginMethod === "phone" ? loginForm.phone : loginForm.email;
-    if (!identifier || (loginMethod === "phone" && identifier.length < 10)) {
+    if (!loginForm.phone || loginForm.phone.length < 10) {
       toast({
-        title: loginMethod === "phone" ? "Enter a valid 10-digit mobile number" : "Enter a valid email address",
+        title: "Please enter a valid 10-digit mobile number",
         variant: "destructive",
       });
       return;
@@ -47,17 +45,13 @@ export default function Login() {
 
     setSendingOtp(true);
     try {
-      const payload = loginMethod === "phone" ? { phone: loginForm.phone } : { email: loginForm.email };
-      const res = await sendOtp(payload);
+      await sendOtp({ phone: loginForm.phone });
       setOtpSent(true);
       setOtpCountdown(30);
       toast({
-        title: "🎉 OTP Sent!",
-        description: res.otp ? `Verification Code: ${res.otp}` : res.message,
+        title: "📲 OTP Sent via SMS!",
+        description: `Verification code sent to +91 ${loginForm.phone}. Please enter the code received on your phone.`,
       });
-      if (res.otp) {
-        setOtpCode(res.otp);
-      }
     } catch (err: any) {
       toast({ title: err.message || "Failed to send OTP", variant: "destructive" });
     } finally {
@@ -78,8 +72,8 @@ export default function Login() {
     if (error) window.history.replaceState({}, "", window.location.pathname);
   }, []);
 
-  const [loginForm, setLoginForm] = useState({ email: "", phone: "", password: "" });
-  const [registerForm, setRegisterForm] = useState({ name: "", email: "", phone: "", password: "" });
+  const [loginForm, setLoginForm] = useState({ phone: "", password: "" });
+  const [registerForm, setRegisterForm] = useState({ name: "", phone: "", password: "" });
   const [adminForm, setAdminForm] = useState({ email: "", password: "" });
   const [vendorForm, setVendorForm] = useState({ email: "", password: "" });
 
@@ -106,16 +100,13 @@ export default function Login() {
 
     setRegSendingOtp(true);
     try {
-      const res = await sendOtp({ phone: registerForm.phone, email: registerForm.email || undefined });
+      await sendOtp({ phone: registerForm.phone });
       setRegOtpSent(true);
       setRegOtpCountdown(30);
       toast({
-        title: "🎉 Registration OTP Sent!",
-        description: res.otp ? `Verification Code: ${res.otp}` : res.message,
+        title: "📲 Registration OTP Sent!",
+        description: `Verification code sent to +91 ${registerForm.phone}. Please check your phone.`,
       });
-      if (res.otp) {
-        setRegOtpCode(res.otp);
-      }
     } catch (err: any) {
       toast({ title: err.message || "Failed to send OTP", variant: "destructive" });
     } finally {
@@ -127,20 +118,27 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     try {
+      if (!loginForm.phone || loginForm.phone.length < 10) {
+        toast({ title: "Please enter a valid 10-digit mobile number", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+
       let credentials: any;
       if (authMode === "otp") {
         if (!otpCode || otpCode.length < 6) {
-          toast({ title: "Please enter the 6-digit OTP", variant: "destructive" });
+          toast({ title: "Please enter the 6-digit OTP received via SMS", variant: "destructive" });
           setLoading(false);
           return;
         }
-        credentials = loginMethod === "phone"
-          ? { phone: loginForm.phone, otp: otpCode }
-          : { email: loginForm.email, otp: otpCode };
+        credentials = { phone: loginForm.phone, otp: otpCode };
       } else {
-        credentials = loginMethod === "phone"
-          ? { phone: loginForm.phone, password: loginForm.password }
-          : { email: loginForm.email, password: loginForm.password };
+        if (!loginForm.password) {
+          toast({ title: "Password is required", variant: "destructive" });
+          setLoading(false);
+          return;
+        }
+        credentials = { phone: loginForm.phone, password: loginForm.password };
       }
       const user = await login(credentials);
       toast({ title: `Welcome back, ${user.name}!` });
@@ -159,35 +157,34 @@ export default function Login() {
       toast({ title: "Full name is required", variant: "destructive" });
       return;
     }
-    if (!registerForm.email.trim()) {
-      toast({ title: "Email is required", variant: "destructive" });
+    if (!registerForm.phone || registerForm.phone.length < 10) {
+      toast({ title: "Please enter a valid 10-digit mobile number", variant: "destructive" });
+      return;
+    }
+    if (!regOtpSent) {
+      toast({
+        title: "Mobile Verification Required",
+        description: "Please click 'Send OTP' to verify your mobile number before registering.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!regOtpCode || regOtpCode.length < 6) {
+      toast({ title: "Please enter the 6-digit OTP code received on your phone", variant: "destructive" });
       return;
     }
     if (registerForm.password.length < 6) {
       toast({ title: "Password must be at least 6 characters", variant: "destructive" });
       return;
     }
-    if (registerForm.phone && registerForm.phone.length >= 10 && !regOtpSent) {
-      toast({
-        title: "Mobile Verification Required",
-        description: "Please click 'Get OTP' to verify your mobile number before registering.",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (regOtpSent && (!regOtpCode || regOtpCode.length < 6)) {
-      toast({ title: "Please enter the 6-digit OTP code", variant: "destructive" });
-      return;
-    }
 
     setLoading(true);
     try {
       const user = await register({
-        name: registerForm.name,
-        email: registerForm.email,
-        phone: registerForm.phone || undefined,
+        name: registerForm.name.trim(),
+        phone: registerForm.phone,
         password: registerForm.password,
-        otp: regOtpSent ? regOtpCode : undefined,
+        otp: regOtpCode,
       });
       toast({ title: `Welcome to CouponsHub X, ${user.name}!` });
       navigate("/home");
@@ -325,34 +322,7 @@ export default function Login() {
               <Card className="border-0 shadow-xl rounded-3xl bg-white dark:bg-gray-900">
                 <CardContent className="p-8">
                   <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Welcome back</h2>
-                  <p className="text-muted-foreground mb-6">Sign in to access your account</p>
-
-                  <div className="flex gap-2 mb-3">
-                    <button
-                      type="button"
-                      onClick={() => { setLoginMethod("email"); setOtpSent(false); setOtpCode(""); }}
-                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                        loginMethod === "email"
-                          ? "bg-primary/10 text-primary border border-primary/20"
-                          : "bg-gray-100 dark:bg-gray-800 text-muted-foreground"
-                      }`}
-                      data-testid="button-login-email"
-                    >
-                      <Mail className="w-4 h-4" /> Email
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setLoginMethod("phone"); setOtpSent(false); setOtpCode(""); }}
-                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                        loginMethod === "phone"
-                          ? "bg-primary/10 text-primary border border-primary/20"
-                          : "bg-gray-100 dark:bg-gray-800 text-muted-foreground"
-                      }`}
-                      data-testid="button-login-phone"
-                    >
-                      <Phone className="w-4 h-4" /> Mobile Number
-                    </button>
-                  </div>
+                  <p className="text-muted-foreground mb-6">Sign in with your mobile number</p>
 
                   {/* Auth Mode Toggle: Password or OTP */}
                   <div className="grid grid-cols-2 p-1 bg-gray-100 dark:bg-gray-800/80 rounded-xl mb-6">
@@ -383,38 +353,22 @@ export default function Login() {
                   </div>
 
                   <form onSubmit={handleLogin} className="flex flex-col gap-5">
-                    {loginMethod === "email" ? (
-                      <div className="flex flex-col gap-2">
-                        <Label htmlFor="login-email">Email</Label>
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="login-phone">Mobile Number</Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">+91</span>
                         <Input
-                          id="login-email"
-                          type="email"
-                          placeholder="you@example.com"
-                          value={loginForm.email}
-                          onChange={e => setLoginForm(f => ({ ...f, email: e.target.value }))}
-                          className="h-12 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                          id="login-phone"
+                          type="tel"
+                          placeholder="9876543210"
+                          value={loginForm.phone}
+                          onChange={e => setLoginForm(f => ({ ...f, phone: e.target.value.replace(/\D/g, "").slice(0, 10) }))}
+                          className="h-12 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 pl-12"
                           required
-                          data-testid="input-login-email"
+                          data-testid="input-login-phone"
                         />
                       </div>
-                    ) : (
-                      <div className="flex flex-col gap-2">
-                        <Label htmlFor="login-phone">Mobile Number</Label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">+91</span>
-                          <Input
-                            id="login-phone"
-                            type="tel"
-                            placeholder="9876543210"
-                            value={loginForm.phone}
-                            onChange={e => setLoginForm(f => ({ ...f, phone: e.target.value.replace(/\D/g, "").slice(0, 10) }))}
-                            className="h-12 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 pl-12"
-                            required
-                            data-testid="input-login-phone"
-                          />
-                        </div>
-                      </div>
-                    )}
+                    </div>
 
                     {authMode === "password" ? (
                       <div className="flex flex-col gap-2">
@@ -494,7 +448,7 @@ export default function Login() {
                               )}
                             </div>
                             <p className="text-[11px] text-muted-foreground text-center">
-                              Enter the 6-digit verification code sent to your {loginMethod === "phone" ? "mobile" : "email"}
+                              Enter the 6-digit verification code sent via SMS to your mobile phone
                             </p>
                           </div>
                         )}
@@ -539,19 +493,6 @@ export default function Login() {
                       />
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Label htmlFor="reg-email">Email</Label>
-                      <Input
-                        id="reg-email"
-                        type="email"
-                        placeholder="you@example.com"
-                        value={registerForm.email}
-                        onChange={e => setRegisterForm(f => ({ ...f, email: e.target.value }))}
-                        className="h-12 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700"
-                        required
-                        data-testid="input-register-email"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-2">
                       <div className="flex items-center justify-between">
                         <Label htmlFor="reg-phone">Mobile Number</Label>
                         {registerForm.phone && registerForm.phone.length >= 10 && (
@@ -593,6 +534,7 @@ export default function Login() {
                             }
                           }}
                           className="h-12 rounded-xl bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 pl-12"
+                          required
                           data-testid="input-register-phone"
                         />
                       </div>
@@ -643,7 +585,7 @@ export default function Login() {
                           )}
                         </div>
                         <p className="text-[11px] text-muted-foreground text-center">
-                          Check toast message or enter the 6-digit code to verify your account
+                          Enter the 6-digit verification code received on your phone
                         </p>
                       </div>
                     )}

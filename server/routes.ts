@@ -9,6 +9,7 @@ import fs from "fs";
 import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 import admin from "firebase-admin";
+import { sendSmsOtp } from "./sms";
 
 // ---------------------------------------------------------------------------
 // Firebase Admin SDK initialisation (server-side)
@@ -1143,7 +1144,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const { email, phone } = req.body;
       if (!email && !phone) {
-        return res.status(400).json({ error: "Please provide an email or mobile number" });
+        return res.status(400).json({ error: "Please provide a mobile number" });
       }
 
       const cleanPhone = phone ? phone.replace(/\D/g, "").slice(-10) : undefined;
@@ -1162,18 +1163,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
 
       otpStore.set(key, { code: otp, expiresAt });
-      console.log(`[OTP] Generated code ${otp} for ${key}`);
+      console.log(`[OTP] Generated 6-digit code for ${key}`);
+
+      // Dispatch real SMS if mobile number
+      if (cleanPhone) {
+        await sendSmsOtp(cleanPhone, otp);
+      }
 
       const recipient = cleanPhone ? `+91 ${cleanPhone}` : cleanEmail;
+      // Note: OTP is NEVER returned in the JSON response for security
       return res.json({
         success: true,
         message: `OTP sent successfully to ${recipient}`,
-        otp, // Returned for instant demo testing and zero-delay verification
         expiresIn: 600,
       });
     } catch (err: any) {
-      console.error("[OTP] send-otp error:", err);
-      return res.status(500).json({ error: "Failed to send OTP" });
+      console.error("[OTP] send-otp error:", err.message);
+      return res.status(500).json({ error: err.message || "Failed to send OTP" });
     }
   });
 
@@ -1182,7 +1188,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const { email, phone, otp, name } = req.body;
       if ((!email && !phone) || !otp) {
-        return res.status(400).json({ error: "Email or mobile number, and OTP are required" });
+        return res.status(400).json({ error: "Mobile number and OTP are required" });
       }
 
       const cleanPhone = phone ? phone.replace(/\D/g, "").slice(-10) : undefined;
@@ -1190,11 +1196,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const key = normalizeAuthKey(cleanEmail, cleanPhone);
       const record = otpStore.get(key);
 
-      const isMasterOtp = otp.trim() === "123456";
+      const isTestEnv = process.env.NODE_ENV === "test";
       const isMatching = record && record.code === otp.trim() && record.expiresAt > Date.now();
+      const isMasterOtp = isTestEnv && otp.trim() === "123456";
 
       if (!isMatching && !isMasterOtp) {
-        return res.status(401).json({ error: "Invalid or expired OTP. Please try again." });
+        return res.status(401).json({ error: "Invalid or expired OTP. Please enter the OTP sent to your phone." });
       }
 
       if (record) otpStore.delete(key);
@@ -1230,12 +1237,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
-  // Auth routes (Supports Email OR Phone, with Password OR OTP)
+  // Auth routes (Supports Mobile with Password OR OTP)
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { email, phone, password, otp } = req.body;
       if ((!email && !phone) || (!password && !otp)) {
-        return res.status(400).json({ error: "Email or phone and password or OTP required" });
+        return res.status(400).json({ error: "Mobile number and password or OTP required" });
       }
 
       const cleanPhone = phone ? phone.replace(/\D/g, "").slice(-10) : undefined;
@@ -1245,11 +1252,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (otp) {
         const key = normalizeAuthKey(cleanEmail, cleanPhone);
         const record = otpStore.get(key);
-        const isMasterOtp = otp.trim() === "123456";
+        const isTestEnv = process.env.NODE_ENV === "test";
         const isMatching = record && record.code === otp.trim() && record.expiresAt > Date.now();
+        const isMasterOtp = isTestEnv && otp.trim() === "123456";
 
         if (!isMatching && !isMasterOtp) {
-          return res.status(401).json({ error: "Invalid or expired OTP. Please try again." });
+          return res.status(401).json({ error: "Invalid or expired OTP. Please enter the OTP sent to your phone." });
         }
         if (record) otpStore.delete(key);
 
@@ -1296,25 +1304,41 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/auth/register", async (req, res) => {
     try {
       const { name, email, phone, password, otp } = req.body;
-      if (!name || !email || !password) return res.status(400).json({ error: "All fields required" });
-      const cleanEmail = email.trim().toLowerCase();
-      const existing = await storage.getUserByEmail(cleanEmail);
-      if (existing) return res.status(400).json({ error: "Email already registered" });
+      if (!name || !password) return res.status(400).json({ error: "Name and password are required" });
 
       const cleanPhone = phone ? phone.replace(/\D/g, "").slice(-10) : null;
-      if (cleanPhone) {
-        const existingPhone = await storage.getUserByPhone(cleanPhone);
-        if (existingPhone) return res.status(400).json({ error: "Mobile number already registered" });
+      if (!cleanPhone && !email) {
+        return res.status(400).json({ error: "Mobile number is required" });
       }
 
-      // If OTP was provided, verify it!
-      if (otp) {
-        const key = normalizeAuthKey(cleanEmail, cleanPhone || undefined);
+      if (cleanPhone && cleanPhone.length < 10) {
+        return res.status(400).json({ error: "Please enter a valid 10-digit mobile number" });
+      }
+
+      if (cleanPhone) {
+        const existingPhone = await storage.getUserByPhone(cleanPhone);
+        if (existingPhone) return res.status(400).json({ error: "Mobile number already registered. Please sign in." });
+      }
+
+      const cleanEmail = (email && email.trim().toLowerCase()) || `${cleanPhone}@couponshub.local`;
+      const existingEmail = await storage.getUserByEmail(cleanEmail);
+      if (existingEmail) {
+        return res.status(400).json({ error: "An account already exists for this mobile number. Please sign in." });
+      }
+
+      // In non-test mode, if phone registration, require verified OTP
+      const isTestEnv = process.env.NODE_ENV === "test";
+      if (otp || (!isTestEnv && cleanPhone)) {
+        if (!otp) {
+          return res.status(400).json({ error: "Please verify your mobile number with OTP" });
+        }
+        const key = `phone:${cleanPhone}`;
         const record = otpStore.get(key);
-        const isMasterOtp = otp.trim() === "123456";
         const isMatching = record && record.code === otp.trim() && record.expiresAt > Date.now();
+        const isMasterOtp = isTestEnv && otp.trim() === "123456";
+
         if (!isMatching && !isMasterOtp) {
-          return res.status(401).json({ error: "Invalid or expired OTP. Please try again." });
+          return res.status(401).json({ error: "Invalid or expired OTP. Please enter the OTP sent to your phone." });
         }
         if (record) otpStore.delete(key);
       }
@@ -1324,7 +1348,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const token = generateToken({ id: user.id, email: user.email, role: user.role });
       res.cookie("token", token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
       res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone } });
-    } catch (err) {
+    } catch (err: any) {
+      console.error("[Register error]:", err);
       res.status(500).json({ error: "Registration failed" });
     }
   });
