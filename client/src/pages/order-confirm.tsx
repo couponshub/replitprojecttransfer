@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   CheckCircle, MessageCircle, CreditCard, Home, Phone,
   Copy, Check, QrCode, X, Loader2, IndianRupee, ShieldCheck,
-  Upload, ImageIcon, Send, MapPin, User, ArrowLeft
+  Upload, ImageIcon, Send, MapPin, User, ArrowLeft, Package, ShoppingBag
 } from "lucide-react";
 
 interface OrderData {
@@ -381,13 +381,13 @@ export default function OrderConfirmPage() {
         )}
 
         <div className="text-center mb-8">
-          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-emerald-400/30">
-            <CheckCircle className="w-10 h-10 text-white" />
+          <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 via-indigo-600 to-violet-600 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-blue-500/25">
+            <Package className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {(order.orders?.length ?? 1) > 1 ? `${order.orders!.length} Orders Placed!` : "Order Ready!"}
+            {(order.orders?.length ?? 1) > 1 ? `${order.orders!.length} Orders Placed!` : "Order Placed Successfully!"}
           </h1>
-          <p className="text-muted-foreground mt-1">Choose how to pay or place your order</p>
+          <p className="text-muted-foreground mt-1">Order placed · Complete payment or track below</p>
         </div>
 
         {/* Multi-store breakdown */}

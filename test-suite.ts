@@ -2,7 +2,7 @@ import express from "express";
 import { createServer } from "http";
 import { registerRoutes } from "./server/routes";
 import { db, storage } from "./server/storage";
-import { users, categories, shops, products, coupons, orders, vendors, contests, orderItems } from "@shared/schema";
+import { users, categories, shops, products, coupons, orders, vendors, contests, orderItems, notifications } from "@shared/schema";
 import { sql, eq } from "drizzle-orm";
 
 interface TestResult {
@@ -385,6 +385,26 @@ async function main() {
         if (!found) throw new Error("Newly created order not found in /api/orders/my");
         return { ordersFound: data.length, verifiedOrderId: found.id };
       });
+
+      await runTest("Business Logic", "Order Status Update Triggers User Notification", async () => {
+        const updateRes = await fetch(`${baseUrl}/api/orders/${createdOrderId}/status`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${adminToken}`,
+          },
+          body: JSON.stringify({ status: "confirmed" }),
+        });
+        if (!updateRes.ok) throw new Error(`Status update failed: ${updateRes.status}`);
+
+        const notifRes = await fetch(`${baseUrl}/api/notifications`, {
+          headers: { Authorization: `Bearer ${testUserToken}` },
+        });
+        const notifs = await notifRes.json();
+        const found = notifs.find((n: any) => n.type === "order_update");
+        if (!found) throw new Error("Order update notification was not found in user inbox");
+        return { notificationId: found.id, title: found.title, message: found.message };
+      });
     }
 
   } finally {
@@ -399,6 +419,7 @@ async function main() {
         console.log(`  ✓ Cleaned up test order ${createdOrderId}`);
       }
       if (testUserId) {
+        await db.delete(notifications).where(eq(notifications.user_id, testUserId));
         await db.delete(users).where(eq(users.id, testUserId));
         console.log(`  ✓ Cleaned up test user ${testUserId}`);
       }

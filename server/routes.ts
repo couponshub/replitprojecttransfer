@@ -2148,6 +2148,64 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(await storage.getShopOrders(vendor.shop_id));
   });
 
+  async function sendOrderStatusNotification(order: any, newStatus: string, actor: "admin" | "vendor" | "system") {
+    if (!order || !order.user_id) return;
+
+    const shortId = (order.id || "").slice(-8).toUpperCase();
+    const shopName = order.shop_name || "the store";
+
+    let title = `📦 Order #${shortId} Status Updated`;
+    let message = `Your order #${shortId} from ${shopName} is now ${newStatus}.`;
+
+    if (newStatus === "confirmed") {
+      title = `🛍️ Order #${shortId} Confirmed!`;
+      message = `Great news! Your order #${shortId} from ${shopName} has been confirmed and is being processed.`;
+    } else if (newStatus === "completed") {
+      title = `✅ Order #${shortId} Completed!`;
+      message = `Your order #${shortId} from ${shopName} is completed. Thank you for your order!`;
+    } else if (newStatus === "cancelled") {
+      title = `❌ Order #${shortId} Cancelled`;
+      message = `Your order #${shortId} from ${shopName} was cancelled. Please contact the store or support for details.`;
+    } else if (newStatus === "pending") {
+      title = `⏳ Order #${shortId} Pending`;
+      message = `Your order #${shortId} from ${shopName} is pending review.`;
+    }
+
+    try {
+      await storage.createNotification({
+        user_id: order.user_id,
+        type: "order_update",
+        title,
+        message,
+        data: JSON.stringify({
+          order_id: order.id,
+          status: newStatus,
+          shop_name: order.shop_name,
+          updated_by: actor,
+        }),
+      });
+      console.log(`[Notification] Created in-app notification for user ${order.user_id} on order ${order.id} -> ${newStatus}`);
+    } catch (err: any) {
+      console.warn("[Notification] Could not create order notification:", err.message);
+    }
+
+    // Push notification via Firebase if initialized and user has FCM token
+    try {
+      if (firebaseAdminInitialised) {
+        const targetUser = await storage.getUser(order.user_id);
+        if (targetUser?.fcm_token) {
+          await admin.messaging().send({
+            token: targetUser.fcm_token,
+            notification: { title, body: message },
+            data: { orderId: order.id, status: newStatus },
+          });
+        }
+      }
+    } catch (err: any) {
+      console.warn("[FCM] Push notification error:", err.message);
+    }
+  }
+
   app.put("/api/vendor/orders/:id/status", vendorMiddleware, async (req, res) => {
     const vendor = (req as any).vendor;
     const { status } = req.body;
@@ -2157,6 +2215,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!order) return res.status(404).json({ error: "Not found" });
     if (order.shop_id !== vendor.shop_id) return res.status(403).json({ error: "Access denied" });
     const updated = await storage.updateOrderStatus(req.params.id as string, status);
+    if (updated) {
+      await sendOrderStatusNotification(updated, status, "vendor");
+    }
     res.json(updated);
   });
 
@@ -2189,6 +2250,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       if (coupon_code && shop_id) {
         try { await storage.incrementCouponUsage(coupon_code, shop_id); } catch {}
       }
+      // Send initial order placed notification to user
+      try {
+        await storage.createNotification({
+          user_id: (req as any).user.id,
+          type: "order_update",
+          title: `🛍️ Order Placed! #${order.id.slice(-8).toUpperCase()}`,
+          message: `Your order #${order.id.slice(-8).toUpperCase()} at ${shop_name || "the store"} was placed successfully!`,
+          data: JSON.stringify({ order_id: order.id, status: "pending" }),
+        });
+      } catch {}
       res.json(order);
     } catch (err: any) { res.status(400).json({ error: err.message }); }
   });
@@ -2199,6 +2270,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (!existingOrder) return res.status(404).json({ error: "Not found" });
     const order = await storage.updateOrderStatus(req.params.id as string, status);
     if (!order) return res.status(404).json({ error: "Not found" });
+    await sendOrderStatusNotification(order, status, "admin");
     // When admin confirms a store redemption, deduct from usage_count
     if (status === "confirmed" && (existingOrder as any).redemption_type === "store" && existingOrder.coupon_code && existingOrder.shop_id) {
       try { await storage.incrementCouponUsage(existingOrder.coupon_code, existingOrder.shop_id); } catch {}
@@ -2239,6 +2311,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(400).json({ error: "Payment verification failed. Please contact support." });
       }
       const order = await storage.updateOrderPayment(orderId, "paid", razorpay_order_id);
+      if (order) {
+        await sendOrderStatusNotification(order, "confirmed", "system");
+      }
       res.json({ success: true, order });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
